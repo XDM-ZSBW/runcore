@@ -256,6 +256,39 @@ the brain, not dictate it.
 `brain/knowledge/notes/core-v2-virtual-brain-layer.md` in the Dash repo for
 the complete design exploration.
 
+### U-007: Brain access partitioning — public/private/shared layers
+**Problem:** When someone else chats with your instance (e.g., a collaborator
+talks to Dash), the brain is fully exposed. Credentials, API keys, personal
+conversations, financial details, phone numbers — all readable by the LLM in
+context. There's no visibility boundary between what's safe to share and what's
+private. Multi-instance solves "separate people, separate brains" but not
+"someone else talking to *your* brain."
+**Concept:**
+- **Private layer** (default): credentials, vault contents, API keys, personal
+  conversations, financial info, personal identifiers. Never surfaced to
+  non-owner sessions.
+- **Shared layer** (explicit opt-in): project info, general knowledge, published
+  content, capabilities, skill descriptions. Surfaced when a guest chats.
+- **Public layer** (fully open): instance name, available skills, system status.
+  Anyone can see this without authentication.
+**Design considerations:**
+- File-level partitioning: tag files/directories with visibility (e.g.,
+  `brain/vault/` is always private, `brain/knowledge/` is shared by default)
+- Entry-level partitioning: JSONL entries could carry a `visibility` field
+  (private | shared | public) — useful for memories where some are shareable
+- Context assembly must filter by session type (owner vs guest) before building
+  LLM context. The partition boundary is enforced at the context assembler, not
+  at the file system.
+- Guest sessions get a reduced context: shared knowledge + public capabilities +
+  conversation history. No vault, no private memories, no credentials.
+- Owner can mark individual items as shared ("share this note with guests")
+**Relationship to other items:**
+- Extends VBL (U-006): the brain manifest could declare visibility per module
+- Required before any real guest-chat feature ships
+- Distinct from multi-instance (separate brains) and share flow (invite to install)
+**Not yet designed:** Auth mechanism for owner vs guest sessions, UI for managing
+visibility, migration of existing brain files to partitioned model.
+
 ### Open questions
 - Should instances track which upstream version they forked from? (git tag vs settings field)
 - How much divergence is acceptable before "update" becomes "merge conflict hell"?
@@ -263,6 +296,8 @@ the complete design exploration.
 - Registry packages vs code updates — are these the same channel or separate?
 - Free vs paid: what's the line? Updates? Skills marketplace? Hosting? Support?
 - When to decide: after N users? After first paying customer asks? After v1 stability?
+- U-007: Where does the partition boundary live — file-level, entry-level, or both?
+- U-007: How does a guest authenticate? Safe word? Link token? Biometric?
 
 ---
 
