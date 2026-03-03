@@ -423,6 +423,29 @@
 
   .vault-header h2 { font-size: 16px; font-weight: 600; }
 
+  .settings-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .settings-nav a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .settings-nav a:hover {
+    color: var(--text);
+    background: var(--border);
+  }
+
   .vault-close {
     background: none;
     border: none;
@@ -1413,6 +1436,12 @@
   <div class="vault-panel" id="vault-panel">
     <div class="vault-header">
       <h2>Settings</h2>
+      <nav class="settings-nav">
+        <a href="/board" title="Board"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+        <a href="/ops" title="Ops"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></a>
+        <a href="/observatory" title="Observatory"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></a>
+        <a href="/library" title="Library"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></a>
+      </nav>
       <button class="vault-close" id="vault-close-btn">&times;</button>
     </div>
     <div class="vault-body" id="vault-body">
