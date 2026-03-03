@@ -45,8 +45,20 @@ sidecar/search/__pycache__/
 sidecar/search/.venv/
 sidecar/stt/models/
 
-# Avatar cache (generated video)
+# Sidecar platform-specific binaries (download per-platform)
+sidecar/stt/*.dll
+sidecar/stt/*.exe
+sidecar/stt/*.so
+sidecar/stt/*.dylib
+sidecar/tts/voices/*.onnx
+
+# Avatar assets (personal — replace with your own)
 public/avatar/cache/
+public/avatar/*.png
+public/avatar/*.jpg
+public/avatar/*.mp4
+public/avatar/*.zip
+public/avatar/*.glb
 
 # Test coverage & temp
 coverage/

@@ -1,12 +1,12 @@
 /**
- * Example: Dash using the brain for context and memory.
+ * Example: Core brain for context and memory.
  * Run: npm run example
  */
 
 import { Brain } from "../src/index.js";
 
 const brain = new Brain({
-  systemPrompt: "You are Dash, a helpful agent. Use the context and memory below when relevant.",
+  systemPrompt: "You are a personal AI agent. Use the context and memory below when relevant.",
   defaultInstructions: "Be concise. If you recall a relevant fact from memory, use it.",
   defaultCues: "Respond in plain text. If you store a new fact, say so.",
   maxRetrieved: 5,
@@ -20,7 +20,7 @@ async function main() {
   });
   await brain.learn({
     type: "episodic",
-    content: "We decided to use TypeScript for the Dash brain project.",
+    content: "We decided to use TypeScript for the brain project.",
     meta: { topic: "project" },
   });
 

@@ -5056,7 +5056,7 @@ async function start() {
     }
   })();
 
-  log.info("DASH — Local Chat starting");
+  log.info(`${getInstanceName()} — Local Chat starting`);
 
   // Show LLM provider based on settings
   const provider = resolveProvider();

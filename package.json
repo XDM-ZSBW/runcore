@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "example": "tsx example/dash.ts",
+    "example": "tsx example/demo.ts",
     "chat": "tsx watch --env-file=.env src/server.ts",
     "test": "vitest run",
     "test:ui": "vitest --ui",

@@ -13,16 +13,15 @@ Inspired by **[Muratcan Koylan's "Personal Brain OS"](https://x.com/koylanai/sta
 git clone https://github.com/yourusername/core.git
 cd core
 
-# 2. Install & build
+# 2. Install
 npm install
-npm run build
 
-# 3. Configure your instance (optional — defaults to "Core")
-# Edit brain/settings.json → set "instanceName" to your agent's name
-
-# 4. Create your .env
+# 3. Create your .env (REQUIRED — server won't start without it)
 cp .env.example .env
-# Fill in your API keys (at minimum: OPENROUTER_API_KEY or OLLAMA_URL)
+# Fill in at minimum: OPENROUTER_API_KEY (or OLLAMA_URL for local-only)
+
+# 4. Configure your instance (optional — defaults to "Core")
+# Edit brain/settings.json → set "instanceName" to your agent's name
 
 # 5. Start
 npm run chat
