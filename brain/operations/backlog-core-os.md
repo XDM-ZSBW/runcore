@@ -202,11 +202,36 @@ manually check.
 - Critical patches: always ship, even in airplane mode queue them for next online boot
 - Security updates that touch code only (no schema change) skip migrations entirely
 
+### U-005: Distribution model — lead climber
+**Mental model:** Bryant is the lead climber. Dash is on the rock face, figuring out the
+route, placing protection (stable releases) as it goes. Instances below clip in to those
+anchors and follow a proven path. They don't solve the route themselves.
+
+**Topology today:**
+- Single origin of changes: Bryant's use cases, issues, ideas
+- No other instances yet — pyramid has one node at the top
+- Future: interconnected nodes, but always one lead climber per Core version
+
+**Business model (undecided, thinking out loud):**
+- **Free for now.** Building a following, proving the platform, growing the community.
+  Open source Core repo, anyone can clone and run.
+- **Paid option later?** Could be:
+  - Free tier: open source Core, self-hosted, pull updates manually
+  - Paid tier: managed updates, priority security patches, migration support,
+    premium skills/capabilities, support channel
+  - Or: Core is always free, paid services layer on top (hosting, marketplace, SLA)
+- **Decision needed soon** but not blocking v1 launch. Ship free, learn what people
+  value, then decide what's worth charging for.
+- Key principle: the brain is always yours. Local-first. No lock-in. Paid services
+  add convenience, not captivity.
+
 ### Open questions
 - Should instances track which upstream version they forked from? (git tag vs settings field)
 - How much divergence is acceptable before "update" becomes "merge conflict hell"?
 - Should brain migrations be reversible (down-migrations)?
 - Registry packages vs code updates — are these the same channel or separate?
+- Free vs paid: what's the line? Updates? Skills marketplace? Hosting? Support?
+- When to decide: after N users? After first paying customer asks? After v1 stability?
 
 ---
 
