@@ -170,17 +170,28 @@ Need to transform brain data without losing personal content.
 - Boot sequence: `initInstanceName()` → `runPendingMigrations()` → `loadVault()` → `start()`
 - Extends B-016 (JSONL schema migration framework)
 
-### U-003: Instance → upstream contribution
+### U-003: Umbilical — Dash → Core → all instances
 **Problem:** When an instance tunes code or adds a feature, there's no way to push that
 improvement back to Core for other instances to benefit.
-**Ideas:**
-- Git upstream model: `git remote add upstream core-repo` → PR workflow
-- Code lives in `src/`, brain in `brain/` — clean separation means code PRs don't
-  carry personal data (brain/ is gitignored for clones)
-- Registry-based sharing (brain/registry.md): skills, templates, capabilities published
-  as packages. Instances subscribe to registries. Not code changes, but higher-level
-  modules.
-- Code contributions require review (security, quality) before merge to upstream
+**The umbilical model (decided):**
+- **Dash is the live testbed.** Bryant runs bleeding-edge changes in production daily.
+  Every UI tweak, bug fix, and new feature gets battle-tested on Dash first.
+- **Core only gets what survives.** When a change is stable in Dash, it gets
+  cherry-picked back to Core. Core never leads — Dash always leads.
+- **Other instances pull from Core at their own pace.** They get pre-tested, stable
+  changes. Never raw experiments.
+- Flow: `Dash (live) → test → stabilize → cherry-pick to Core → instances pull`
+- This is NOT a traditional open-source contribution model. It's a single-source
+  canary deployment where Dash is the canary.
+**Mechanics:**
+- Git cherry-pick or manual apply from Dash → Core (brain/ is gitignored, so only
+  code/UI changes flow)
+- Could automate: tag commits in Dash with `[core]` prefix → script extracts and
+  applies to Core repo
+- Registry-based sharing (brain/registry.md) is separate: skills, templates, and
+  capabilities as packages. That's instance-to-instance, not code-level.
+- Community contributions (if Core goes public) would PR into Core, get tested on
+  Dash, then merge. Reverse flow for external contributors.
 
 ### U-004: Security update fast-path
 **Problem:** Security patches must reach all instances quickly. Can't wait for users to
