@@ -1,0 +1,178 @@
+name: "Web Scraping"
+description: "HTTP requests, DOM parsing, data extraction from web pages and APIs"
+categories: ["data", "external", "api", "research"]
+skills:
+  - name: "api-requests"
+    description: "Make HTTP requests to REST APIs and handle responses"
+    prompt: >
+      Fetch data from APIs using appropriate tools for the context.
+
+      Using curl (from shell):
+      - GET: `curl -s https://api.example.com/data`
+      - POST: `curl -s -X POST -H "Content-Type: application/json" -d '{"key":"value"}' URL`
+      - With auth: `curl -s -H "Authorization: Bearer $TOKEN" URL`
+      - Parse JSON: pipe through `jq` for extraction: `curl -s URL | jq '.data[].name'`
+
+      Using Node.js fetch:
+      ```typescript
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      ```
+
+      Best practices:
+      - Always check response status before parsing body.
+      - Set appropriate timeouts for external requests.
+      - Handle rate limiting (429 status) with backoff.
+      - Use environment variables for API keys — never hardcode.
+      - For GitHub, prefer `gh api` over raw HTTP requests.
+    examples:
+      - "Fetch the list of models from the OpenRouter API"
+      - "POST a webhook payload to this endpoint"
+      - "Download the JSON from this URL and extract the relevant fields"
+    tags: ["http", "api", "fetch", "curl"]
+
+  - name: "html-parsing"
+    description: "Extract structured data from HTML pages"
+    prompt: >
+      Parse HTML content to extract specific data points.
+
+      Approach:
+      1. Fetch the page content (curl, fetch, or WebFetch tool).
+      2. Identify the data location using CSS selectors or patterns.
+      3. Extract using appropriate tools.
+
+      Using WebFetch tool (preferred for agent use):
+      - Provide the URL and a prompt describing what to extract.
+      - The tool fetches, converts HTML to markdown, and processes it.
+      - Good for: article text, tables, lists, metadata.
+
+      Using Node.js (for programmatic extraction):
+      ```typescript
+      // Simple regex extraction for well-structured pages
+      const titleMatch = html.match(/<title>(.*?)<\/title>/);
+      const links = [...html.matchAll(/href="(https?:\/\/[^"]+)"/g)];
+      ```
+
+      Using command-line tools:
+      - `curl -s URL | grep -oP 'pattern'` — quick extraction
+      - Pipe through text processing for structured output
+
+      Respect robots.txt and rate limits. Prefer APIs over scraping when available.
+    examples:
+      - "Extract the main article text from this blog post"
+      - "Get all the links from this page"
+      - "Scrape the pricing table from this page"
+    tags: ["html", "parsing", "extraction", "dom"]
+
+  - name: "json-data-extraction"
+    description: "Extract and transform data from JSON API responses"
+    prompt: >
+      Process JSON responses to extract the specific data you need.
+
+      Using jq (command line):
+      - Select a field: `jq '.name'`
+      - Array iteration: `jq '.items[] | .id'`
+      - Filter: `jq '.items[] | select(.status == "active")'`
+      - Multiple fields: `jq '.items[] | {id: .id, name: .name}'`
+      - Count: `jq '.items | length'`
+      - Flatten nested: `jq '[.data[].attributes.name]'`
+
+      Using TypeScript:
+      ```typescript
+      const data = await response.json();
+      const names = data.items.map(item => item.name);
+      const active = data.items.filter(item => item.status === 'active');
+      const byId = Object.fromEntries(data.items.map(i => [i.id, i]));
+      ```
+
+      Common patterns:
+      - Paginated APIs: follow `next` links or increment `page` param until empty.
+      - Nested data: drill down with optional chaining (`data?.results?.[0]?.name`).
+      - Transform to JSONL: map each item to a single-line JSON string.
+    examples:
+      - "Extract all model IDs from the OpenRouter API response"
+      - "Parse this nested JSON and flatten it into a simple list"
+      - "Handle paginated results from this API"
+    tags: ["json", "jq", "transform", "api"]
+
+  - name: "data-storage"
+    description: "Save extracted web data to brain knowledge files"
+    prompt: >
+      Store scraped or fetched data in the appropriate brain location.
+
+      For research data:
+      - Save to `brain/knowledge/research/` as markdown or JSON.
+      - Include metadata: source URL, fetch date, extraction method.
+      - Use descriptive filenames: `openrouter-models-2024-01.md`.
+
+      For structured reference data:
+      - Use JSONL format for tabular data (one record per line).
+      - Include a `_schema` header line describing the fields.
+      - Append new data — don't overwrite existing entries.
+
+      For bookmarks and links:
+      - Save to `brain/knowledge/bookmarks/`.
+      - Include title, URL, description, and tags.
+
+      Template for research notes:
+      ```markdown
+      # [Topic]
+      Source: [URL]
+      Fetched: [date]
+
+      ## Summary
+      [Key findings]
+
+      ## Raw Data
+      [Extracted data or relevant quotes]
+      ```
+    examples:
+      - "Save this API response data to the knowledge base"
+      - "Store these research findings for later reference"
+      - "Bookmark this resource with a summary"
+    tags: ["storage", "knowledge", "research", "brain"]
+
+  - name: "rate-limit-handling"
+    description: "Handle rate limiting, retries, and polite scraping"
+    prompt: >
+      Handle rate limits and be a responsible consumer of external resources.
+
+      Rate limit detection:
+      - HTTP 429 (Too Many Requests): mandatory backoff.
+      - HTTP 503 (Service Unavailable): temporary — retry after delay.
+      - `Retry-After` header: respect the specified wait time.
+      - `X-RateLimit-Remaining` header: track remaining quota.
+
+      Retry strategy:
+      - Exponential backoff: 1s → 2s → 4s → 8s → max 30s.
+      - Maximum retries: 3-5 attempts before failing.
+      - Jitter: add random delay to avoid thundering herd.
+
+      ```typescript
+      async function fetchWithRetry(url: string, maxRetries = 3) {
+        for (let i = 0; i < maxRetries; i++) {
+          const res = await fetch(url);
+          if (res.status === 429) {
+            const retryAfter = parseInt(res.headers.get('retry-after') || '1');
+            await new Promise(r => setTimeout(r, retryAfter * 1000));
+            continue;
+          }
+          return res;
+        }
+        throw new Error('Max retries exceeded');
+      }
+      ```
+
+      Polite scraping:
+      - Add delays between requests (1-2 seconds minimum).
+      - Set a descriptive User-Agent header.
+      - Cache responses to avoid redundant requests.
+      - Check robots.txt before scraping.
+    examples:
+      - "The API is returning 429 errors"
+      - "Add retry logic to this fetch call"
+      - "Slow down the scraping to avoid getting blocked"
+    tags: ["rate-limit", "retry", "backoff", "throttle"]

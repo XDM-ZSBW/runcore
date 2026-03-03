@@ -1,0 +1,1 @@
+{"_schema":"file","version":1,"fields":["id","name","slug","mimeType","sizeBytes","category","tags","origin","ownerId","taskId","parentId","version","storagePath","checksum","encrypted","visibility","status","textPreview","meta","createdAt","updatedAt"]}

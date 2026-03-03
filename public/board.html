@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{INSTANCE_NAME}} — Board</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --purple: #a78bfa;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* --- Header --- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  header h1 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  header h1 a:hover { opacity: 0.8; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .header-nav a:hover { color: var(--text); border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+  }
+
+  .header-stats .stat-val { color: var(--text); }
+
+  /* --- Toolbar --- */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .filter-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .filter-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .filter-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(109, 93, 252, 0.1); }
+
+  .toolbar .spacer { flex: 1; }
+
+  .search-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    width: 200px;
+    font-family: inherit;
+  }
+
+  .search-box::placeholder { color: var(--text-dim); }
+  .search-box:focus { outline: none; border-color: var(--accent); }
+
+  /* --- Board --- */
+  .board {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .column {
+    flex: 1;
+    min-width: 240px;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .column-header:hover { background: var(--surface2); }
+
+  .column-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sort-indicator {
+    font-size: 10px;
+    margin-left: 4px;
+    color: var(--accent);
+  }
+
+  .column-count {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .column-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .column-body::-webkit-scrollbar { width: 4px; }
+  .column-body::-webkit-scrollbar-track { background: transparent; }
+  .column-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Drop zone highlighting */
+  .column-body.drag-over {
+    background: rgba(109, 93, 252, 0.05);
+    outline: 2px dashed var(--accent);
+    outline-offset: -4px;
+    border-radius: 4px;
+  }
+
+  .drop-placeholder {
+    border: 2px dashed var(--accent);
+    border-radius: 6px;
+    min-height: 60px;
+    opacity: 0.4;
+    flex-shrink: 0;
+  }
+
+  /* --- Card --- */
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    cursor: grab;
+    transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+    user-select: none;
+  }
+
+  .card:hover { border-color: var(--text-dim); }
+  .card:active { cursor: grabbing; }
+
+  .card.dragging {
+    opacity: 0.4;
+    border-color: var(--accent);
+  }
+
+  .card-id {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 500;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .card-priority {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .card-priority.p1 { background: var(--red); box-shadow: 0 0 4px var(--red); }
+  .card-priority.p2 { background: var(--orange); }
+  .card-priority.p3 { background: var(--yellow); }
+  .card-priority.p4 { background: var(--blue); }
+  .card-priority.p0 { background: var(--border); }
+
+  .card-assignee {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--purple);
+  }
+
+  .card-date {
+    font-family: var(--mono);
+    margin-left: auto;
+  }
+
+  .elapsed-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(251, 191, 36, 0.15);
+    color: var(--yellow);
+  }
+  .elapsed-badge.elapsed-warn {
+    background: rgba(251, 146, 60, 0.2);
+    color: var(--orange);
+  }
+  .elapsed-badge.elapsed-error {
+    background: rgba(248, 113, 113, 0.2);
+    color: var(--red);
+  }
+
+  .card-project {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(109, 93, 252, 0.15);
+    color: var(--accent);
+    letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+
+  .card-project.no-project {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--red);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  /* --- Column color accents --- */
+  .column[data-state="icebox"] .column-header { border-left: 3px solid #64748b; }
+  .column[data-state="triage"] .column-header { border-left: 3px solid var(--purple); }
+  .column[data-state="backlog"] .column-header { border-left: 3px solid var(--blue); }
+  .column[data-state="todo"] .column-header { border-left: 3px solid var(--yellow); }
+  .column[data-state="in_progress"] .column-header { border-left: 3px solid var(--orange); }
+  .column[data-state="done"] .column-header { border-left: 3px solid var(--green); }
+
+  /* --- Empty state --- */
+  .empty-col {
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: center;
+    padding: 24px 8px;
+    font-style: italic;
+  }
+
+  /* --- Loading / error --- */
+  .board-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .board-status.error { color: var(--red); }
+
+  /* --- Toast --- */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .toast.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .toast.error { border-color: var(--red); }
+
+  /* --- Card warning --- */
+  .card-warning {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 12px;
+    margin-left: 6px;
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0 4px;
+    transition: background 0.15s;
+  }
+  .card-warning:hover { background: rgba(255,255,255,0.06); }
+  .card-warning.warn { color: var(--yellow); }
+  .card-warning.error { color: var(--red); animation: pulse-warning 2s ease-in-out infinite; }
+  .card-warning .days-badge {
+    font-size: 10px;
+    font-family: var(--mono);
+    font-weight: 600;
+  }
+
+  @keyframes pulse-warning {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* --- Staleness details (modal) --- */
+  .stale-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .stale-detail {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .stale-detail-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .stale-detail-value {
+    font-size: 16px;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+  .stale-detail-value.warning { color: var(--yellow); }
+  .stale-detail-value.danger { color: var(--red); }
+
+  /* --- Modal --- */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 24px;
+    position: relative;
+  }
+  .modal::-webkit-scrollbar { width: 6px; }
+  .modal::-webkit-scrollbar-track { background: transparent; }
+  .modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .modal-close {
+    position: absolute;
+    top: 12px; right: 16px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal-header { margin-bottom: 16px; }
+  .modal-header .modal-id {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .modal-header .modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+  .modal-header .modal-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .pill.state { background: rgba(109,93,252,0.15); color: var(--accent); }
+  .pill.priority-1 { background: rgba(239,68,68,0.15); color: var(--red); }
+  .pill.priority-2 { background: rgba(249,115,22,0.15); color: var(--orange); }
+  .pill.priority-3 { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .pill.priority-4 { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+  .warning-banner {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .warning-banner.warn { background: rgba(234,179,8,0.12); color: var(--yellow); border: 1px solid rgba(234,179,8,0.25); }
+  .warning-banner.error { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+
+  .modal-section { margin-bottom: 20px; }
+  .modal-section-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .modal-description {
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    color: var(--text);
+    background: var(--bg);
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .exchange {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .exchange-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface2);
+    font-size: 12px;
+  }
+  .exchange-author {
+    font-weight: 600;
+    color: var(--purple);
+    font-family: var(--mono);
+  }
+  .exchange-time {
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+  .exchange-body {
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .activity-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+  }
+  .activity-entry:nth-child(odd) { background: var(--bg); }
+
+  .activity-time {
+    font-family: var(--mono);
+    color: var(--text-dim);
+    flex-shrink: 0;
+    min-width: 40px;
+  }
+  .source-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .source-badge.goal-loop { background: rgba(109,93,252,0.15); color: var(--accent); }
+  .source-badge.autonomous { background: rgba(249,115,22,0.15); color: var(--orange); }
+  .source-badge.agent { background: rgba(249,115,22,0.15); color: var(--orange); }
+  .source-badge.system { background: rgba(139,139,148,0.15); color: var(--text-dim); }
+  .source-badge.ingest { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .source-badge.board { background: rgba(34,197,94,0.15); color: var(--green); }
+  .activity-summary { color: var(--text); line-height: 1.4; }
+
+  /* --- Responsive --- */
+  @media (max-width: 900px) {
+    .board { padding: 12px; gap: 10px; }
+    .column { min-width: 200px; }
+    .toolbar { padding: 10px 12px; }
+    header { padding: 12px 16px; }
+    .header-stats { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <h1><a href="/">{{INSTANCE_NAME}}</a></h1>
+    <nav class="header-nav">
+      <a href="/library">Library</a>
+      <a href="/board" class="active">Board</a>
+      <a href="/ops">Ops</a>
+      <a href="/observatory">Observatory</a>
+      <a href="/browser">Browser</a>
+    </nav>
+  </div>
+  <div class="header-actions">
+    <div class="header-stats" id="stats"></div>
+    <div class="header-actions-right">
+      <button class="gear-btn" onclick="openShareModal()" title="Share Core">&#9993;</button>
+      <a class="gear-btn" href="/?settings=open" title="Settings">&#9881;</a>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar" id="toolbar">
+  <div class="filter-group">
+    <span class="filter-label">Priority</span>
+    <button class="filter-btn active" data-filter="priority" data-value="all">All</button>
+    <button class="filter-btn" data-filter="priority" data-value="1">Urgent</button>
+    <button class="filter-btn" data-filter="priority" data-value="2">High</button>
+    <button class="filter-btn" data-filter="priority" data-value="3">Medium</button>
+    <button class="filter-btn" data-filter="priority" data-value="4">Low</button>
+  </div>
+  <div class="filter-group" id="project-filter-group">
+    <span class="filter-label">Project</span>
+    <button class="filter-btn active" data-filter="project" data-value="all">All</button>
+  </div>
+  <div class="filter-group" id="assignee-filter-group">
+    <span class="filter-label">Assignee</span>
+    <button class="filter-btn active" data-filter="assignee" data-value="all">All</button>
+  </div>
+  <span class="spacer"></span>
+  <input class="search-box" id="search" type="text" placeholder="Search tasks..." />
+</div>
+
+<div class="board" id="board">
+  <div class="board-status" id="loading">Loading board...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modal-close">&times;</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // --- Config ---
+  const COLUMNS = [
+    { state: 'icebox',      label: 'Icebox' },
+    { state: 'triage',      label: 'Triage' },
+    { state: 'backlog',     label: 'Backlog' },
+    { state: 'todo',        label: 'Todo' },
+    { state: 'in_progress', label: 'In Progress' },
+    { state: 'done',        label: 'Done' },
+    { state: 'cancelled',   label: 'Cancelled' },
+  ];
+
+  const PRIORITY_LABELS = { 0: 'None', 1: 'Urgent', 2: 'High', 3: 'Medium', 4: 'Low' };
+
+  // --- State ---
+  let allTasks = [];
+  let allProjects = [];
+  let projectMap = {}; // id → project
+  let filters = {
+    priority: 'all',
+    assignee: 'all',
+    project: localStorage.getItem('dash-board-project-filter') || 'all',
+    search: ''
+  };
+  let draggedCard = null;
+  let draggedTaskId = null;
+  let lastDragEnd = 0;
+  let activityLog = [];
+  let taskWarnings = {};
+  let openTaskId = null;
+  let columnSorts = {}; // state → 'newest' | 'oldest' | null
+
+  // --- DOM ---
+  const boardEl = document.getElementById('board');
+  const loadingEl = document.getElementById('loading');
+  const searchEl = document.getElementById('search');
+  const toolbarEl = document.getElementById('toolbar');
+  const statsEl = document.getElementById('stats');
+  const toastEl = document.getElementById('toast');
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalContent = document.getElementById('modal-content');
+  const modalCloseBtn = document.getElementById('modal-close');
+
+  // --- Helpers ---
+  async function fetchJSON(url, opts) {
+    var res = await fetch(url, opts);
+    // Retry once on rate limit after a short delay
+    if (res.status === 429) {
+      var retryAfter = parseInt(res.headers.get('Retry-After') || '2', 10);
+      await new Promise(function(r) { setTimeout(r, retryAfter * 1000); });
+      res = await fetch(url, opts);
+    }
+    if (!res.ok) throw new Error(res.statusText);
+    return res.json();
+  }
+
+  function relativeDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const now = Date.now();
+    const diff = now - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'now';
+    if (mins < 60) return mins + 'm';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h';
+    const days = Math.floor(hrs / 24);
+    return days + 'd';
+  }
+
+  function showToast(msg, isError) {
+    toastEl.textContent = msg;
+    toastEl.className = 'toast visible' + (isError ? ' error' : '');
+    clearTimeout(toastEl._timer);
+    toastEl._timer = setTimeout(function() { toastEl.className = 'toast'; }, 3000);
+  }
+
+  // Staleness thresholds per state (days): warn = yellow, error = red
+  var STALE_THRESHOLDS = {
+    'in_progress': { warn: 3, error: 7 },
+    'todo':        { warn: 7, error: 14 },
+    'backlog':     { warn: 14, error: 30 },
+    'triage':      { warn: 7, error: 14 },
+  };
+
+  function formatDateShort(iso) {
+    if (!iso) return 'Unknown';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function buildTaskWarnings() {
+    taskWarnings = {};
+    var now = Date.now();
+
+    allTasks.forEach(function(task) {
+      if (!task.identifier) return;
+      // Skip terminal states
+      if (task.state === 'done' || task.state === 'cancelled') return;
+
+      // 1) Activity-log-based warnings (failures, skips)
+      for (var i = 0; i < activityLog.length; i++) {
+        var entry = activityLog[i];
+        var s = (entry.summary || '').toLowerCase();
+        if (s.indexOf(task.identifier.toLowerCase()) === -1 &&
+            s.indexOf(task.title.toLowerCase()) === -1) continue;
+        if (s.indexOf('failed') !== -1 || s.indexOf('timed out') !== -1) {
+          taskWarnings[task.id] = { level: 'error', type: 'activity', message: entry.summary, timestamp: entry.timestamp };
+        } else if (s.indexOf('skipped') !== -1 || s.indexOf('none ready') !== -1) {
+          taskWarnings[task.id] = { level: 'warn', type: 'activity', message: entry.summary, timestamp: entry.timestamp };
+        }
+        if (taskWarnings[task.id]) break;
+      }
+
+      // 2) Time-based staleness detection
+      var lastUpdate = new Date(task.updatedAt || task.createdAt).getTime();
+      if (isNaN(lastUpdate)) return;
+      var daysSinceUpdate = Math.floor((now - lastUpdate) / (1000 * 60 * 60 * 24));
+      var thresh = STALE_THRESHOLDS[task.state];
+      if (!thresh) return;
+
+      if (daysSinceUpdate >= thresh.error) {
+        // Stale-error: override unless we already have an activity-error
+        if (!taskWarnings[task.id] || taskWarnings[task.id].level !== 'error') {
+          taskWarnings[task.id] = {
+            level: 'error', type: 'stale',
+            message: 'Stuck for ' + daysSinceUpdate + 'd in ' + task.state.replace('_', ' '),
+            daysStuck: daysSinceUpdate, state: task.state,
+            lastActivity: task.updatedAt || task.createdAt,
+          };
+        }
+      } else if (daysSinceUpdate >= thresh.warn && !taskWarnings[task.id]) {
+        taskWarnings[task.id] = {
+          level: 'warn', type: 'stale',
+          message: 'No activity for ' + daysSinceUpdate + 'd',
+          daysStuck: daysSinceUpdate, state: task.state,
+          lastActivity: task.updatedAt || task.createdAt,
+        };
+      }
+    });
+  }
+
+  // --- Filtering ---
+  function filteredTasks() {
+    return allTasks.filter(function(t) {
+      // Skip malformed entries (e.g. encrypted blobs that failed to decrypt)
+      if (!t.id || !t.title) return false;
+      if (t.status === 'archived') return false;
+      if (filters.priority !== 'all' && String(t.priority) !== filters.priority) return false;
+      if (filters.assignee !== 'all' && (t.assignee || 'unassigned') !== filters.assignee) return false;
+      if (filters.project !== 'all') {
+        if (filters.project === '_none' && t.project) return false;
+        if (filters.project !== '_none' && t.project !== filters.project) return false;
+      }
+      if (filters.search) {
+        var q = filters.search.toLowerCase();
+        if (t.title.toLowerCase().indexOf(q) === -1 &&
+            t.identifier.toLowerCase().indexOf(q) === -1 &&
+            (t.description || '').toLowerCase().indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function tasksForColumn(state) {
+    return filteredTasks().filter(function(t) { return t.state === state; });
+  }
+
+  // --- Render ---
+  function buildCard(task) {
+    var div = document.createElement('div');
+    div.className = 'card';
+    div.draggable = true;
+    div.dataset.taskId = task.id;
+
+    var proj = task.project ? projectMap[task.project] : null;
+    var projectBadge = proj
+      ? '<span class="card-project">' + esc(proj.prefix) + '</span>'
+      : '<span class="card-project no-project">NO PROJECT</span>';
+
+    var warningHtml = '';
+    var w = taskWarnings[task.id];
+    if (w) {
+      var icon = w.level === 'error' ? '✕' : '⚠';
+      var daysBadge = (w.type === 'stale' && w.daysStuck) ? '<span class="days-badge">' + w.daysStuck + 'd</span>' : '';
+      warningHtml = '<span class="card-warning ' + w.level + '" title="' + esc(w.message) + '">' + icon + daysBadge + '</span>';
+    }
+
+    // Elapsed timer for in_progress items — shows how long the item has been in this state
+    var elapsedBadge = '';
+    if (task.state === 'in_progress') {
+      var ipStart = new Date(task.updatedAt || task.createdAt).getTime();
+      if (!isNaN(ipStart)) {
+        var elapsedMin = Math.floor((Date.now() - ipStart) / 60000);
+        var elapsedText = elapsedMin < 60 ? elapsedMin + 'm' : Math.floor(elapsedMin / 60) + 'h ' + (elapsedMin % 60) + 'm';
+        var elapsedClass = elapsedMin >= 60 ? ' elapsed-error' : elapsedMin >= 30 ? ' elapsed-warn' : '';
+        elapsedBadge = '<span class="elapsed-badge' + elapsedClass + '" title="In progress for ' + elapsedText + '">⏱ ' + elapsedText + '</span>';
+      }
+    }
+
+    div.innerHTML =
+      '<div class="card-id">' + projectBadge + ' ' + esc(task.identifier) + warningHtml + '</div>' +
+      '<div class="card-title">' + esc(task.title) + '</div>' +
+      '<div class="card-meta">' +
+        '<span class="card-priority p' + task.priority + '" title="' + PRIORITY_LABELS[task.priority] + '"></span>' +
+        (task.assignee ? '<span class="card-assignee">' + esc(task.assignee) + '</span>' : '') +
+        elapsedBadge +
+        '<span class="card-date">' + relativeDate(task.updatedAt || task.createdAt) + '</span>' +
+      '</div>';
+
+    // Drag start
+    div.addEventListener('dragstart', function(e) {
+      draggedCard = div;
+      draggedTaskId = task.id;
+      div.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', task.id);
+    });
+
+    div.addEventListener('dragend', function() {
+      div.classList.remove('dragging');
+      draggedCard = null;
+      draggedTaskId = null;
+      lastDragEnd = Date.now();
+      // Clean up all drop zones
+      document.querySelectorAll('.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+      document.querySelectorAll('.drop-placeholder').forEach(function(el) { el.remove(); });
+    });
+
+    // Click to open detail modal (guard against drag)
+    div.addEventListener('click', function() {
+      if (Date.now() - lastDragEnd < 300) return;
+      openModal(task.id);
+    });
+
+    return div;
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function renderBoard() {
+    boardEl.innerHTML = '';
+    var visible = filteredTasks();
+
+    // Known column states for catch-all detection
+    var knownStates = COLUMNS.map(function(c) { return c.state; });
+
+    COLUMNS.forEach(function(col) {
+      var tasks = visible.filter(function(t) {
+        if (t.state === col.state) return true;
+        // Catch-all: tasks with unknown/missing state land in Triage
+        if (col.state === 'triage' && knownStates.indexOf(t.state) === -1) return true;
+        return false;
+      });
+
+      // Apply column sort
+      var sort = columnSorts[col.state];
+      if (sort) {
+        tasks.sort(function(a, b) {
+          var da = new Date(a.updatedAt || a.createdAt).getTime() || 0;
+          var db = new Date(b.updatedAt || b.createdAt).getTime() || 0;
+          return sort === 'newest' ? db - da : da - db;
+        });
+      }
+
+      var colEl = document.createElement('div');
+      colEl.className = 'column';
+      colEl.dataset.state = col.state;
+
+      var sortIcon = sort === 'newest' ? '<span class="sort-indicator">↓</span>'
+                   : sort === 'oldest' ? '<span class="sort-indicator">↑</span>' : '';
+
+      var header = document.createElement('div');
+      header.className = 'column-header';
+      header.title = 'Click to sort by date';
+      header.innerHTML =
+        '<span class="column-title">' + col.label + sortIcon + '</span>' +
+        '<span class="column-count">' + tasks.length + '</span>';
+
+      header.addEventListener('click', function() {
+        // Cycle: null → newest → oldest → null
+        var cur = columnSorts[col.state];
+        if (!cur) columnSorts[col.state] = 'newest';
+        else if (cur === 'newest') columnSorts[col.state] = 'oldest';
+        else delete columnSorts[col.state];
+        renderBoard();
+      });
+
+      var body = document.createElement('div');
+      body.className = 'column-body';
+      body.dataset.state = col.state;
+
+      if (tasks.length === 0) {
+        body.innerHTML = '<div class="empty-col">No tasks</div>';
+      } else {
+        tasks.forEach(function(t) { body.appendChild(buildCard(t)); });
+      }
+
+      // Drop zone events
+      body.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        body.classList.add('drag-over');
+      });
+
+      body.addEventListener('dragleave', function(e) {
+        if (!body.contains(e.relatedTarget)) {
+          body.classList.remove('drag-over');
+        }
+      });
+
+      body.addEventListener('drop', function(e) {
+        e.preventDefault();
+        body.classList.remove('drag-over');
+        var taskId = e.dataTransfer.getData('text/plain');
+        var newState = col.state;
+        if (taskId) moveTask(taskId, newState);
+      });
+
+      colEl.appendChild(header);
+      colEl.appendChild(body);
+      boardEl.appendChild(colEl);
+    });
+
+    // Stats — use filtered list so Total matches column sum
+    statsEl.innerHTML =
+      '<span>Total <span class="stat-val">' + visible.length + '</span></span>' +
+      '<span>In Progress <span class="stat-val">' + visible.filter(function(t) { return t.state === 'in_progress'; }).length + '</span></span>' +
+      '<span>Done <span class="stat-val">' + visible.filter(function(t) { return t.state === 'done'; }).length + '</span></span>';
+  }
+
+  // --- Move task (drag-drop) ---
+  async function moveTask(taskId, newState) {
+    var task = allTasks.find(function(t) { return t.id === taskId; });
+    if (!task || task.state === newState) return;
+
+    var oldState = task.state;
+    task.state = newState;
+    task.updatedAt = new Date().toISOString();
+    renderBoard();
+
+    try {
+      await fetchJSON('/api/ops/queue/' + encodeURIComponent(taskId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: newState }),
+      });
+      showToast(task.identifier + ' → ' + COLUMNS.find(function(c) { return c.state === newState; }).label);
+    } catch (err) {
+      // Revert on failure
+      task.state = oldState;
+      renderBoard();
+      showToast('Failed to move ' + task.identifier + ': ' + err.message, true);
+    }
+  }
+
+  // --- Populate assignee filter ---
+  function populateAssigneeFilter() {
+    var assignees = {};
+    allTasks.forEach(function(t) {
+      if (t.assignee && t.status !== 'archived') assignees[t.assignee] = true;
+    });
+    var group = document.getElementById('assignee-filter-group');
+    // Remove existing assignee buttons (except All)
+    var existing = group.querySelectorAll('[data-value]:not([data-value="all"])');
+    existing.forEach(function(el) { el.remove(); });
+    Object.keys(assignees).sort().forEach(function(a) {
+      var btn = document.createElement('button');
+      btn.className = 'filter-btn';
+      btn.dataset.filter = 'assignee';
+      btn.dataset.value = a;
+      btn.textContent = a;
+      group.appendChild(btn);
+    });
+  }
+
+  // --- Filter events ---
+  toolbarEl.addEventListener('click', function(e) {
+    var btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    var group = btn.dataset.filter;
+    var val = btn.dataset.value;
+
+    // Deactivate siblings, activate clicked
+    toolbarEl.querySelectorAll('[data-filter="' + group + '"]').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    filters[group] = val;
+    if (group === 'project') localStorage.setItem('dash-board-project-filter', val);
+    renderBoard();
+  });
+
+  searchEl.addEventListener('input', function() {
+    filters.search = searchEl.value;
+    renderBoard();
+  });
+
+  // --- Project filter ---
+  function populateProjectFilter() {
+    var group = document.getElementById('project-filter-group');
+    // Remove existing buttons except All
+    var existing = group.querySelectorAll('[data-value]:not([data-value="all"])');
+    existing.forEach(function(el) { el.remove(); });
+    allProjects.forEach(function(p) {
+      var btn = document.createElement('button');
+      btn.className = 'filter-btn';
+      btn.dataset.filter = 'project';
+      btn.dataset.value = p.id;
+      btn.textContent = p.prefix;
+      btn.title = p.name;
+      if (filters.project === p.id) {
+        btn.classList.add('active');
+        group.querySelector('[data-value="all"]').classList.remove('active');
+      }
+      group.appendChild(btn);
+    });
+    // Add "No Project" filter
+    var noneBtn = document.createElement('button');
+    noneBtn.className = 'filter-btn';
+    noneBtn.dataset.filter = 'project';
+    noneBtn.dataset.value = '_none';
+    noneBtn.textContent = 'Unassigned';
+    noneBtn.title = 'Tasks without a project';
+    if (filters.project === '_none') {
+      noneBtn.classList.add('active');
+      group.querySelector('[data-value="all"]').classList.remove('active');
+    }
+    group.appendChild(noneBtn);
+  }
+
+  // --- Modal ---
+  function openModal(taskId) {
+    var task = allTasks.find(function(t) { return t.id === taskId; });
+    if (!task) return;
+    openTaskId = taskId;
+    populateModal(task);
+    modalOverlay.classList.add('open');
+  }
+
+  function closeModal() {
+    openTaskId = null;
+    modalOverlay.classList.remove('open');
+  }
+
+  function populateModal(task) {
+    var proj = task.project ? projectMap[task.project] : null;
+    var projectBadge = proj
+      ? '<span class="card-project">' + esc(proj.prefix) + '</span>'
+      : '<span class="card-project no-project">NO PROJECT</span>';
+
+    var stateLabel = (COLUMNS.find(function(c) { return c.state === task.state; }) || {}).label || task.state;
+
+    var html = '';
+
+    // Warning banner
+    var w = taskWarnings[task.id];
+    if (w) {
+      var icon = w.level === 'error' ? '✕' : '⚠';
+      html += '<div class="warning-banner ' + w.level + '">' + icon + ' ' + esc(w.message) + '</div>';
+    }
+
+    // Staleness details (time in state + last activity)
+    if (w && w.type === 'stale') {
+      var levelClass = w.level === 'error' ? 'danger' : 'warning';
+      var thresh = STALE_THRESHOLDS[w.state];
+      html += '<div class="stale-details">';
+      html += '<div class="stale-detail">';
+      html += '<div class="stale-detail-label">Time in State</div>';
+      html += '<div class="stale-detail-value ' + levelClass + '">' + w.daysStuck + ' days</div>';
+      html += '</div>';
+      html += '<div class="stale-detail">';
+      html += '<div class="stale-detail-label">Last Activity</div>';
+      html += '<div class="stale-detail-value">' + formatDateShort(w.lastActivity) + '</div>';
+      html += '</div>';
+      if (thresh) {
+        html += '<div class="stale-detail">';
+        html += '<div class="stale-detail-label">Warn Threshold</div>';
+        html += '<div class="stale-detail-value warning">' + thresh.warn + ' days</div>';
+        html += '</div>';
+        html += '<div class="stale-detail">';
+        html += '<div class="stale-detail-label">Critical Threshold</div>';
+        html += '<div class="stale-detail-value danger">' + thresh.error + ' days</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+
+    // Header
+    html += '<div class="modal-header">';
+    html += '<div class="modal-id">' + projectBadge + ' ' + esc(task.identifier) + '</div>';
+    html += '<div class="modal-title">' + esc(task.title) + '</div>';
+    html += '<div class="modal-pills">';
+    html += '<span class="pill state">' + esc(stateLabel) + '</span>';
+    if (task.priority) html += '<span class="pill priority-' + task.priority + '">' + esc(PRIORITY_LABELS[task.priority]) + '</span>';
+    if (task.assignee) html += '<span class="pill state">' + esc(task.assignee) + '</span>';
+    html += '</div>';
+    html += '</div>';
+
+    // Description
+    if (task.description) {
+      html += '<div class="modal-section">';
+      html += '<div class="modal-section-title">Description</div>';
+      html += '<div class="modal-description">' + esc(task.description) + '</div>';
+      html += '</div>';
+    }
+
+    // Exchanges
+    if (task.exchanges && task.exchanges.length > 0) {
+      html += '<div class="modal-section">';
+      html += '<div class="modal-section-title">Comments (' + task.exchanges.length + ')</div>';
+      task.exchanges.forEach(function(ex) {
+        html += '<div class="exchange">';
+        html += '<div class="exchange-header">';
+        html += '<span class="exchange-author">' + esc(ex.author || 'unknown') + '</span>';
+        html += '<span class="exchange-time">' + relativeDate(ex.timestamp || ex.createdAt) + ' ago</span>';
+        html += '</div>';
+        html += '<div class="exchange-body">' + esc(ex.body || ex.content || '') + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Activity timeline
+    var taskActivity = activityLog.filter(function(entry) {
+      var s = (entry.summary || '').toLowerCase();
+      return s.indexOf(task.identifier.toLowerCase()) !== -1 ||
+             s.indexOf(task.title.toLowerCase()) !== -1;
+    }).slice(0, 15);
+
+    if (taskActivity.length > 0) {
+      html += '<div class="modal-section">';
+      html += '<div class="modal-section-title">Activity (' + taskActivity.length + ')</div>';
+      taskActivity.forEach(function(entry) {
+        var src = (entry.source || 'system').toLowerCase();
+        var badgeClass = 'source-badge ' + src.replace(/[^a-z0-9-]/g, '-');
+        html += '<div class="activity-entry">';
+        html += '<span class="activity-time">' + relativeDate(entry.timestamp) + '</span>';
+        html += '<span class="' + badgeClass + '">' + esc(entry.source || 'system') + '</span>';
+        html += '<span class="activity-summary">' + esc(entry.summary) + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    modalContent.innerHTML = html;
+  }
+
+  // Modal close handlers
+  modalCloseBtn.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', function(e) {
+    if (e.target === modalOverlay) closeModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && openTaskId) closeModal();
+  });
+
+  // --- Load data ---
+  async function loadBoard() {
+    try {
+      // Load projects, tasks, and activity in parallel
+      var [projectData, data, activityData] = await Promise.all([
+        fetchJSON('/api/ops/projects'),
+        fetchJSON('/api/ops/queue'),
+        fetchJSON('/api/ops/activity?limit=200').catch(function() { return { activities: [] }; }),
+      ]);
+      allProjects = projectData.projects || [];
+      projectMap = {};
+      allProjects.forEach(function(p) { projectMap[p.id] = p; });
+      allTasks = data.tasks || [];
+      var rawActivity = activityData.activities || activityData.entries || activityData;
+      activityLog = Array.isArray(rawActivity) ? rawActivity : [];
+      // Sort: priority ascending (1=urgent first), then by updated date
+      allTasks.sort(function(a, b) {
+        if (a.priority !== b.priority) return (a.priority || 99) - (b.priority || 99);
+        return new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt);
+      });
+      buildTaskWarnings();
+      loadingEl.remove();
+      populateProjectFilter();
+      populateAssigneeFilter();
+      renderBoard();
+    } catch (err) {
+      loadingEl.className = 'board-status error';
+      loadingEl.textContent = 'Failed to load board: ' + err.message;
+    }
+  }
+
+  // --- Auto-refresh every 5s (queue endpoint reads from memory cache, very cheap) ---
+  setInterval(function() {
+    Promise.all([
+      fetchJSON('/api/ops/projects'),
+      fetchJSON('/api/ops/queue'),
+      fetchJSON('/api/ops/activity?limit=200').catch(function() { return { activities: [] }; }),
+    ]).then(function(results) {
+      var projectData = results[0];
+      var data = results[1];
+      var activityData = results[2];
+      allProjects = projectData.projects || [];
+      projectMap = {};
+      allProjects.forEach(function(p) { projectMap[p.id] = p; });
+      allTasks = data.tasks || [];
+      var rawActivity = activityData.activities || activityData.entries || activityData;
+      activityLog = Array.isArray(rawActivity) ? rawActivity : [];
+      allTasks.sort(function(a, b) {
+        if (a.priority !== b.priority) return (a.priority || 99) - (b.priority || 99);
+        return new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt);
+      });
+      buildTaskWarnings();
+      populateProjectFilter();
+      populateAssigneeFilter();
+      renderBoard();
+      // Update modal content if it's open
+      if (openTaskId) {
+        var task = allTasks.find(function(t) { return t.id === openTaskId; });
+        if (task) populateModal(task);
+      }
+    }).catch(function() {});
+  }, 5000);
+
+  loadBoard();
+})();
+</script>
+<script src="/public/share-modal.js"></script>
+</body>
+</html>

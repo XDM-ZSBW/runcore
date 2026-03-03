@@ -1,0 +1,1 @@
+{"_schema": "decision", "_version": "1.0", "_description": "Key decisions: reasoning, alternatives considered, outcomes. Append-only. One JSON object per line."}

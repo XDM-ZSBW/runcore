@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{INSTANCE_NAME}} — Observatory</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --purple: #a78bfa;
+    --pink: #f472b6;
+    --teal: #34d399;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+
+    /* Pulse colors */
+    --pulse-still: #a78bfa;
+    --pulse-steady: #3b82f6;
+    --pulse-turbulent: #f97316;
+    --pulse-breakthrough: #22c55e;
+    --pulse-color: var(--pulse-steady);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--pulse-color) 6%, transparent) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    animation: bgBreathe 8s ease-in-out infinite;
+  }
+
+  @keyframes bgBreathe {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    z-index: 1;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .header-nav a:hover { color: var(--text); border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .away-duration {
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .away-duration:hover { color: var(--text); }
+
+  .heartbeat-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: heartbeat 2s ease-in-out infinite;
+  }
+
+  @keyframes heartbeat {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Section entrance animation */
+  .section-enter {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: sectionFadeIn 0.5s ease forwards;
+  }
+
+  @keyframes sectionFadeIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Card base */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+
+  .card h2 {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  /* Grid layouts */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+  @media (max-width: 900px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  /* ===== THE PULSE ===== */
+  .pulse-card {
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+    padding: 32px 24px;
+  }
+
+  .pulse-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    padding: 1px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--pulse-color) 40%, transparent), transparent 60%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .pulse-dot {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--pulse-color);
+    box-shadow: 0 0 12px var(--pulse-color);
+    animation: breathe 3s ease-in-out infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.3); opacity: 1; }
+  }
+
+  .pulse-label {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .pulse-summary {
+    font-size: 14px;
+    color: var(--text-dim);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  /* ===== THE NERVOUS SYSTEM ===== */
+  .nervous-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px 24px;
+    align-items: center;
+  }
+  .voltage-bar-wrap {
+    background: var(--surface2);
+    border-radius: 6px;
+    height: 22px;
+    position: relative;
+    overflow: hidden;
+    min-width: 200px;
+  }
+  .voltage-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.6s ease, background 0.6s ease;
+  }
+  .voltage-bar-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .nervous-stat {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .nervous-stat strong {
+    color: var(--text);
+  }
+  .nervous-state {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .nervous-state.ready { background: color-mix(in srgb, var(--green) 20%, transparent); color: var(--green); }
+  .nervous-state.refractory { background: color-mix(in srgb, var(--red) 20%, transparent); color: var(--red); }
+  .nervous-state.relative-refractory { background: color-mix(in srgb, var(--orange) 20%, transparent); color: var(--orange); }
+
+  /* ===== THE RIVER ===== */
+  .river-bar-container {
+    height: 24px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    background: var(--surface2);
+    margin-bottom: 12px;
+  }
+
+  .river-segment {
+    height: 100%;
+    transition: width 0.4s ease;
+    opacity: 0;
+    animation: flowIn 0.6s ease forwards;
+  }
+
+  @keyframes flowIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .river-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .river-chip {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+    font-family: var(--mono);
+  }
+
+  .river-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .river-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .river-entry:last-child { border-bottom: none; }
+
+  .river-source {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+    min-width: 68px;
+    text-align: center;
+    background: var(--surface2);
+  }
+
+  .river-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    width: 50px;
+  }
+
+  .river-text { flex: 1; color: var(--text); }
+
+  .empty { color: var(--text-dim); font-style: italic; font-size: 13px; padding: 12px 0; }
+
+  /* ===== THE SOUP ===== */
+  .resonance-card, .insight-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: surface 0.5s ease forwards;
+  }
+
+  .resonance-card:last-child, .insight-card:last-child { margin-bottom: 0; }
+
+  @keyframes surface {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .resonance-anchor {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: var(--accent);
+  }
+
+  .resonance-summary {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .similarity-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .similarity-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--surface);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .similarity-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+
+  .similarity-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    width: 36px;
+    text-align: right;
+  }
+
+  .resonance-explanation {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .insight-category {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .insight-category-pattern { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+  .insight-category-anomaly { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+  .insight-category-correlation { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+  .insight-category-bottleneck { background: rgba(234, 179, 8, 0.15); color: var(--yellow); }
+
+  .insight-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .insight-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 4px;
+  }
+
+  .insight-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+
+  .scanner-summary {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ===== THE VERTICAL ===== */
+  .state-overview {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .state-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .state-num {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  .state-label {
+    color: var(--text-dim);
+    font-size: 12px;
+    text-transform: capitalize;
+  }
+
+  .state-resonant { color: var(--accent); }
+  .state-resonant-glow {
+    text-shadow: 0 0 8px var(--accent);
+  }
+
+  .triad-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    opacity: 0;
+    animation: deepen 0.6s ease forwards;
+  }
+
+  .triad-card:last-child { margin-bottom: 0; }
+
+  @keyframes deepen {
+    from {
+      opacity: 0;
+      border-left-color: transparent;
+    }
+    to {
+      opacity: 1;
+      border-left-color: var(--accent);
+    }
+  }
+
+  .triad-anchor {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .triad-shift {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .triad-tensions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .tension-tag {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(109, 93, 252, 0.12);
+    color: var(--accent);
+  }
+
+  .triad-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+
+  .loop-change-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+  }
+
+  .loop-change-card:last-child { margin-bottom: 0; }
+
+  .loop-dissonance {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .loop-heuristics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .heuristic-tag {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text-dim);
+  }
+
+  /* ===== THE RADIO WAVES ===== */
+  .radio-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    opacity: 0;
+    transform: translateX(15px);
+    animation: slideInRight 0.4s ease forwards;
+  }
+
+  .radio-line:last-child { border-bottom: none; }
+
+  @keyframes slideInRight {
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .radio-indicator {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .radio-label {
+    flex: 1;
+    color: var(--text-dim);
+  }
+
+  .radio-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .radio-delta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  .radio-delta.up { color: var(--green); }
+  .radio-delta.down { color: var(--red); }
+  .radio-delta.new { color: var(--accent); }
+
+  /* Source color map */
+  .source-goal-loop { color: #60a5fa; }
+  .source-learn { color: #4ade80; }
+  .source-search { color: #fbbf24; }
+  .source-agent { color: #c084fc; }
+  .source-system { color: #9ca3af; }
+  .source-open-loop { color: #6d5dfc; }
+  .source-autonomous { color: #f472b6; }
+  .source-board { color: #fb923c; }
+  .source-calendar { color: #34d399; }
+  .source-gmail { color: #f87171; }
+  .source-google { color: #34d399; }
+  .source-tasks { color: #34d399; }
+  .source-slack { color: #60a5fa; }
+  .source-whatsapp { color: #4ade80; }
+  .source-avatar { color: #f472b6; }
+  .source-browse { color: #fbbf24; }
+  .source-ingest { color: #9ca3af; }
+
+  /* Source background colors for chips/segments */
+  .source-bg-goal-loop { background: #60a5fa; }
+  .source-bg-learn { background: #4ade80; }
+  .source-bg-search { background: #fbbf24; }
+  .source-bg-agent { background: #c084fc; }
+  .source-bg-system { background: #9ca3af; }
+  .source-bg-open-loop { background: #6d5dfc; }
+  .source-bg-autonomous { background: #f472b6; }
+  .source-bg-board { background: #fb923c; }
+  .source-bg-calendar { background: #34d399; }
+  .source-bg-gmail { background: #f87171; }
+  .source-bg-google { background: #34d399; }
+  .source-bg-tasks { background: #34d399; }
+  .source-bg-slack { background: #60a5fa; }
+  .source-bg-whatsapp { background: #4ade80; }
+  .source-bg-avatar { background: #f472b6; }
+  .source-bg-browse { background: #fbbf24; }
+  .source-bg-ingest { background: #9ca3af; }
+
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .dim { color: var(--text-dim); }
+
+  /* ===== TIMELINE STRIP ===== */
+  .timeline-strip {
+    position: relative;
+    z-index: 1;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 24px 20px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  .timeline-histogram {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    height: 40px;
+    gap: 1px;
+  }
+
+  .timeline-bar {
+    flex: 1;
+    min-height: 1px;
+    border-radius: 1px 1px 0 0;
+    transition: height 0.3s ease;
+    opacity: 0.7;
+  }
+
+  .timeline-bar:hover { opacity: 1; }
+
+  .timeline-region {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--accent);
+    opacity: 0.06;
+    pointer-events: none;
+    border-radius: 2px;
+  }
+
+  .timeline-thumb {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 12px;
+    margin-left: -6px;
+    cursor: ew-resize;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .timeline-thumb::before {
+    content: '';
+    width: 2px;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 1px;
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  .timeline-thumb-label {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    white-space: nowrap;
+    pointer-events: none;
+    background: var(--surface);
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+
+  .timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    position: relative;
+  }
+
+  .timeline-gridlabel {
+    position: absolute;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.5;
+  }
+
+  .timeline-gridline {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* ─── Signal section ─── */
+  .signal-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .signal-chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: var(--surface);
+    border-left: 3px solid var(--border);
+  }
+  .signal-chip.prompted  { border-left-color: #5b9aff; color: #5b9aff; }
+  .signal-chip.autonomous { border-left-color: #e06cff; color: #e06cff; }
+  .signal-chip.reflective { border-left-color: #4ecdc4; color: #4ecdc4; }
+  .signal-reflection {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-left: 3px solid #4ecdc4;
+    border-radius: 4px;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--text-mid);
+  }
+  .signal-reflection .reflection-label {
+    font-style: normal;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #4ecdc4;
+    margin-bottom: 4px;
+    font-family: var(--mono);
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <h1><a href="/" style="color: inherit; text-decoration: none;">{{INSTANCE_NAME}}</a></h1>
+    <nav class="header-nav">
+      <a href="/library">Library</a>
+      <a href="/board">Board</a>
+      <a href="/ops">Ops</a>
+      <a href="/observatory" class="active">Observatory</a>
+      <a href="/browser">Browser</a>
+    </nav>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="header-meta">
+      <span class="away-duration" id="awayDuration" title="Click to cycle time window">Last 2h</span>
+      <span class="dim" id="refreshTime">--</span>
+      <span><span class="heartbeat-dot" id="heartbeatDot"></span> <span id="heartbeatLabel">alive</span></span>
+    </div>
+    <div class="header-actions-right">
+      <button class="gear-btn" onclick="openShareModal()" title="Share Core">&#9993;</button>
+      <a class="gear-btn" href="/?settings=open" title="Settings">&#9881;</a>
+    </div>
+  </div>
+</header>
+
+<div class="timeline-strip" id="timelineStrip"></div>
+
+<main id="mainContent">
+  <!-- Sections rendered by JS -->
+  <div class="card section-enter" id="pulseSection" style="animation-delay: 0s">
+    <div class="pulse-card" id="pulseContent">
+      <div class="empty">Loading...</div>
+    </div>
+  </div>
+
+  <div class="card section-enter" id="nervousSection" style="animation-delay: 0.1s">
+    <h2>The Nervous System — metabolic pulse</h2>
+    <div id="nervousContent"><div class="empty">Loading...</div></div>
+  </div>
+
+  <div class="card section-enter" id="signalSection" style="animation-delay: 0.2s">
+    <h2>The Signal — action breakdown</h2>
+    <div id="signalContent"><div class="empty">Loading...</div></div>
+  </div>
+
+  <div class="card section-enter" id="riverSection" style="animation-delay: 0.35s">
+    <h2>The River — what flowed</h2>
+    <div id="riverContent"><div class="empty">Loading...</div></div>
+  </div>
+
+  <div class="grid grid-2 section-enter" id="soupSection" style="animation-delay: 0.5s">
+    <div class="card">
+      <h2>The Soup — resonances</h2>
+      <div id="resonancesContent"><div class="empty">Loading...</div></div>
+    </div>
+    <div class="card">
+      <h2>The Soup — insights</h2>
+      <div id="insightsContent"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
+
+  <div class="card section-enter" id="verticalSection" style="animation-delay: 0.65s">
+    <h2>The Vertical — what deepened</h2>
+    <div id="verticalContent"><div class="empty">Loading...</div></div>
+  </div>
+
+  <div class="card section-enter" id="radioSection" style="animation-delay: 0.8s">
+    <h2>The Radio Waves — contour of change</h2>
+    <div id="radioContent"><div class="empty">Loading...</div></div>
+  </div>
+</main>
+
+<script>
+(function() {
+  // --- Helpers ---
+
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = String(s ?? '');
+    return d.innerHTML;
+  }
+
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtDuration(ms) {
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h === 0) return m + 'm';
+    return h + 'h ' + m + 'm';
+  }
+
+  async function fetchJSON(url, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const SOURCE_COLORS = {
+    'goal-loop': '#60a5fa', learn: '#4ade80', search: '#fbbf24',
+    agent: '#c084fc', system: '#9ca3af', 'open-loop': '#6d5dfc',
+    autonomous: '#f472b6', board: '#fb923c', calendar: '#34d399',
+    gmail: '#f87171', google: '#34d399', tasks: '#34d399',
+    slack: '#60a5fa', whatsapp: '#4ade80', avatar: '#f472b6',
+    browse: '#fbbf24', ingest: '#9ca3af',
+  };
+
+  function sourceColor(s) {
+    return SOURCE_COLORS[s] || '#9ca3af';
+  }
+
+  // --- Away duration ---
+
+  const LAST_CONTOUR_KEY = 'observatory_lastContour';
+  const TIME_WINDOW_KEY = 'observatory_timeWindow';
+
+  const TIME_WINDOWS = [
+    { label: 'Last 2h',  ms: 2 * 60 * 60 * 1000 },
+    { label: 'Last 6h',  ms: 6 * 60 * 60 * 1000 },
+    { label: 'Last 24h', ms: 24 * 60 * 60 * 1000 },
+  ];
+
+  let windowIdx = parseInt(localStorage.getItem(TIME_WINDOW_KEY) || '0', 10);
+  if (windowIdx < 0 || windowIdx >= TIME_WINDOWS.length) windowIdx = 0;
+
+  // Track duration (ms ago) rather than absolute timestamp — survives auto-refresh
+  let awayDurationMs = TIME_WINDOWS[windowIdx].ms;
+  let awayTs = Date.now() - awayDurationMs;
+
+  // Cached raw API data for slider re-filtering
+  let cachedActivities = [];
+  let cachedResonances = [];
+  let cachedLastRun = null;
+  let cachedLoops = [];
+  let cachedTriads = [];
+  let cachedInsights = [];
+  let cachedDashboard = {};
+  let cachedPulseStatus = {};
+
+  function updateAwayDisplay() {
+    const el = document.getElementById('awayDuration');
+    el.textContent = TIME_WINDOWS[windowIdx].label;
+    el.title = 'Click to cycle time window';
+  }
+
+  document.getElementById('awayDuration').addEventListener('click', () => {
+    windowIdx = (windowIdx + 1) % TIME_WINDOWS.length;
+    localStorage.setItem(TIME_WINDOW_KEY, String(windowIdx));
+    awayDurationMs = TIME_WINDOWS[windowIdx].ms;
+    awayTs = Date.now() - awayDurationMs;
+    updateAwayDisplay();
+    refreshDisplay();
+  });
+
+  updateAwayDisplay();
+
+  // --- Pulse classification ---
+
+  function classifyPulse(deltaActivities, resonances, insights) {
+    const eventCount = deltaActivities.length;
+    const hasResonances = resonances.length > 0;
+    const hasInsights = insights.length > 0;
+
+    if (hasResonances && hasInsights) {
+      return {
+        label: 'Breakthrough',
+        color: 'var(--pulse-breakthrough)',
+        cssVar: '--pulse-breakthrough',
+        hex: '#22c55e',
+        summary: 'Resonances fired and insights emerged. Something connected while you were away.',
+      };
+    }
+    if (eventCount > 30 || (eventCount > 15 && hasResonances)) {
+      return {
+        label: 'Turbulent',
+        color: 'var(--pulse-turbulent)',
+        cssVar: '--pulse-turbulent',
+        hex: '#f97316',
+        summary: eventCount + ' events churned through the system. High activity night.',
+      };
+    }
+    if (eventCount <= 5 && !hasResonances) {
+      return {
+        label: 'Still',
+        color: 'var(--pulse-still)',
+        cssVar: '--pulse-still',
+        hex: '#a78bfa',
+        summary: 'A quiet stretch. ' + (eventCount === 0 ? 'Nothing stirred.' : 'Only ' + eventCount + ' small ripple' + (eventCount > 1 ? 's' : '') + '.'),
+      };
+    }
+    return {
+      label: 'Steady',
+      color: 'var(--pulse-steady)',
+      cssVar: '--pulse-steady',
+      hex: '#3b82f6',
+      summary: eventCount + ' events flowed through. The system kept its rhythm.',
+    };
+  }
+
+  // --- Render: Pulse ---
+
+  function renderPulse(pulse) {
+    document.documentElement.style.setProperty('--pulse-color', pulse.hex);
+    const el = document.getElementById('pulseContent');
+    el.innerHTML = `
+      <div class="pulse-dot" style="background: ${pulse.color}; box-shadow: 0 0 12px ${pulse.color};"></div>
+      <div class="pulse-label" style="color: ${pulse.color}">${escHtml(pulse.label)}</div>
+      <div class="pulse-summary">${escHtml(pulse.summary)}</div>
+    `;
+  }
+
+  // --- Render: Signal ---
+
+  function renderSignal(deltaActivities) {
+    const el = document.getElementById('signalContent');
+
+    const counts = { PROMPTED: 0, AUTONOMOUS: 0, REFLECTIVE: 0 };
+    let latestReflection = null;
+
+    for (const a of deltaActivities) {
+      if (a.actionLabel && counts.hasOwnProperty(a.actionLabel)) {
+        counts[a.actionLabel]++;
+      }
+      if (a.actionLabel === 'REFLECTIVE' && (!latestReflection || a.timestamp > latestReflection.timestamp)) {
+        latestReflection = a;
+      }
+    }
+
+    let html = '<div class="signal-chips">';
+    html += `<span class="signal-chip prompted">PROMPTED ${counts.PROMPTED}</span>`;
+    html += `<span class="signal-chip autonomous">AUTONOMOUS ${counts.AUTONOMOUS}</span>`;
+    html += `<span class="signal-chip reflective">REFLECTIVE ${counts.REFLECTIVE}</span>`;
+    html += '</div>';
+
+    if (latestReflection) {
+      html += `<div class="signal-reflection">
+        <div class="reflection-label">Latest reflection</div>
+        <div class="reflection-text">"${escHtml(latestReflection.summary)}"</div>
+      </div>`;
+    }
+
+    el.innerHTML = html;
+  }
+
+  // --- Render: River ---
+
+  function renderRiver(deltaActivities) {
+    const el = document.getElementById('riverContent');
+
+    if (deltaActivities.length === 0) {
+      el.innerHTML = '<div class="empty">The river was still</div>';
+      return;
+    }
+
+    // Count by source
+    const counts = {};
+    for (const a of deltaActivities) {
+      counts[a.source] = (counts[a.source] || 0) + 1;
+    }
+
+    const total = deltaActivities.length;
+    const sources = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    // Horizontal bar
+    let barHtml = '<div class="river-bar-container">';
+    sources.forEach(([source, count], i) => {
+      const pct = (count / total * 100).toFixed(1);
+      barHtml += `<div class="river-segment source-bg-${source}" style="width: ${pct}%; animation-delay: ${i * 0.1}s" title="${escHtml(source)}: ${count}"></div>`;
+    });
+    barHtml += '</div>';
+
+    // Source chips
+    let chipsHtml = '<div class="river-chips">';
+    for (const [source, count] of sources) {
+      chipsHtml += `<span class="river-chip" style="color: ${sourceColor(source)}">${escHtml(source)} ${count}</span>`;
+    }
+    chipsHtml += '</div>';
+
+    // Top 5 notable entries (most recent)
+    const top5 = deltaActivities.slice(-5).reverse();
+    let entriesHtml = '<div class="river-entries">';
+    for (const a of top5) {
+      entriesHtml += `
+        <div class="river-entry">
+          <span class="river-time">${fmtTime(a.timestamp)}</span>
+          <span class="river-source" style="color: ${sourceColor(a.source)}">${escHtml(a.source)}</span>
+          <span class="river-text">${escHtml(a.summary)}</span>
+        </div>`;
+    }
+    entriesHtml += '</div>';
+
+    el.innerHTML = barHtml + chipsHtml + entriesHtml;
+  }
+
+  // --- Render: Soup (Resonances) ---
+
+  function renderResonances(resonances, loops, lastRun) {
+    const el = document.getElementById('resonancesContent');
+
+    if (resonances.length === 0) {
+      el.innerHTML = '<div class="empty">No resonances detected</div>';
+      appendScannerSummary(el, lastRun);
+      return;
+    }
+
+    // Build loop lookup
+    const loopMap = {};
+    for (const l of loops) loopMap[l.id] = l;
+
+    let html = '';
+    for (let i = 0; i < resonances.length; i++) {
+      const r = resonances[i];
+      const loop = loopMap[r.loopId];
+      const anchor = loop ? loop.anchor : r.loopId;
+      const simPct = Math.round(r.similarity * 100);
+      html += `
+        <div class="resonance-card" style="animation-delay: ${i * 0.15}s">
+          <div class="resonance-anchor">${escHtml(anchor)}</div>
+          <div class="resonance-summary">${escHtml(r.matchedSummary)}</div>
+          <div class="similarity-bar-wrap">
+            <div class="similarity-bar"><div class="similarity-fill" style="width: ${simPct}%"></div></div>
+            <span class="similarity-label">${simPct}%</span>
+          </div>
+          <div class="resonance-explanation">${escHtml(r.explanation)}</div>
+        </div>`;
+    }
+
+    el.innerHTML = html;
+    appendScannerSummary(el, lastRun);
+  }
+
+  function appendScannerSummary(el, lastRun) {
+    if (!lastRun) return;
+    const summary = document.createElement('div');
+    summary.className = 'scanner-summary';
+    summary.textContent = 'Scanned ' + lastRun.activeLoopsScanned + ' loops against ' + lastRun.newEntriesScanned + ' entries';
+    el.appendChild(summary);
+  }
+
+  // --- Render: Soup (Insights) ---
+
+  function renderInsights(insights) {
+    const el = document.getElementById('insightsContent');
+
+    if (insights.length === 0) {
+      el.innerHTML = '<div class="empty">No insights emerged</div>';
+      return;
+    }
+
+    let html = '';
+    for (let i = 0; i < insights.length; i++) {
+      const ins = insights[i];
+      const catClass = 'insight-category-' + escHtml(ins.category);
+      html += `
+        <div class="insight-card" style="animation-delay: ${i * 0.15}s">
+          <div class="insight-header">
+            <span class="insight-category ${catClass}">${escHtml(ins.category)}</span>
+            <span class="insight-title">${escHtml(ins.title)}</span>
+          </div>
+          <div class="insight-desc">${escHtml(ins.description)}</div>
+          <div class="insight-meta">${escHtml(ins.confidence)} confidence</div>
+        </div>`;
+    }
+
+    el.innerHTML = html;
+  }
+
+  // --- Render: Vertical ---
+
+  function renderVertical(loops, triads) {
+    const el = document.getElementById('verticalContent');
+
+    // State counts
+    const stateCounts = { active: 0, resonant: 0, dormant: 0, expired: 0 };
+    for (const l of loops) {
+      if (stateCounts[l.state] !== undefined) stateCounts[l.state]++;
+    }
+
+    const resonantGlow = stateCounts.resonant > 0 ? ' state-resonant-glow' : '';
+
+    let stateHtml = '<div class="state-overview">';
+    stateHtml += `<div class="state-item"><span class="state-num" style="color: var(--green)">${stateCounts.active}</span><span class="state-label">Active</span></div>`;
+    stateHtml += `<div class="state-item"><span class="state-num state-resonant${resonantGlow}">${stateCounts.resonant}</span><span class="state-label">Resonant</span></div>`;
+    stateHtml += `<div class="state-item"><span class="state-num" style="color: var(--text-dim)">${stateCounts.dormant}</span><span class="state-label">Dormant</span></div>`;
+    stateHtml += `<div class="state-item"><span class="state-num" style="color: var(--text-dim)">${stateCounts.expired}</span><span class="state-label">Expired</span></div>`;
+    stateHtml += '</div>';
+
+    // Filter triads created since away
+    const awaySince = new Date(awayTs).toISOString();
+    const recentTriads = triads.filter(t => t.createdAt >= awaySince);
+
+    let triadsHtml = '';
+    if (recentTriads.length > 0) {
+      for (let i = 0; i < recentTriads.length; i++) {
+        const t = recentTriads[i];
+        let tensionTags = '';
+        if (t.residualTensions && t.residualTensions.length > 0) {
+          tensionTags = '<div class="triad-tensions">' +
+            t.residualTensions.map(rt => `<span class="tension-tag">${escHtml(rt)}</span>`).join('') +
+            '</div>';
+        }
+        triadsHtml += `
+          <div class="triad-card" style="animation-delay: ${i * 0.15}s">
+            <div class="triad-anchor">${escHtml(t.anchor)}</div>
+            <div class="triad-shift">${escHtml(t.vectorShift)}</div>
+            ${tensionTags}
+            <div class="triad-meta">${t.openLoopIds ? t.openLoopIds.length : 0} connected loops</div>
+          </div>`;
+      }
+    } else {
+      triadsHtml = '<div class="empty" style="margin-top: 8px">No new triads formed</div>';
+    }
+
+    // Loops that recently changed to resonant state (proxy: resonant loops)
+    const resonantLoops = loops.filter(l => l.state === 'resonant');
+    let loopChangesHtml = '';
+    if (resonantLoops.length > 0) {
+      loopChangesHtml = '<div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">';
+      loopChangesHtml += '<div style="font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;">Resonant Loops</div>';
+      for (const l of resonantLoops) {
+        let heuristicTags = '';
+        if (l.searchHeuristic && l.searchHeuristic.length > 0) {
+          heuristicTags = '<div class="loop-heuristics">' +
+            l.searchHeuristic.map(h => `<span class="heuristic-tag">${escHtml(h)}</span>`).join('') +
+            '</div>';
+        }
+        loopChangesHtml += `
+          <div class="loop-change-card">
+            <div class="loop-dissonance">${escHtml(l.dissonance)}</div>
+            ${heuristicTags}
+          </div>`;
+      }
+      loopChangesHtml += '</div>';
+    }
+
+    el.innerHTML = stateHtml + triadsHtml + loopChangesHtml;
+  }
+
+  // --- Render: Radio Waves ---
+
+  function renderRadioWaves(deltaActivities, loops, resonances, insights, dashboard) {
+    const el = document.getElementById('radioContent');
+
+    // Current contour
+    const contour = {
+      events: deltaActivities.length,
+      loops: loops.length,
+      resonances: resonances.length,
+      insights: insights.length,
+      activeLoops: loops.filter(l => l.state === 'active').length,
+      resonantLoops: loops.filter(l => l.state === 'resonant').length,
+    };
+
+    // Load previous contour
+    const prevRaw = localStorage.getItem(LAST_CONTOUR_KEY);
+    let prev = null;
+    try { prev = prevRaw ? JSON.parse(prevRaw) : null; } catch(e) {}
+
+    function delta(key) {
+      if (!prev || prev[key] === undefined) return { text: 'new', cls: 'new' };
+      const diff = contour[key] - prev[key];
+      if (diff > 0) return { text: '+' + diff, cls: 'up' };
+      if (diff < 0) return { text: String(diff), cls: 'down' };
+      return { text: '—', cls: '' };
+    }
+
+    function indicator(key) {
+      if (!prev || prev[key] === undefined) return '✦';
+      const diff = contour[key] - prev[key];
+      if (diff > 0) return '↑';
+      if (diff < 0) return '↓';
+      return '—';
+    }
+
+    const lines = [
+      { label: 'Events while away', value: contour.events, key: 'events' },
+      { label: 'Total open loops', value: contour.loops, key: 'loops' },
+      { label: 'Active loops', value: contour.activeLoops, key: 'activeLoops' },
+      { label: 'Resonant loops', value: contour.resonantLoops, key: 'resonantLoops' },
+      { label: 'Resonances fired', value: contour.resonances, key: 'resonances' },
+      { label: 'Insights discovered', value: contour.insights, key: 'insights' },
+    ];
+
+    let html = '';
+    lines.forEach((line, i) => {
+      const d = delta(line.key);
+      const ind = indicator(line.key);
+      html += `
+        <div class="radio-line" style="animation-delay: ${i * 0.1}s">
+          <span class="radio-indicator">${ind}</span>
+          <span class="radio-label">${escHtml(line.label)}</span>
+          <span class="radio-value">${line.value}</span>
+          <span class="radio-delta ${d.cls}">${d.text}</span>
+        </div>`;
+    });
+
+    el.innerHTML = html;
+
+    // Store contour in memory; only persist to localStorage on page unload
+    currentContour = contour;
+  }
+
+  // Contour saved on unload so Radio Waves delta stays meaningful during the session
+  let currentContour = null;
+  window.addEventListener('beforeunload', () => {
+    if (currentContour) localStorage.setItem(LAST_CONTOUR_KEY, JSON.stringify(currentContour));
+  });
+
+
+
+  function fmtTimeAgo(d) {
+    const ms = Date.now() - d.getTime();
+    const mins = Math.round(ms / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    return Math.round(hrs / 24) + 'd ago';
+  }
+
+  // --- Timeline Histogram + Slider ---
+
+  const TIMELINE_HOURS = 24;
+  const BUCKET_MINUTES = 10;
+  const BUCKET_COUNT = (TIMELINE_HOURS * 60) / BUCKET_MINUTES; // 144
+
+  function buildHistogram(activities) {
+    const now = Date.now();
+    const windowStart = now - TIMELINE_HOURS * 60 * 60 * 1000;
+    const buckets = Array.from({ length: BUCKET_COUNT }, (_, i) => ({
+      time: windowStart + i * BUCKET_MINUTES * 60000,
+      count: 0,
+      sources: {},
+    }));
+
+    for (const a of activities) {
+      const t = new Date(a.timestamp).getTime();
+      if (t < windowStart || t > now) continue;
+      const idx = Math.min(Math.floor((t - windowStart) / (BUCKET_MINUTES * 60000)), BUCKET_COUNT - 1);
+      buckets[idx].count++;
+      buckets[idx].sources[a.source] = (buckets[idx].sources[a.source] || 0) + 1;
+    }
+
+    // Compute dominant source per bucket
+    for (const b of buckets) {
+      let best = null, bestCount = 0;
+      for (const [src, cnt] of Object.entries(b.sources)) {
+        if (cnt > bestCount) { best = src; bestCount = cnt; }
+      }
+      b.dominantSource = best;
+    }
+
+    return buckets;
+  }
+
+  function renderTimeline(bins) {
+    const strip = document.getElementById('timelineStrip');
+    const now = Date.now();
+    const windowStart = now - TIMELINE_HOURS * 60 * 60 * 1000;
+    const maxCount = Math.max(1, ...bins.map(b => b.count));
+
+    // Gridlines every 3 hours
+    let gridHtml = '';
+    let gridLabelHtml = '';
+    for (let h = 3; h < TIMELINE_HOURS; h += 3) {
+      const pct = (h / TIMELINE_HOURS * 100).toFixed(2);
+      const t = new Date(windowStart + h * 3600000);
+      const label = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      gridHtml += `<div class="timeline-gridline" style="left: ${pct}%"></div>`;
+      gridLabelHtml += `<span class="timeline-gridlabel" style="left: ${pct}%">${label}</span>`;
+    }
+
+    // Bars
+    let barsHtml = '';
+    for (const b of bins) {
+      const h = b.count === 0 ? 1 : Math.max(2, Math.round((b.count / maxCount) * 40));
+      const color = b.dominantSource ? sourceColor(b.dominantSource) : 'var(--text-dim)';
+      barsHtml += `<div class="timeline-bar" style="height: ${h}px; background: ${color}"></div>`;
+    }
+
+    // Thumb position
+    const thumbPct = Math.max(0, Math.min(100, ((awayTs - windowStart) / (now - windowStart)) * 100));
+
+    strip.innerHTML = `
+      <div class="timeline-histogram" id="timelineHistogram">
+        ${gridHtml}
+        ${barsHtml}
+        <div class="timeline-region" style="left: ${thumbPct}%; right: 0"></div>
+        <div class="timeline-thumb" id="timelineThumb" style="left: ${thumbPct}%">
+          <div class="timeline-thumb-label">${fmtDuration(now - awayTs)} ago</div>
+        </div>
+      </div>
+      <div class="timeline-labels">
+        <span>24h ago</span>
+        ${gridLabelHtml}
+        <span>now</span>
+      </div>
+    `;
+
+    setupTimelineDrag();
+  }
+
+  function setupTimelineDrag() {
+    const histogram = document.getElementById('timelineHistogram');
+    const thumb = document.getElementById('timelineThumb');
+    if (!thumb || !histogram) return;
+
+    let dragging = false;
+    let rafPending = false;
+
+    function positionFromEvent(e) {
+      const rect = histogram.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      return x / rect.width;
+    }
+
+    function updateFromFraction(frac) {
+      const now = Date.now();
+      const windowStart = now - TIMELINE_HOURS * 60 * 60 * 1000;
+      // Snap to bucket boundaries
+      const bucketFrac = 1 / BUCKET_COUNT;
+      const snapped = Math.round(frac / bucketFrac) * bucketFrac;
+      const clampedFrac = Math.max(0, Math.min(1, snapped));
+
+      awayTs = Math.round(windowStart + clampedFrac * (now - windowStart));
+      // Don't allow future timestamps
+      if (awayTs > now) awayTs = now;
+      // Persist as duration so auto-refresh preserves the drag position
+      awayDurationMs = now - awayTs;
+
+      // Update thumb + region visually (no full rerender during drag)
+      const pct = (clampedFrac * 100).toFixed(2);
+      thumb.style.left = pct + '%';
+      const region = histogram.querySelector('.timeline-region');
+      if (region) region.style.left = pct + '%';
+      const label = thumb.querySelector('.timeline-thumb-label');
+      if (label) label.textContent = fmtDuration(now - awayTs) + ' ago';
+
+      updateAwayDisplay();
+    }
+
+    thumb.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      thumb.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    thumb.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(() => {
+        updateFromFraction(positionFromEvent(e));
+        rafPending = false;
+      });
+    });
+
+    thumb.addEventListener('pointerup', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      thumb.releasePointerCapture(e.pointerId);
+      rerender();
+    });
+
+    // Click on histogram to jump
+    histogram.addEventListener('click', (e) => {
+      if (e.target === thumb || thumb.contains(e.target)) return;
+      updateFromFraction(positionFromEvent(e));
+      rerender();
+    });
+  }
+
+  function rerender() {
+    const awaySince = new Date(awayTs).toISOString();
+    const deltaActivities = cachedActivities.filter(a => a.timestamp >= awaySince);
+    const insights = cachedInsights.filter(ins => ins.discoveredAt >= awaySince);
+    const deltaResonances = cachedResonances.filter(r => r.timestamp >= awaySince);
+
+    const pulse = classifyPulse(deltaActivities, deltaResonances, insights);
+
+    renderPulse(pulse);
+    renderSignal(deltaActivities);
+    renderRiver(deltaActivities);
+    renderResonances(deltaResonances, cachedLoops, cachedLastRun);
+    renderInsights(insights);
+    renderVertical(cachedLoops, cachedTriads);
+    renderRadioWaves(deltaActivities, cachedLoops, deltaResonances, insights, cachedDashboard);
+    updateAwayDisplay();
+  }
+
+  // --- Main load ---
+
+  const REFRESH_INTERVAL = 30000;
+  let isFirstLoad = true;
+
+  function setHeartbeat(ok) {
+    const dot = document.getElementById('heartbeatDot');
+    const label = document.getElementById('heartbeatLabel');
+    if (ok) {
+      dot.style.background = 'var(--green)';
+      dot.style.boxShadow = '0 0 6px var(--green)';
+      label.textContent = 'alive';
+    } else {
+      dot.style.background = 'var(--red)';
+      dot.style.boxShadow = '0 0 6px var(--red)';
+      label.textContent = 'unreachable';
+    }
+  }
+
+  function renderNervous(data) {
+    const el = document.getElementById('nervousContent');
+    if (!data || data.error || !data.voltage && data.voltage !== 0) {
+      el.innerHTML = '<div class="empty">Pulse system not active</div>';
+      return;
+    }
+
+    const pct = Math.min(100, Math.round((data.voltage / data.effectiveThreshold) * 100));
+
+    // Color based on fill percentage
+    let barColor = 'var(--green)';
+    if (pct > 80) barColor = 'var(--red)';
+    else if (pct > 50) barColor = 'var(--orange)';
+    else if (pct > 25) barColor = 'var(--yellow)';
+
+    const stateClass = data.state.replace('-', '-');
+
+    // Last pulse age
+    let lastPulseStr = 'never';
+    if (data.lastPulseAge >= 0) {
+      const mins = Math.floor(data.lastPulseAge / 60000);
+      if (mins < 1) lastPulseStr = '<1m ago';
+      else if (mins < 60) lastPulseStr = mins + 'm ago';
+      else lastPulseStr = Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm ago';
+    }
+
+    // Refractory remaining
+    let refractoryStr = '';
+    if (data.refractoryRemaining > 0) {
+      refractoryStr = ' (' + Math.ceil(data.refractoryRemaining / 1000) + 's)';
+    }
+
+    el.innerHTML = `
+      <div class="nervous-grid">
+        <div>
+          <div class="voltage-bar-wrap">
+            <div class="voltage-bar-fill" style="width: ${pct}%; background: ${barColor};"></div>
+            <div class="voltage-bar-label">${data.voltage}/${data.effectiveThreshold} mV</div>
+          </div>
+        </div>
+        <div>
+          <span class="nervous-state ${stateClass}">${escHtml(data.state)}${refractoryStr}</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 24px; margin-top: 10px; flex-wrap: wrap;">
+        <span class="nervous-stat">pulses: <strong>${data.pulseCount}</strong></span>
+        <span class="nervous-stat">last: <strong>${lastPulseStr}</strong></span>
+        <span class="nervous-stat">decay: <strong>${data.decayRate} mV/hr</strong></span>
+        <span class="nervous-stat">&theta;: <strong>${data.threshold} mV</strong></span>
+      </div>
+    `;
+  }
+
+  function refreshDisplay() {
+    // Recompute awayTs from stored duration (preserves drag position across refreshes)
+    awayTs = Date.now() - awayDurationMs;
+    updateAwayDisplay();
+
+    const awaySince = new Date(awayTs).toISOString();
+    const deltaActivities = cachedActivities.filter(a => a.timestamp >= awaySince);
+    const insights = cachedInsights.filter(ins => ins.discoveredAt >= awaySince);
+    const deltaResonances = cachedResonances.filter(r => r.timestamp >= awaySince);
+
+    const pulse = classifyPulse(deltaActivities, deltaResonances, insights);
+    const bins = buildHistogram(cachedActivities);
+    renderTimeline(bins);
+
+    renderPulse(pulse);
+    renderSignal(deltaActivities);
+    renderRiver(deltaActivities);
+    renderResonances(deltaResonances, cachedLoops, cachedLastRun);
+    renderInsights(insights);
+    renderVertical(cachedLoops, cachedTriads);
+    renderRadioWaves(deltaActivities, cachedLoops, deltaResonances, insights, cachedDashboard);
+    renderNervous(cachedPulseStatus);
+
+    document.getElementById('refreshTime').textContent =
+      new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  async function load() {
+    try {
+      // Fire all API calls in parallel — use allSettled so one slow/failed
+      // endpoint doesn't block the entire dashboard from loading
+      const results = await Promise.allSettled([
+        fetchJSON('/api/ops/activity?since=0&limit=3000'),
+        fetchJSON('/api/open-loops/resonances'),
+        fetchJSON('/api/open-loops'),
+        fetchJSON('/api/open-loops/triads'),
+        fetchJSON('/api/insights'),
+        fetchJSON('/api/metrics/dashboard'),
+        fetchJSON('/api/pulse/status'),
+      ]);
+      const val = (i) => results[i].status === 'fulfilled' ? results[i].value : {};
+      const activityData = val(0);
+      const resonanceData = val(1);
+      const loopsData = val(2);
+      const triadsData = val(3);
+      const insightsData = val(4);
+      const dashboardData = val(5);
+
+      // Cache raw data for slider re-filtering
+      cachedActivities = activityData.activities || [];
+      cachedResonances = resonanceData.resonances || [];
+      cachedLastRun = resonanceData.lastRun || null;
+      cachedLoops = loopsData.loops || [];
+      cachedTriads = triadsData.triads || [];
+      cachedInsights = insightsData.insights || [];
+      cachedDashboard = dashboardData || {};
+      cachedPulseStatus = val(6);
+
+      refreshDisplay();
+      setHeartbeat(true);
+      isFirstLoad = false;
+
+    } catch (err) {
+      console.error('Observatory load failed:', err);
+      setHeartbeat(false);
+      if (isFirstLoad) {
+        document.getElementById('pulseContent').innerHTML =
+          '<div class="empty">Unable to load observatory data. Is the server running?</div>';
+      }
+    }
+  }
+
+  // Time window is persisted in localStorage — no need for beforeunload tracking
+
+  // Initial load + auto-refresh every 30s
+  load();
+  setInterval(load, REFRESH_INTERVAL);
+
+})();
+</script>
+<script src="/public/share-modal.js"></script>
+</body>
+</html>

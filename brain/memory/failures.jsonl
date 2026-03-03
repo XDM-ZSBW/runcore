@@ -1,0 +1,1 @@
+{"_schema": "failure", "_version": "1.0", "_description": "What went wrong, root cause, prevention steps. Append-only. One JSON object per line."}

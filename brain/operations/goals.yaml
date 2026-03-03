@@ -1,0 +1,20 @@
+# Goals
+
+# Key results and targets. Update progress as needed.
+# Keep 8-10 essential fields; avoid sparse schemas.
+
+goals:
+  - id: kr1
+    name: ""
+    target: ""
+    current: ""
+    status: on_track  # on_track | behind | at_risk
+  # Add more key results as needed
+
+priorities:
+  - ""
+  - ""
+
+# Optional: learning, values, or rhythm blocks
+# learning: []
+# values: []

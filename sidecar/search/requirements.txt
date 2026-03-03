@@ -1,0 +1,3 @@
+smolagents[toolkit]
+fastapi
+uvicorn[standard]

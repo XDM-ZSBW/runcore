@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{INSTANCE_NAME}} — Operations</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .header-nav a:hover { color: var(--text); border-color: #6d5dfc; background: rgba(109,93,252,0.1); }
+  .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .uptime { font-family: var(--mono); font-size: 12px; }
+
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+
+  main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Card grid */
+  .grid { display: grid; gap: 16px; }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+
+  .card h2 {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .metric {
+    font-size: 32px;
+    font-weight: 700;
+    font-family: var(--mono);
+    letter-spacing: -1px;
+  }
+
+  .metric-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* Sidecar grid */
+  .sidecar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .sidecar-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .sidecar-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sidecar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidecar-name {
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: capitalize;
+  }
+
+  .sidecar-detail {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-up { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-down { background: rgba(239,68,68,0.12); color: var(--red); }
+  .badge-off { background: rgba(139,139,148,0.15); color: var(--text-dim); }
+
+  .btn-restart {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-restart:hover { background: var(--surface2); }
+  .btn-restart:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Agent tasks table */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface2);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  .status-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: capitalize;
+  }
+
+  .status-running  { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .status-completed { background: rgba(34,197,94,0.15); color: var(--green); }
+  .status-failed   { background: rgba(239,68,68,0.12); color: var(--red); }
+  .status-pending  { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .status-cancelled { background: rgba(139,139,148,0.15); color: var(--text-dim); }
+
+  .origin-pill {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(109,93,252,0.12);
+    color: var(--accent);
+  }
+
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .dim { color: var(--text-dim); }
+
+  /* Activity feed */
+  .activity-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .activity-item:last-child { border-bottom: none; }
+
+  .activity-source {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+    min-width: 72px;
+    text-align: center;
+    background: var(--surface2);
+    color: var(--text-dim);
+  }
+
+  .activity-source[data-s="agent"] { color: var(--blue); }
+  .activity-source[data-s="autonomous"] { color: var(--teal); }
+  .activity-source[data-s="learn"] { color: var(--green); }
+  .activity-source[data-s="search"] { color: var(--accent); }
+  .activity-source[data-s="board"] { color: var(--orange); }
+  .activity-source[data-s="system"] { color: var(--yellow); }
+  .activity-source[data-s="gmail"] { color: var(--pink); }
+  .activity-source[data-s="avatar"] { color: #ec4899; }
+
+  .activity-time { font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex-shrink: 0; width: 56px; }
+
+  .activity-text { flex: 1; }
+
+  /* Settings display */
+  .settings-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .settings-row:last-child { border-bottom: none; }
+  .settings-key { color: var(--text-dim); }
+  .settings-val { font-family: var(--mono); font-size: 12px; }
+
+  .empty { color: var(--text-dim); font-style: italic; font-size: 13px; padding: 12px 0; }
+
+  /* Health checks grid */
+  .health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+
+  .health-check-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .health-check-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .health-check-name {
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: capitalize;
+  }
+
+  .badge-healthy { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-degraded { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .badge-unhealthy { background: rgba(239,68,68,0.12); color: var(--red); }
+
+  .health-detail {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .health-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* Resource bars */
+  .resource-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .resource-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .resource-label {
+    width: 90px;
+    flex-shrink: 0;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .resource-bar {
+    flex: 1;
+    height: 12px;
+    background: var(--surface2);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .resource-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.4s ease;
+  }
+
+  .resource-fill.green { background: var(--green); }
+  .resource-fill.yellow { background: var(--yellow); }
+  .resource-fill.red { background: var(--red); }
+
+  .resource-value {
+    width: 100px;
+    flex-shrink: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+  }
+
+  /* Instance health table */
+  .instance-score {
+    display: inline-block;
+    width: 28px;
+    text-align: center;
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .score-good { background: rgba(34,197,94,0.15); color: var(--green); }
+  .score-warn { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .score-bad { background: rgba(239,68,68,0.12); color: var(--red); }
+
+  .issues-list {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  /* Recovery table */
+  .recovery-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .recovery-row:last-child { border-bottom: none; }
+
+  .recovery-name {
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  .recovery-stats {
+    display: flex;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* State counts row */
+  .state-counts {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .state-count-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .state-count-num {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .state-count-label {
+    color: var(--text-dim);
+    font-size: 12px;
+    text-transform: capitalize;
+  }
+
+  /* Overall health badge */
+  .overall-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  /* Refresh indicator */
+  .refresh-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+    transition: width 0.3s ease;
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+<div class="refresh-bar" id="refreshBar"></div>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <h1><a href="/" style="color:inherit;text-decoration:none;">{{INSTANCE_NAME}}</a></h1>
+    <nav class="header-nav">
+      <a href="/library">Library</a>
+      <a href="/board">Board</a>
+      <a href="/ops" class="active">Ops</a>
+      <a href="/observatory">Observatory</a>
+      <a href="/browser">Browser</a>
+    </nav>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="header-meta">
+      <span id="serverStatus"><span class="dot green"></span>Running</span>
+      <span class="uptime" id="uptimeDisplay">--</span>
+      <span class="dim" id="refreshTime">Auto-refresh: 15s</span>
+    </div>
+    <div class="header-actions-right">
+      <button class="gear-btn" onclick="openShareModal()" title="Share Core">&#9993;</button>
+      <a class="gear-btn" href="/?settings=open" title="Settings">&#9881;</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Top metrics row -->
+  <div class="grid grid-4" id="metricsRow">
+    <div class="card">
+      <h2>Uptime</h2>
+      <div class="metric" id="metricUptime">--</div>
+      <div class="metric-label">hours : minutes : seconds</div>
+    </div>
+    <div class="card">
+      <h2>Memory (Heap)</h2>
+      <div class="metric" id="metricMemory">--</div>
+      <div class="metric-label" id="memoryDetail">-- / -- MB</div>
+    </div>
+    <div class="card">
+      <h2>LLM Provider</h2>
+      <div class="metric" id="metricProvider" style="font-size:24px">--</div>
+      <div class="metric-label" id="providerDetail">--</div>
+    </div>
+    <div class="card">
+      <h2>Last Action</h2>
+      <div class="metric" id="metricAgents" style="font-size: 28px">--</div>
+      <div class="metric-label" id="agentsDetail">--</div>
+    </div>
+  </div>
+
+  <!-- Sidecars -->
+  <div class="card">
+    <h2>Sidecars</h2>
+    <div class="sidecar-grid" id="sidecarGrid">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <!-- Health Checks -->
+  <div class="card">
+    <h2>Health Checks</h2>
+    <div class="overall-status" id="overallHealth">
+      <span class="dot green"></span> <span>Healthy</span>
+    </div>
+    <div class="health-grid" id="healthGrid">
+      <div class="empty">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Three-column: Activity + Settings + Recovery -->
+  <div class="grid grid-2">
+    <!-- Activity feed -->
+    <div class="card">
+      <h2>Activity Feed</h2>
+      <div class="activity-feed" id="activityFeed">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Settings + Recovery stacked -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <!-- Settings -->
+      <div class="card">
+        <h2>Settings</h2>
+        <div id="settingsPanel">
+          <div class="empty">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Recovery Actions -->
+      <div class="card">
+        <h2>Recovery Actions</h2>
+        <div id="recoveryPanel">
+          <div class="empty">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Runtime -->
+  <div class="card">
+    <h2>Agent Runtime</h2>
+    <div id="runtimePanel">
+      <div class="empty">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Recent Actions (merged agent tasks + system activity) -->
+  <div class="card">
+    <h2>Recent Actions</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Action</th>
+            <th>When</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody id="agentTableBody">
+          <tr><td colspan="4" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+(function() {
+  const POLL_INTERVAL = 15000;
+  let activitySince = 0;
+  let allActivities = [];
+
+  // --- Formatting helpers ---
+
+  function fmtUptime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtRelative(iso) {
+    if (!iso) return '--';
+    const d = new Date(iso);
+    const now = Date.now();
+    const diff = now - d.getTime();
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+    return d.toLocaleDateString();
+  }
+
+  function fmtDuration(start, end) {
+    if (!start) return '--';
+    const s = new Date(start).getTime();
+    const e = end ? new Date(end).getTime() : Date.now();
+    const sec = Math.round((e - s) / 1000);
+    if (sec < 60) return sec + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+    return Math.floor(sec / 3600) + 'h ' + Math.floor((sec % 3600) / 60) + 'm';
+  }
+
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // --- API fetchers ---
+
+  async function fetchJSON(url, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // --- Render functions ---
+
+  function renderHealth(data) {
+    document.getElementById('metricUptime').textContent = fmtUptime(data.uptime);
+    document.getElementById('uptimeDisplay').textContent = fmtUptime(data.uptime);
+    document.getElementById('metricMemory').textContent = data.memory.heapUsed + ' MB';
+    document.getElementById('memoryDetail').textContent =
+      data.memory.heapUsed + ' / ' + data.memory.heapTotal + ' MB (RSS: ' + data.memory.rss + ' MB)';
+
+    const providerName = data.provider === 'ollama' ? 'Ollama' : 'OpenRouter';
+    document.getElementById('metricProvider').textContent = providerName;
+    document.getElementById('providerDetail').textContent =
+      (data.airplaneMode ? 'Airplane mode' : 'Cloud mode') +
+      ' — chat: ' + data.models.chat + ', utility: ' + data.models.utility;
+
+    if (data.lastActivity) {
+      document.getElementById('metricAgents').textContent = fmtRelative(data.lastActivity.timestamp);
+      document.getElementById('agentsDetail').textContent =
+        data.lastActivity.source + ': ' + (data.lastActivity.summary || '').slice(0, 60);
+    } else {
+      document.getElementById('metricAgents').textContent = 'idle';
+      document.getElementById('agentsDetail').textContent = 'No recent activity';
+    }
+  }
+
+  function renderSidecars(data) {
+    const grid = document.getElementById('sidecarGrid');
+    const sidecars = [
+      { key: 'search', label: 'Search', detail: 'Port ' + data.search.port + (data.search.perplexity ? ' + Perplexity' : '') },
+      { key: 'tts', label: 'TTS (Piper)', detail: 'Port ' + data.tts.port + ' — ' + data.tts.voice },
+      { key: 'stt', label: 'STT (Whisper)', detail: 'Port ' + data.stt.port + ' — ' + data.stt.model },
+      { key: 'avatar', label: 'Avatar', detail: 'Port ' + data.avatar.port },
+    ];
+
+    grid.innerHTML = sidecars.map(sc => {
+      const info = data[sc.key];
+      const isUp = info.available;
+      const isEnabled = info.enabled !== undefined ? info.enabled : true;
+      let badgeClass, badgeText;
+      if (isUp) { badgeClass = 'badge-up'; badgeText = 'UP'; }
+      else if (!isEnabled) { badgeClass = 'badge-off'; badgeText = 'OFF'; }
+      else { badgeClass = 'badge-down'; badgeText = 'DOWN'; }
+
+      return `
+        <div class="sidecar-card">
+          <div class="sidecar-header">
+            <span class="sidecar-name">${escHtml(sc.label)}</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="sidecar-detail">${escHtml(sc.detail)}</div>
+          <button class="btn-restart" data-sidecar="${sc.key}"
+            ${isUp ? '' : ''}>Restart</button>
+        </div>`;
+    }).join('');
+
+    // Wire up restart buttons
+    grid.querySelectorAll('.btn-restart').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.sidecar;
+        btn.disabled = true;
+        btn.textContent = 'Restarting...';
+        try {
+          await fetch('/api/ops/sidecars/' + name + '/restart', { method: 'POST' });
+          // Refresh after short delay to let sidecar come up
+          setTimeout(() => refreshAll(), 1500);
+        } catch {
+          btn.textContent = 'Error';
+        }
+      });
+    });
+  }
+
+  function renderActivity(data) {
+    if (data.activities.length > 0) {
+      allActivities = allActivities.concat(data.activities);
+      // Keep last 200
+      if (allActivities.length > 200) allActivities = allActivities.slice(-200);
+      // Track watermark
+      activitySince = allActivities[allActivities.length - 1].id;
+    }
+
+    const feed = document.getElementById('activityFeed');
+    if (allActivities.length === 0) {
+      feed.innerHTML = '<div class="empty">No activity yet</div>';
+      return;
+    }
+
+    // Show newest first
+    const display = allActivities.slice().reverse().slice(0, 50);
+    feed.innerHTML = display.map(a => `
+      <div class="activity-item">
+        <span class="activity-time">${fmtTime(a.timestamp)}</span>
+        <span class="activity-source" data-s="${escHtml(a.source)}">${escHtml(a.source)}</span>
+        <span class="activity-text">${escHtml(a.summary)}</span>
+      </div>
+    `).join('');
+  }
+
+  function renderSettings(data) {
+    const panel = document.getElementById('settingsPanel');
+    const rows = [
+      ['Airplane Mode', data.airplaneMode ? 'ON (local)' : 'OFF (cloud)'],
+      ['Chat Model', data.models.chat],
+      ['Utility Model', data.models.utility],
+      ['TTS Enabled', data.tts.enabled ? 'Yes' : 'No'],
+      ['TTS Voice', data.tts.voice],
+      ['TTS Auto-Play', data.tts.autoPlay ? 'Yes' : 'No'],
+      ['STT Enabled', data.stt.enabled ? 'Yes' : 'No'],
+      ['STT Model', data.stt.model],
+      ['Avatar Enabled', data.avatar.enabled ? 'Yes' : 'No'],
+    ];
+    panel.innerHTML = rows.map(([k, v]) =>
+      `<div class="settings-row">
+        <span class="settings-key">${escHtml(k)}</span>
+        <span class="settings-val">${escHtml(String(v))}</span>
+      </div>`
+    ).join('');
+  }
+
+  function renderAgents(data) {
+    const tbody = document.getElementById('agentTableBody');
+
+    // Build unified action list from agent tasks + recent activity
+    const actions = [];
+
+    // Agent subprocess tasks
+    if (data.tasks) {
+      for (const t of data.tasks) {
+        actions.push({
+          source: 'agent',
+          label: t.label,
+          time: t.finishedAt || t.startedAt || t.createdAt,
+          detail: `<span class="status-pill status-${t.status}">${t.status}</span>` +
+            (t.exitCode != null ? ` exit ${t.exitCode}` : '') +
+            (t.startedAt ? ` · ${fmtDuration(t.startedAt, t.finishedAt)}` : ''),
+        });
+      }
+    }
+
+    // Recent activity entries (autonomous, system, learn, board — skip low-value sources)
+    const actionSources = new Set(['autonomous', 'system', 'learn', 'board', 'gmail', 'avatar', 'search']);
+    for (const a of allActivities) {
+      if (!actionSources.has(a.source)) continue;
+      actions.push({
+        source: a.source,
+        label: a.summary,
+        time: a.timestamp,
+        detail: a.actionLabel
+          ? `<span class="origin-pill">${escHtml(a.actionLabel)}</span>`
+          : '<span class="dim">--</span>',
+      });
+    }
+
+    // Sort by time, newest first
+    actions.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+    if (actions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">No recent actions</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = actions.slice(0, 30).map(a => `
+      <tr>
+        <td><span class="activity-source" data-s="${escHtml(a.source)}">${escHtml(a.source)}</span></td>
+        <td>${escHtml(a.label)}</td>
+        <td class="mono dim">${fmtRelative(a.time)}</td>
+        <td class="mono">${a.detail}</td>
+      </tr>
+    `).join('');
+  }
+
+  // --- Health Checks ---
+
+  function renderHealthChecks(data) {
+    // Overall status badge
+    const overall = document.getElementById('overallHealth');
+    const dotClass = data.status === 'healthy' ? 'green' : data.status === 'degraded' ? 'yellow' : 'red';
+    const statusLabel = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+    overall.innerHTML = `<span class="dot ${dotClass}"></span> <span>${statusLabel}</span>`;
+
+    // Per-check cards
+    const grid = document.getElementById('healthGrid');
+    const checkNames = Object.keys(data.checks);
+    if (checkNames.length === 0) {
+      grid.innerHTML = '<div class="empty">No checks registered</div>';
+      return;
+    }
+
+    grid.innerHTML = checkNames.map(name => {
+      const c = data.checks[name];
+      const badgeClass = 'badge-' + c.status;
+      const badgeText = c.status.toUpperCase();
+      const durationText = c.durationMs != null ? c.durationMs + 'ms' : '--';
+      const lastText = c.lastChecked ? fmtRelative(c.lastChecked) : '--';
+      const detail = c.detail || '--';
+
+      return `
+        <div class="health-check-card">
+          <div class="health-check-header">
+            <span class="health-check-name">${escHtml(name.replace(/_/g, ' '))}</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="health-detail">${escHtml(detail)}</div>
+          <div class="health-meta">
+            <span>${durationText}</span>
+            <span>${lastText}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // --- Recovery Actions ---
+
+  function renderRecovery(data) {
+    const panel = document.getElementById('recoveryPanel');
+    const recovery = data.recovery;
+    const keys = Object.keys(recovery);
+
+    if (keys.length === 0) {
+      panel.innerHTML = '<div class="empty">No recovery actions registered</div>';
+      return;
+    }
+
+    panel.innerHTML = keys.map(key => {
+      const r = recovery[key];
+      const failures = r.consecutiveFailures;
+      const failColor = failures >= 3 ? 'var(--red)' : failures > 0 ? 'var(--yellow)' : 'var(--text-dim)';
+      const lastAttempt = r.lastAttempt ? fmtRelative(r.lastAttempt) : 'never';
+      const lastSuccess = r.lastSuccess ? fmtRelative(r.lastSuccess) : 'never';
+
+      return `
+        <div class="recovery-row">
+          <span class="recovery-name">${escHtml(r.actionName.replace(/^recover_/, '').replace(/_/g, ' '))}</span>
+          <div class="recovery-stats">
+            <span style="color: ${failColor}">${failures} fail</span>
+            <span>${r.totalAttempts} attempt${r.totalAttempts !== 1 ? 's' : ''}</span>
+            <span>${r.totalSuccesses} ok</span>
+            <span title="Last attempt">${lastAttempt}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // --- Agent Runtime ---
+
+  function renderRuntime(data) {
+    const panel = document.getElementById('runtimePanel');
+    if (!data.initialized) {
+      panel.innerHTML = '<div class="empty">Agent runtime not initialized</div>';
+      return;
+    }
+
+    const s = data.summary;
+    const res = s.resources;
+
+    // Resource utilization bars
+    const agentPct = res.maxAgents > 0 ? Math.round((res.activeAgents / res.maxAgents) * 100) : 0;
+    const memPct = res.maxMemoryMB > 0 ? Math.round((res.totalMemoryMB / res.maxMemoryMB) * 100) : 0;
+
+    function barColor(pct) {
+      if (pct >= 90) return 'red';
+      if (pct >= 70) return 'yellow';
+      return 'green';
+    }
+
+    // State counts
+    const counts = data.stateCounts;
+    const stateKeys = Object.keys(counts).filter(k => counts[k] > 0);
+
+    let stateCountsHtml = '';
+    if (stateKeys.length > 0) {
+      stateCountsHtml = `<div class="state-counts">` +
+        stateKeys.map(k => {
+          const colorMap = {
+            running: 'var(--blue)', completed: 'var(--green)', failed: 'var(--red)',
+            paused: 'var(--yellow)', initializing: 'var(--orange)', terminated: 'var(--text-dim)',
+            resuming: 'var(--accent)', terminating: 'var(--text-dim)',
+          };
+          const c = colorMap[k] || 'var(--text-dim)';
+          return `<div class="state-count-item">
+            <span class="state-count-num" style="color: ${c}">${counts[k]}</span>
+            <span class="state-count-label">${k}</span>
+          </div>`;
+        }).join('') +
+        `</div>`;
+    }
+
+    // Instance health table
+    let instancesHtml = '';
+    if (s.instances.length > 0) {
+      instancesHtml = `
+        <div class="table-wrap" style="margin-top: 14px">
+          <table>
+            <thead>
+              <tr>
+                <th>Score</th>
+                <th>Label</th>
+                <th>State</th>
+                <th>Uptime</th>
+                <th>Restarts</th>
+                <th>Issues</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${s.instances.map(inst => {
+                const scoreClass = inst.score >= 70 ? 'score-good' : inst.score >= 40 ? 'score-warn' : 'score-bad';
+                const uptimeStr = inst.uptime > 0 ? fmtDuration(new Date(Date.now() - inst.uptime).toISOString(), null) : '--';
+                const issueStr = inst.issues.length > 0 ? inst.issues.join(', ') : '--';
+                return `<tr>
+                  <td><span class="instance-score ${scoreClass}">${inst.score}</span></td>
+                  <td>${escHtml(inst.label)}</td>
+                  <td><span class="status-pill status-${inst.state}">${inst.state}</span></td>
+                  <td class="mono">${uptimeStr}</td>
+                  <td class="mono">${inst.restartCount}</td>
+                  <td class="issues-list">${escHtml(issueStr)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    // Summary metrics
+    const summaryHtml = `
+      <div style="display: flex; gap: 24px; margin-bottom: 14px; font-size: 13px;">
+        <span><strong>${s.totalInstances}</strong> <span class="dim">total</span></span>
+        <span><strong>${s.activeInstances}</strong> <span class="dim">active</span></span>
+        <span style="color: var(--green)"><strong>${s.healthyInstances}</strong> <span class="dim">healthy</span></span>
+        <span style="color: ${s.unhealthyInstances > 0 ? 'var(--red)' : 'var(--text-dim)'}"><strong>${s.unhealthyInstances}</strong> <span class="dim">unhealthy</span></span>
+        <span><strong>${s.averageScore}</strong> <span class="dim">avg score</span></span>
+      </div>`;
+
+    panel.innerHTML = `
+      ${summaryHtml}
+      ${stateCountsHtml}
+      <div class="resource-bar-wrap">
+        <div class="resource-row">
+          <span class="resource-label">Agents</span>
+          <div class="resource-bar"><div class="resource-fill ${barColor(agentPct)}" style="width: ${agentPct}%"></div></div>
+          <span class="resource-value">${res.activeAgents} / ${res.maxAgents} (${agentPct}%)</span>
+        </div>
+        <div class="resource-row">
+          <span class="resource-label">Memory</span>
+          <div class="resource-bar"><div class="resource-fill ${barColor(memPct)}" style="width: ${memPct}%"></div></div>
+          <span class="resource-value">${res.totalMemoryMB} / ${res.maxMemoryMB} MB (${memPct}%)</span>
+        </div>
+        <div class="resource-row">
+          <span class="resource-label">Queued</span>
+          <div class="resource-bar"><div class="resource-fill green" style="width: ${res.queuedRequests > 0 ? '100' : '0'}%"></div></div>
+          <span class="resource-value">${res.queuedRequests} request${res.queuedRequests !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+      ${instancesHtml}
+    `;
+  }
+
+  // --- Polling ---
+
+  let refreshCount = 0;
+
+  async function refreshAll() {
+    const bar = document.getElementById('refreshBar');
+    bar.style.width = '30%';
+
+    try {
+      // Use allSettled so one slow/failed endpoint doesn't block the entire dashboard
+      const results = await Promise.allSettled([
+        fetchJSON('/api/ops/health'),
+        fetchJSON('/api/ops/sidecars'),
+        fetchJSON('/api/ops/activity?since=' + activitySince + '&limit=' + (activitySince === 0 ? 500 : 100)),
+        fetchJSON('/api/ops/settings'),
+        fetchJSON('/api/ops/agents'),
+        fetchJSON('/api/ops/health-checks'),
+        fetchJSON('/api/ops/runtime'),
+      ]);
+
+      const val = (i) => results[i].status === 'fulfilled' ? results[i].value : null;
+      const health = val(0);
+      const sidecars = val(1);
+      const activity = val(2);
+      const settings = val(3);
+      const agents = val(4);
+      const healthChecks = val(5);
+      const runtime = val(6);
+
+      bar.style.width = '80%';
+      if (health) renderHealth(health);
+      if (sidecars) renderSidecars(sidecars);
+      if (activity) renderActivity(activity);
+      if (settings) renderSettings(settings);
+      if (agents) renderAgents(agents);
+      if (healthChecks) { renderHealthChecks(healthChecks); renderRecovery(healthChecks); }
+      if (runtime) renderRuntime(runtime);
+
+      // Server is reachable if at least one endpoint succeeded
+      const anySuccess = results.some(r => r.status === 'fulfilled');
+      document.getElementById('serverStatus').innerHTML = anySuccess
+        ? '<span class="dot green"></span>Running'
+        : '<span class="dot red"></span>Unreachable';
+
+    } catch (err) {
+      document.getElementById('serverStatus').innerHTML =
+        '<span class="dot red"></span>Unreachable';
+    }
+
+    bar.style.width = '100%';
+    setTimeout(() => { bar.style.width = '0'; }, 400);
+    refreshCount++;
+  }
+
+  // Initial load
+  refreshAll();
+
+  // Poll
+  setInterval(refreshAll, POLL_INTERVAL);
+})();
+</script>
+<script src="/public/share-modal.js"></script>
+</body>
+</html>

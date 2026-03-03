@@ -1,0 +1,152 @@
+name: "Debugging"
+description: "Error analysis, log interpretation, troubleshooting steps, and root cause investigation"
+categories: ["errors", "troubleshooting", "investigation"]
+skills:
+  - name: "systematic-diagnosis"
+    description: "Follow a structured process to diagnose errors from symptom to root cause"
+    prompt: >
+      Diagnose errors systematically: reproduce → read → trace → hypothesize → verify → fix.
+
+      Steps:
+      1. REPRODUCE: Confirm the error is reproducible. Run the failing command/build.
+      2. READ: Read the full error output. Don't skip stack traces or warnings.
+      3. TRACE: Follow the stack trace to the originating source file and line.
+      4. HYPOTHESIZE: Form a theory about the root cause based on the error message.
+      5. VERIFY: Read the source code at the error location. Check recent changes
+         with `git diff` or `git log -p -- <file>`.
+      6. FIX: Apply the minimal fix that addresses the root cause.
+      7. CONFIRM: Re-run the build/command to verify the fix works.
+
+      Never guess blindly — always read the actual error output first.
+    examples:
+      - "The build is failing, figure out why"
+      - "I'm getting a TypeError at runtime"
+      - "This function returns undefined when it shouldn't"
+    tags: ["diagnosis", "errors", "systematic"]
+
+  - name: "typescript-errors"
+    description: "Interpret and resolve TypeScript compiler errors"
+    prompt: >
+      Resolve TypeScript errors by understanding the type system.
+
+      Common error patterns:
+      - TS2322 (Type not assignable): Check the expected vs actual type. Often
+        means a missing field, wrong type, or null/undefined not handled.
+      - TS2339 (Property does not exist): The property isn't in the type definition.
+        Check for typos, or add the property to the interface.
+      - TS2345 (Argument not assignable): Function parameter type mismatch.
+        Check the function signature vs what's being passed.
+      - TS2307 (Cannot find module): Missing import path. Check file exists,
+        extension is correct (.js for NodeNext), and exports are present.
+      - TS7006 (Implicit any): Add explicit type annotations.
+
+      Always run `npm run build` (tsc) to see the full error list.
+      Fix errors from the bottom of the output first — later errors often cascade
+      from earlier ones.
+    examples:
+      - "Fix the TypeScript errors after I changed the interface"
+      - "I'm getting 'Property does not exist on type' errors"
+      - "The import isn't resolving even though the file exists"
+    tags: ["typescript", "types", "compiler"]
+
+  - name: "runtime-error-analysis"
+    description: "Debug runtime errors including crashes, unexpected behavior, and exceptions"
+    prompt: >
+      Analyze runtime errors by examining error messages, stack traces, and program state.
+
+      For Node.js runtime errors:
+      - Read the error type (TypeError, ReferenceError, SyntaxError, etc.).
+      - Check the stack trace — the first frame in YOUR code is usually the issue.
+      - Common causes: null/undefined access, missing await on async functions,
+        wrong import (default vs named), circular dependencies.
+
+      Debugging techniques:
+      - Add `console.log` at key points to trace execution flow.
+      - Check that async functions are properly awaited.
+      - Verify environment variables and config files are loaded.
+      - Compare the working state (git stash, previous commit) with the broken state.
+      - Use `git bisect` for regressions: find the exact commit that broke it.
+
+      After fixing, remove any debug console.log statements.
+    examples:
+      - "The server crashes on startup with an unhandled promise rejection"
+      - "This async function silently fails and returns undefined"
+      - "Something broke between yesterday and today"
+    tags: ["runtime", "node", "exceptions", "crashes"]
+
+  - name: "log-interpretation"
+    description: "Read and interpret application logs to diagnose issues"
+    prompt: >
+      Extract meaning from log output to identify problems.
+
+      Reading logs:
+      - Scan for ERROR and WARN level entries first.
+      - Look for timestamps to establish sequence of events.
+      - Check for repeated patterns (e.g., the same error every 5 seconds = retry loop).
+      - Note any correlation IDs or request IDs to trace a single request flow.
+
+      For Core brain logs (brain/agents/logs/):
+      - Agent prompt logs show what context was assembled for each agent run.
+      - Runtime logs show agent lifecycle events.
+      - Metrics logs track operation counts and timing.
+
+      Grep patterns for log analysis:
+      - `pattern: "ERROR|WARN|FATAL"` — find problems
+      - `pattern: "took [0-9]+ms"` — find slow operations
+      - `pattern: "retry|timeout|ECONNREFUSED"` — find connectivity issues
+    examples:
+      - "Check the agent logs for errors in the last run"
+      - "Why is this operation timing out?"
+      - "The logs show repeated 429 errors, what's happening?"
+    tags: ["logs", "monitoring", "patterns"]
+
+  - name: "dependency-debugging"
+    description: "Diagnose issues with npm packages, version conflicts, and module resolution"
+    prompt: >
+      Debug dependency and module resolution issues.
+
+      Common problems:
+      - Module not found: Run `npm ls <package>` to check if installed.
+        Check package.json has the dependency. Run `npm install` if missing.
+      - Version conflicts: Run `npm ls <package>` to see the dependency tree.
+        Look for multiple versions of the same package.
+      - Type mismatches with @types packages: Ensure @types version matches
+        the package version. Check tsconfig for correct moduleResolution.
+      - ESM/CJS interop: Check "type": "module" in package.json. Ensure
+        import syntax matches module system. Use `.js` extensions for ESM.
+
+      Steps:
+      1. Read the exact error message.
+      2. Check package.json for the dependency.
+      3. Run `npm ls` to inspect the installed tree.
+      4. Check node_modules/<package>/package.json for its exports field.
+      5. Verify tsconfig.json module/moduleResolution settings.
+    examples:
+      - "npm install succeeded but the import still fails"
+      - "I'm getting ERR_MODULE_NOT_FOUND at runtime"
+      - "TypeScript can't find the types for this package"
+    tags: ["npm", "dependencies", "modules", "resolution"]
+
+  - name: "performance-diagnosis"
+    description: "Identify and resolve performance bottlenecks"
+    prompt: >
+      Diagnose slow code by measuring, profiling, and analyzing.
+
+      Approach:
+      1. MEASURE: Add timing around suspect operations.
+         `const start = Date.now(); ... console.log(\`took ${Date.now() - start}ms\`);`
+      2. IDENTIFY: Find the slowest operation. Common culprits:
+         - Synchronous file I/O in hot paths (use async alternatives)
+         - N+1 queries: looping with individual reads instead of batch
+         - Unbounded data loading: reading entire files when only a slice is needed
+         - Missing caching: recomputing expensive results on every call
+      3. FIX: Apply the minimum change to resolve the bottleneck.
+      4. VERIFY: Re-measure to confirm improvement.
+
+      Don't optimize prematurely — only investigate performance when there's
+      an actual problem (slow response, high resource usage, timeouts).
+    examples:
+      - "The context assembly is taking over 2 seconds"
+      - "Memory usage keeps growing over time"
+      - "This endpoint is slow under load"
+    tags: ["performance", "profiling", "optimization"]

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Knowledge exchange page for {{INSTANCE_NAME}}, a file-based personal AI operating system. Architecture, capabilities, protocols, and live status.">
+<title>{{INSTANCE_NAME}} — Help</title>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "{{INSTANCE_NAME}}",
+  "description": "File-based personal AI operating system",
+  "applicationCategory": "AI Agent",
+  "operatingSystem": "Cross-platform (Node.js)",
+  "softwareVersion": "0.1.0"
+}
+</script>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --blue: #3b82f6;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  header {
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  header p {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+  }
+
+  section h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+
+  section p, section li {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  section p + p { margin-top: 10px; }
+
+  section ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  section ul li::before {
+    content: "·";
+    color: var(--text-dim);
+    font-weight: bold;
+    margin-right: 8px;
+  }
+
+  .sub-heading {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 14px 0 8px;
+  }
+
+  .sub-heading:first-of-type { margin-top: 4px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    color: var(--text-dim);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  td { color: var(--text); }
+
+  /* Live status cards */
+  .status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 600px) {
+    .status-grid { grid-template-columns: 1fr; }
+  }
+
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .dot.gray { background: var(--text-dim); }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 14px;
+  }
+
+  .status-row + .status-row {
+    border-top: 1px solid var(--border);
+  }
+
+  .status-label { color: var(--text-dim); }
+  .status-value { font-family: var(--mono); font-size: 13px; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .badge-connected { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+  .badge-disconnected { background: rgba(139, 139, 148, 0.15); color: var(--text-dim); }
+  .badge-source {
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .loading {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  /* Activity feed */
+  .activity-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 13px;
+  }
+
+  .activity-entry + .activity-entry {
+    border-top: 1px solid var(--border);
+  }
+
+  .activity-time {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    white-space: nowrap;
+    min-width: 56px;
+    padding-top: 1px;
+  }
+
+  .activity-summary { flex: 1; color: var(--text); }
+
+  .activity-trace {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.6;
+  }
+
+  /* Changelog */
+  /* Insight cards */
+  .insight-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .insight-card:last-child { margin-bottom: 0; }
+
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .insight-category {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .insight-category-pattern { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+  .insight-category-anomaly { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+  .insight-category-correlation { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+  .insight-category-bottleneck { background: rgba(234, 179, 8, 0.15); color: var(--yellow); }
+
+  .insight-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .insight-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  .insight-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+
+  #changelog-content h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: normal;
+    margin: 16px 0 8px;
+  }
+
+  #changelog-content h2:first-child { margin-top: 0; }
+
+  #changelog-content ul {
+    list-style: disc;
+    padding-left: 20px;
+  }
+
+  #changelog-content ul li::before { content: none; }
+
+  #changelog-content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>{{INSTANCE_NAME}} <span>— Help</span></h1>
+  <p>Knowledge exchange page for {{INSTANCE_NAME}}, a file-based personal AI operating system.</p>
+</header>
+
+<main>
+
+  <!-- 1. What is {{INSTANCE_NAME}} -->
+  <section>
+    <h2>What is {{INSTANCE_NAME}}</h2>
+    <ul>
+      <li>File-based personal operating system for an AI agent</li>
+      <li>No database — the brain is markdown, YAML, and JSONL files</li>
+      <li>Local-first: runs on the owner's machine, all data stays local</li>
+      <li>Context engineering approach: progressive disclosure of the right information at the right time</li>
+      <li>Optional TypeScript runtime adds programmatic context assembly and file-backed memory</li>
+    </ul>
+  </section>
+
+  <!-- 2. Architecture -->
+  <section>
+    <h2>Architecture</h2>
+    <p class="sub-heading">Brain Modules</p>
+    <table>
+      <thead>
+        <tr><th>Module</th><th>Purpose</th><th>Data Format</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Memory</td><td>Experiences, decisions, failures, semantic &amp; procedural knowledge</td><td>JSONL (append-only)</td></tr>
+        <tr><td>Identity</td><td>Tone of voice, brand personality</td><td>Markdown</td></tr>
+        <tr><td>Content</td><td>Templates, drafts, published writing</td><td>Markdown</td></tr>
+        <tr><td>Operations</td><td>Goals, todos, changelog, task queue</td><td>YAML + Markdown + JSONL</td></tr>
+        <tr><td>Knowledge</td><td>Research, bookmarks, notes</td><td>Markdown</td></tr>
+      </tbody>
+    </table>
+    <p class="sub-heading">Runtime Stack</p>
+    <ul>
+      <li>TypeScript runtime with Hono HTTP server</li>
+      <li>Dual LLM providers: OpenRouter (cloud) / Ollama (local)</li>
+      <li>Sidecar processes for search, text-to-speech, speech-to-text, and avatar</li>
+      <li>Agent system for autonomous task spawning and batch execution</li>
+      <li>File-backed long-term memory (JSONL append-only stores)</li>
+    </ul>
+  </section>
+
+  <!-- 3. How {{INSTANCE_NAME}} Thinks -->
+  <section>
+    <h2>How {{INSTANCE_NAME}} Thinks</h2>
+    <p class="sub-heading">Progressive Disclosure</p>
+    <ul>
+      <li><strong>Level 1:</strong> <code>SKILL.md</code> routes the task to the right module(s)</li>
+      <li><strong>Level 2:</strong> Module instruction file loaded (e.g. <code>OPERATIONS.md</code>)</li>
+      <li><strong>Level 3:</strong> Specific data files loaded only when needed</li>
+    </ul>
+    <p class="sub-heading">Three-Pass Workflow</p>
+    <ul>
+      <li><strong>Pass 1 — Intent:</strong> Plain language description of what and why</li>
+      <li><strong>Pass 2 — Spec + Build:</strong> Technical specification and implementation</li>
+      <li><strong>Pass 3 — Review:</strong> Technical review, edge cases, refinement</li>
+    </ul>
+    <p class="sub-heading">Memory Model</p>
+    <ul>
+      <li>Append-only JSONL stores: experiences, decisions, failures, semantic, procedural</li>
+      <li>Entries carry timestamps, tags, and emotional weight (1–10)</li>
+      <li>Deprecation via <code>"status": "archived"</code> — never delete or rewrite</li>
+    </ul>
+  </section>
+
+  <!-- 4. Protocols -->
+  <section>
+    <h2>Protocols</h2>
+    <p class="sub-heading">Surface Protein (X-ThoughtStream Header)</p>
+    <p>Lightweight coordination between distributed nodes. Not authentication — identification. Any node can emit the header; nodes that don't understand it ignore it silently.</p>
+    <table>
+      <thead>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>origin</code></td><td>string</td><td>Self-identification of the emitting node</td></tr>
+        <tr><td><code>intent</code></td><td>enum</td><td>Thought type: pulse, branch, scar, seed, breath</td></tr>
+        <tr><td><code>trace_id</code></td><td>string</td><td>Unique fingerprint for downstream correlation</td></tr>
+        <tr><td><code>backref</code></td><td>string?</td><td>trace_id of a related previous thought</td></tr>
+        <tr><td><code>weight</code></td><td>number?</td><td>0.0–1.0 significance (default 0.5)</td></tr>
+      </tbody>
+    </table>
+    <p class="sub-heading">Multi-Node Sync</p>
+    <ul>
+      <li>JSONL union + dedup across devices (PC primary, phone edge)</li>
+      <li>Transport-agnostic: file sync, git remote, LAN, or personal API</li>
+      <li>Bearing register for conflict resolution, tiered sync for bandwidth</li>
+      <li>Activity entries carry <code>trace_id</code> for lineage tracking</li>
+    </ul>
+  </section>
+
+  <!-- 5. Capabilities / API -->
+  <section>
+    <h2>Capabilities / API</h2>
+    <table>
+      <thead>
+        <tr><th>Endpoint</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>POST /api/chat</code></td><td>Main conversation (SSE streaming)</td></tr>
+        <tr><td><code>POST /api/branch</code></td><td>Scoped conversation from selected activity entries</td></tr>
+        <tr><td><code>GET /api/activity</code></td><td>Poll activity stream</td></tr>
+        <tr><td><code>POST /api/tts</code></td><td>Text-to-speech synthesis</td></tr>
+        <tr><td><code>POST /api/stt</code></td><td>Speech-to-text transcription</td></tr>
+        <tr><td><code>POST /api/avatar/*</code></td><td>Avatar lip-sync video generation</td></tr>
+      </tbody>
+    </table>
+    <p class="sub-heading">Integrations</p>
+    <ul>
+      <li><strong>Google:</strong> Calendar, Gmail, Docs, Tasks</li>
+      <li><strong>Linear:</strong> Issue tracking, bidirectional sync</li>
+      <li><strong>Slack:</strong> Channel messaging, slash commands, event webhooks</li>
+      <li><strong>WhatsApp:</strong> Inbound/outbound messaging via Twilio</li>
+    </ul>
+    <p class="sub-heading">Agent System</p>
+    <ul>
+      <li>Autonomous task spawning with configurable concurrency</li>
+      <li>Batch execution with completion callbacks</li>
+      <li>Agent pool with instance management and runtime isolation</li>
+    </ul>
+  </section>
+
+  <!-- 6. Skills System -->
+  <section>
+    <h2>Skills System</h2>
+    <ul>
+      <li><strong>Reference skills:</strong> Auto-loaded by task type (e.g. <code>voice-guide.md</code> loads for all writing tasks)</li>
+      <li><strong>Task skills:</strong> User-invoked via slash commands or natural language (e.g. <code>write-blog</code>, <code>log-decision</code>)</li>
+      <li>Skills reference brain module files — they don't duplicate content</li>
+      <li>Files live in the <code>skills/</code> directory</li>
+    </ul>
+  </section>
+
+  <!-- 7. Current State (live) -->
+  <section>
+    <h2>Current State</h2>
+    <div id="state-content" class="loading">Loading...</div>
+  </section>
+
+  <!-- 8. Active Integrations (live) -->
+  <section>
+    <h2>Active Integrations</h2>
+    <div id="integrations-content" class="loading">Loading...</div>
+  </section>
+
+  <!-- 9. Recent Activity (live) -->
+  <section>
+    <h2>Recent Activity</h2>
+    <div id="activity-content" class="loading">Loading...</div>
+  </section>
+
+  <!-- 10. Trace Insights (live) -->
+  <section>
+    <h2>Trace Insights</h2>
+    <div id="insights-content" class="loading">Loading...</div>
+  </section>
+
+  <!-- 11. Changelog (live) -->
+  <section>
+    <h2>Changelog</h2>
+    <div id="changelog-content" class="loading">Loading...</div>
+  </section>
+
+</main>
+
+<script>
+(async function() {
+  try {
+    const res = await fetch('/api/help/context');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderState(data);
+    renderIntegrations(data);
+    renderActivity(data);
+    renderInsights(data);
+    renderChangelog(data);
+  } catch (err) {
+    document.getElementById('state-content').textContent = 'Unable to load live data.';
+    document.getElementById('integrations-content').textContent = 'Unable to load live data.';
+    document.getElementById('activity-content').textContent = 'Unable to load live data.';
+    document.getElementById('insights-content').textContent = 'Unable to load live data.';
+    document.getElementById('changelog-content').textContent = 'Unable to load live data.';
+  }
+})();
+
+function dotClass(ok) {
+  return ok ? 'dot green' : 'dot gray';
+}
+
+function statusBadge(ok) {
+  return ok
+    ? '<span class="badge badge-connected">Connected</span>'
+    : '<span class="badge badge-disconnected">Not connected</span>';
+}
+
+function formatUptime(seconds) {
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h + 'h ' + m + 'm';
+}
+
+function renderState(data) {
+  const h = data.health || {};
+  const statusColor = h.status === 'healthy' ? 'green' : h.status === 'degraded' ? 'yellow' : 'red';
+
+  let html = '';
+  html += '<div class="status-row"><span class="status-label">Health</span>';
+  html += '<span class="status-value"><span class="dot ' + statusColor + '"></span>' + (h.status || 'unknown') + '</span></div>';
+
+  html += '<div class="status-row"><span class="status-label">Uptime</span>';
+  html += '<span class="status-value">' + formatUptime(h.uptime || 0) + '</span></div>';
+
+  html += '<div class="status-row"><span class="status-label">LLM Provider</span>';
+  html += '<span class="status-value">' + esc(data.provider || 'unknown') + '</span></div>';
+
+  html += '<div class="status-row"><span class="status-label">Model</span>';
+  html += '<span class="status-value">' + esc(data.model || 'unknown') + '</span></div>';
+
+  const sidecars = data.sidecars || {};
+  for (const [name, available] of Object.entries(sidecars)) {
+    html += '<div class="status-row"><span class="status-label">Sidecar: ' + esc(name) + '</span>';
+    html += '<span class="status-value"><span class="' + dotClass(available) + '"></span>' + (available ? 'running' : 'off') + '</span></div>';
+  }
+
+  document.getElementById('state-content').innerHTML = html;
+}
+
+function renderIntegrations(data) {
+  const intg = data.integrations || {};
+  let html = '';
+  const labels = { google: 'Google (Calendar, Gmail, Docs, Tasks)', linear: 'Linear', slack: 'Slack', whatsapp: 'WhatsApp' };
+  for (const [key, connected] of Object.entries(intg)) {
+    html += '<div class="status-row"><span class="status-label">' + (labels[key] || esc(key)) + '</span>';
+    html += '<span>' + statusBadge(connected) + '</span></div>';
+  }
+  document.getElementById('integrations-content').innerHTML = html;
+}
+
+function renderActivity(data) {
+  const entries = data.recentActivity || [];
+  if (entries.length === 0) {
+    document.getElementById('activity-content').innerHTML = '<span class="loading">No recent activity.</span>';
+    return;
+  }
+  let html = '';
+  for (const e of entries) {
+    const time = new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    html += '<div class="activity-entry">';
+    html += '<span class="activity-time">' + esc(time) + '</span>';
+    html += '<span class="badge badge-source">' + esc(e.source) + '</span>';
+    html += '<span class="activity-summary">' + esc(e.summary) + '</span>';
+    if (e.backref) {
+      html += '<span class="activity-trace">' + esc(e.traceId) + '</span>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('activity-content').innerHTML = html;
+}
+
+function renderInsights(data) {
+  const items = data.insights || [];
+  if (items.length === 0) {
+    document.getElementById('insights-content').innerHTML = '<span class="loading">No insights discovered yet.</span>';
+    return;
+  }
+  let html = '';
+  for (const ins of items) {
+    const catClass = 'insight-category-' + esc(ins.category);
+    const time = new Date(ins.discoveredAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    html += '<div class="insight-card">';
+    html += '<div class="insight-header">';
+    html += '<span class="insight-category ' + catClass + '">' + esc(ins.category) + '</span>';
+    html += '<span class="insight-title">' + esc(ins.title) + '</span>';
+    html += '</div>';
+    html += '<div class="insight-desc">' + esc(ins.description) + '</div>';
+    html += '<div class="insight-meta">' + esc(time) + ' · ' + esc(ins.confidence) + ' confidence</div>';
+    html += '</div>';
+  }
+  document.getElementById('insights-content').innerHTML = html;
+}
+
+function renderChangelog(data) {
+  const raw = data.changelog || '';
+  if (!raw) {
+    document.getElementById('changelog-content').innerHTML = '<span class="loading">No changelog available.</span>';
+    return;
+  }
+  // Simple markdown → HTML for changelog (headers, lists, hr)
+  const lines = raw.split('\n');
+  let html = '';
+  let inList = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('## ')) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<h2>' + esc(trimmed.slice(3)) + '</h2>';
+    } else if (trimmed.startsWith('- ')) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += '<li>' + esc(trimmed.slice(2)) + '</li>';
+    } else if (trimmed === '---') {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<hr>';
+    } else if (trimmed === '' && inList) {
+      html += '</ul>'; inList = false;
+    }
+  }
+  if (inList) html += '</ul>';
+  document.getElementById('changelog-content').innerHTML = html;
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+</script>
+
+</body>
+</html>

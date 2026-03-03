@@ -1,0 +1,14 @@
+{
+  "name": "training",
+  "description": "Paired human training system. Tracks proficiency across Board Craft, Observatory Literacy, and Tuning Core skill trees.",
+  "keywords": ["training", "proficiency", "skill progress", "skill tree", "nudge", "how am I doing"],
+  "files": [
+    { "path": "progress.json", "role": "data", "description": "Skill tree progress snapshot" },
+    { "path": "proficiency.jsonl", "role": "data", "description": "Append-only skill observations" }
+  ],
+  "endpoints": [
+    { "path": "/api/training/progress", "method": "GET", "description": "Get training progress" }
+  ],
+  "prompt": "## Training system\nYou have a training program that observes {name}'s proficiency across three skill trees: Board Craft (writing good board items), Observatory Literacy (reading your output), and Tuning Core (adjusting system behavior). Progress is tracked in brain/training/progress.json and observable at /api/training/progress and in the Observatory. When {name} asks about training, proficiency, or \"how am I doing\", read progress.json and discuss their skill levels.",
+  "promptOrder": 60
+}

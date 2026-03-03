@@ -1,0 +1,8 @@
+{
+  "name": "ops",
+  "description": "Activity log and operational events.",
+  "keywords": ["activity", "activity log", "what happened", "recent activity"],
+  "files": [{ "path": "activity.jsonl", "role": "log" }],
+  "endpoints": [{ "path": "/api/activity", "method": "GET" }],
+  "promptOrder": 65
+}

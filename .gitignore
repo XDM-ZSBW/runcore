@@ -1,0 +1,63 @@
+# Dependencies & build
+node_modules/
+dist/
+*.log
+
+# Environment
+.env
+.env.local
+
+# Runtime identity (created during pairing)
+brain/identity/human.json
+brain/identity/pairing-code.json
+brain/identity/.session-key
+
+# Encrypted vault & sessions
+brain/vault/
+brain/sessions/
+
+# Agent runtime data
+brain/agents/tasks/
+brain/agents/logs/
+brain/agents/runtime/
+
+# User content (private)
+brain/content/drafts/
+
+# Knowledge (user-generated research)
+brain/knowledge/research/
+brain/knowledge/notes/
+brain/knowledge/protocols/
+
+# Browser sessions
+brain/browser/sessions/
+
+# File storage
+brain/files/storage/
+brain/files/gdrive-sync.jsonl
+
+# Metrics aggregations
+brain/metrics/daily/
+brain/metrics/hourly/
+
+# Sidecar artifacts
+sidecar/search/__pycache__/
+sidecar/search/.venv/
+sidecar/stt/models/
+
+# Avatar cache (generated video)
+public/avatar/cache/
+
+# Test coverage & temp
+coverage/
+.vitest/
+
+# Runtime cache & backups
+.core/
+.core-backups/
+.dash/
+.dash-backups/
+
+# Local storage
+storage/
+ingested/

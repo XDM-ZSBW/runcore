@@ -1,0 +1,14 @@
+[
+  {
+    "id": "triage",
+    "name": "Triage",
+    "prefix": "TRI",
+    "description": "Uncategorized items awaiting project assignment"
+  },
+  {
+    "id": "core-dev",
+    "name": "Core Dev",
+    "prefix": "CORE",
+    "description": "Runtime and brain development"
+  }
+]

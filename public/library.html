@@ -1,0 +1,3642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{INSTANCE_NAME}} — Library</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --purple: #a78bfa;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* --- Header --- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  header h1 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  header h1 a:hover { opacity: 0.8; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  .header-nav {
+    display: flex;
+    gap: 4px;
+    margin-left: 20px;
+  }
+
+  .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .header-nav a:hover { color: var(--text); border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .header-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .header-stats .stat-val { color: var(--text); }
+
+  /* --- Toolbar --- */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .search-box {
+    flex: 1;
+    max-width: 400px;
+    position: relative;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 7px 12px 7px 32px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+
+  .search-box input:focus { border-color: var(--accent); }
+
+  .search-box::before {
+    content: '🔍';
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+  }
+
+  .toolbar-btn {
+    padding: 6px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .toolbar-btn:hover { border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .toolbar-btn.active { border-color: var(--accent); color: var(--accent); }
+
+  .toolbar-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .toolbar-btn.primary:hover { opacity: 0.9; }
+
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .view-toggle button {
+    padding: 6px 10px;
+    background: var(--surface2);
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  .view-toggle button.active { background: var(--accent); color: #fff; }
+  .view-toggle button:hover:not(.active) { color: var(--text); }
+
+  /* --- Layout --- */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* --- Sidebar --- */
+  .sidebar {
+    width: 250px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    overflow-y: auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-section h3 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-dim);
+    transition: all 0.12s;
+  }
+
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: rgba(109,93,252,0.15); color: var(--accent); }
+
+  .sidebar-item .icon { width: 16px; text-align: center; font-size: 12px; }
+  .sidebar-item .count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .tree-children { padding-left: 16px; }
+
+  .tree-toggle {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    cursor: pointer;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .tree-toggle:hover { color: var(--text); }
+
+  /* --- Main content --- */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 20px;
+    font-size: 13px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .breadcrumb a {
+    color: var(--text-dim);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .breadcrumb a:hover { color: var(--accent); }
+  .breadcrumb .sep { margin: 0 2px; }
+  .breadcrumb .current { color: var(--text); }
+
+  .content-area {
+    flex: 1;
+    padding: 16px 20px;
+    overflow-y: auto;
+  }
+
+  /* Subfolder chips */
+  .subfolders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .subfolder-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 13px;
+  }
+
+  .subfolder-card:hover { border-color: var(--accent); background: var(--surface2); }
+  .subfolder-card .folder-icon { font-size: 18px; }
+  .subfolder-card .folder-count { color: var(--text-dim); font-size: 11px; margin-left: 4px; }
+
+  /* File grid */
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .file-card:hover { border-color: var(--accent); }
+  .file-card.selected { border-color: var(--accent); background: rgba(109,93,252,0.08); }
+
+  .file-card .file-icon { font-size: 28px; }
+  .file-card .file-name {
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-card .file-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 8px;
+  }
+
+  /* File list view */
+  .file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .file-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 100px 100px 80px;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.1s;
+  }
+
+  .file-row:hover { background: var(--surface2); }
+  .file-row.selected { background: rgba(109,93,252,0.08); }
+  .file-row .file-icon { font-size: 18px; text-align: center; }
+  .file-row .file-meta-cell { color: var(--text-dim); font-size: 12px; }
+
+  /* --- Detail panel --- */
+  .detail-panel {
+    width: 320px;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    overflow-y: auto;
+    flex-shrink: 0;
+    display: none;
+    flex-direction: column;
+  }
+
+  .detail-panel.open { display: flex; }
+
+  .detail-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .detail-header .close-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 2px;
+  }
+
+  .detail-header .close-btn:hover { color: var(--text); }
+
+  .detail-icon { font-size: 36px; margin-bottom: 8px; }
+
+  .detail-name {
+    font-size: 15px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+
+  .detail-body { padding: 16px; flex: 1; }
+
+  .detail-field {
+    margin-bottom: 14px;
+  }
+
+  .detail-field label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-dim);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .detail-field .value {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .detail-tag {
+    padding: 2px 8px;
+    background: var(--surface2);
+    border-radius: 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .detail-actions {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .detail-action-btn {
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    transition: all 0.15s;
+  }
+
+  .detail-action-btn:hover { border-color: var(--accent); }
+  .detail-action-btn.danger { color: var(--red); }
+  .detail-action-btn.danger:hover { border-color: var(--red); }
+
+  /* --- Drop zone --- */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 16px;
+    transition: all 0.2s;
+  }
+
+  .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(109,93,252,0.08);
+    color: var(--accent);
+  }
+
+  /* --- Empty state --- */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-state .icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+
+  /* --- Upload modal --- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 420px;
+    max-width: 90vw;
+  }
+
+  .modal h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+
+  .modal-field {
+    margin-bottom: 14px;
+  }
+
+  .modal-field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .modal-field input, .modal-field select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+
+  .modal-field input:focus, .modal-field select:focus { border-color: var(--accent); }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  /* --- Scrollbar --- */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* --- Feed view (Last Used, etc.) --- */
+  .feed-stream {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 800px;
+  }
+
+  .feed-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+
+  .feed-card:hover { border-color: var(--accent); }
+
+  .feed-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+
+  .feed-card-header .feed-icon { font-size: 18px; flex-shrink: 0; }
+
+  .feed-card-header .feed-title {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feed-card-header .feed-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    display: flex;
+    gap: 10px;
+  }
+
+  .feed-card-body {
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text);
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-family: var(--mono);
+    tab-size: 2;
+  }
+
+  .feed-card-body h1, .feed-card-body h2, .feed-card-body h3 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    margin: 12px 0 6px;
+  }
+
+  .feed-card-body h1 { font-size: 18px; }
+  .feed-card-body h2 { font-size: 15px; }
+  .feed-card-body h3 { font-size: 13px; color: var(--text-dim); }
+
+  .feed-card-body .truncated-note {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+
+  .feed-card-body.loading {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .feed-card-body.binary {
+    color: var(--text-dim);
+    text-align: center;
+    padding: 24px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+
+  /* --- Brain shadow files --- */
+  .shadow-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(167, 139, 250, 0.15);
+    color: var(--purple);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+
+  .sidebar-item.pinned {
+    color: var(--purple);
+  }
+
+  .sidebar-item.pinned .icon { opacity: 0.8; }
+
+  .brain-category-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .brain-category-card:hover { border-color: var(--purple); background: var(--surface2); }
+  .brain-category-card .cat-icon { font-size: 24px; }
+  .brain-category-card .cat-label { font-size: 14px; font-weight: 500; }
+  .brain-category-card .cat-meta { font-size: 11px; color: var(--text-dim); }
+
+  .file-card.shadow .file-name::after,
+  .file-row.shadow .file-name::after {
+    content: ' \1F512';
+    font-size: 10px;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 800px) {
+    .sidebar { display: none; }
+    .detail-panel { position: fixed; right: 0; top: 0; bottom: 0; z-index: 50; width: 300px; }
+  }
+
+  /* --- Section toolbars --- */
+  #filesToolbar, #contactsToolbar, #calendarToolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+
+  /* --- Contact grid --- */
+  .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+  }
+
+  .contact-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .contact-card:hover { border-color: var(--accent); }
+  .contact-card.selected { border-color: var(--accent); background: rgba(109,93,252,0.08); }
+
+  .contact-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .contact-card-icon { font-size: 28px; }
+
+  .contact-card-name {
+    font-size: 14px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .contact-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .contact-type-badge.human { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .contact-type-badge.ai { background: rgba(167,139,250,0.15); color: var(--purple); }
+  .contact-type-badge.organization { background: rgba(34,197,94,0.15); color: var(--green); }
+  .contact-type-badge.service { background: rgba(249,115,22,0.15); color: var(--orange); }
+
+  .contact-card-channel {
+    font-size: 12px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .contact-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  /* --- Contact detail --- */
+  .channel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .channel-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 4px 0;
+  }
+
+  .channel-item .channel-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    width: 44px;
+    flex-shrink: 0;
+  }
+
+  .channel-item .channel-value {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .relationship-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .relationship-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 6px 8px;
+    background: var(--surface2);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .relationship-item:hover { background: var(--border); }
+  .relationship-item .rel-icon { font-size: 14px; }
+
+  .relationship-item .rel-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .relationship-item .rel-name {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* --- Credential type badges --- */
+  .credential-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .credential-type-badge.api_key { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .credential-type-badge.token { background: rgba(167,139,250,0.15); color: var(--purple); }
+  .credential-type-badge.oauth { background: rgba(34,197,94,0.15); color: var(--green); }
+  .credential-type-badge.password { background: rgba(249,115,22,0.15); color: var(--orange); }
+  .credential-type-badge.secret { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  .credential-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .credential-reveal-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 6px;
+  }
+  .credential-reveal-btn:hover { color: var(--text); border-color: var(--accent); }
+
+  /* --- Modal textarea --- */
+  .modal-field textarea {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    resize: vertical;
+    font-family: inherit;
+  }
+
+  .modal-field textarea:focus { border-color: var(--accent); }
+
+  /* --- Auth gate --- */
+  .auth-gate {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+  }
+
+  .auth-gate .icon { font-size: 48px; margin-bottom: 16px; }
+  .auth-gate h3 { font-size: 16px; color: var(--text); margin-bottom: 8px; }
+  .auth-gate p { font-size: 13px; margin-bottom: 16px; }
+
+  /* --- Calendar --- */
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .calendar-nav .date-label {
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 180px;
+    text-align: center;
+  }
+
+  .calendar-view-toggle { margin-left: auto; }
+
+  /* Agenda view */
+  .calendar-agenda {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .agenda-day {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .agenda-day-header {
+    padding: 8px 14px;
+    background: var(--surface2);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .agenda-day-header.today {
+    background: rgba(109,93,252,0.15);
+    color: var(--accent);
+  }
+
+  .agenda-event {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .agenda-event:last-child { border-bottom: none; }
+  .agenda-event:hover { background: var(--surface2); }
+  .agenda-event.selected { background: rgba(109,93,252,0.08); }
+
+  .agenda-event-time {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    min-width: 100px;
+    flex-shrink: 0;
+  }
+
+  .agenda-event-info { flex: 1; min-width: 0; }
+
+  .agenda-event-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .agenda-event-location {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .agenda-event-status {
+    width: 4px;
+    border-radius: 2px;
+    align-self: stretch;
+    flex-shrink: 0;
+  }
+
+  .agenda-event-status.confirmed { background: var(--green); }
+  .agenda-event-status.tentative { background: var(--yellow); }
+  .agenda-event-status.cancelled { background: var(--red); }
+
+  /* Day view */
+  .calendar-day-view { position: relative; min-height: 600px; }
+
+  .hour-slot {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    min-height: 48px;
+  }
+
+  .hour-label {
+    width: 60px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .hour-content {
+    flex: 1;
+    position: relative;
+    border-left: 1px solid var(--border);
+  }
+
+  .day-event {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    background: rgba(109,93,252,0.2);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .day-event:hover { background: rgba(109,93,252,0.3); }
+  .day-event .event-title { font-weight: 500; }
+  .day-event .event-time { font-size: 10px; color: var(--text-dim); }
+
+  /* Week view */
+  .calendar-week-view {
+    display: grid;
+    grid-template-columns: 60px repeat(7, 1fr);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .week-header {
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  .week-header:last-child { border-right: none; }
+
+  .week-header.today {
+    background: rgba(109,93,252,0.15);
+    color: var(--accent);
+  }
+
+  .week-hour-label {
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    min-height: 40px;
+  }
+
+  .week-cell {
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    min-height: 40px;
+  }
+
+  .week-cell:nth-child(8n) { border-right: none; }
+
+  .week-event {
+    background: rgba(109,93,252,0.25);
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 10px;
+    margin: 1px 2px;
+    cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .week-event:hover { background: rgba(109,93,252,0.4); }
+
+  /* Upcoming events sidebar */
+  .upcoming-event {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.1s;
+  }
+
+  .upcoming-event:hover { background: var(--surface2); }
+
+  .upcoming-event-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .upcoming-event-title {
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .upcoming-event-time {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <h1><a href="/">{{INSTANCE_NAME}}</a></h1>
+    <nav class="header-nav">
+      <a href="/library" class="active">Library</a>
+      <a href="/board">Board</a>
+      <a href="/ops">Ops</a>
+      <a href="/observatory">Observatory</a>
+      <a href="/browser">Browser</a>
+    </nav>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="header-stats" id="stats"></div>
+    <div class="header-actions-right">
+      <button class="gear-btn" onclick="openShareModal()" title="Share Core">&#9993;</button>
+      <a class="gear-btn" href="/?settings=open" title="Settings">&#9881;</a>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="search-box">
+    <input type="text" id="globalSearchInput" placeholder="Search..." />
+  </div>
+  <div id="filesToolbar" style="display:flex;align-items:center;gap:10px;">
+    <div class="view-toggle">
+      <button id="feedViewBtn" title="Feed view">⊟</button>
+      <button id="gridViewBtn" class="active" title="Grid view">▦</button>
+      <button id="listViewBtn" title="List view">☰</button>
+    </div>
+    <select id="feedSortSelect" style="display:none;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;outline:none;">
+      <option value="recent">Most Recent</option>
+      <option value="name">Name A-Z</option>
+      <option value="name-desc">Name Z-A</option>
+      <option value="size">Largest First</option>
+      <option value="size-asc">Smallest First</option>
+      <option value="oldest">Oldest First</option>
+    </select>
+    <button class="toolbar-btn" id="newFolderBtn">+ Folder</button>
+    <label class="toolbar-btn primary" style="cursor:pointer;">
+      ↑ Upload
+      <input type="file" id="uploadInput" multiple style="display:none;" />
+    </label>
+  </div>
+  <div id="contactsToolbar" style="display:none;align-items:center;gap:10px;">
+    <select class="toolbar-btn" id="contactTypeFilter" onchange="filterContactsByType(this.value)">
+      <option value="">All Types</option>
+      <option value="human">People</option>
+      <option value="organization">Organizations</option>
+      <option value="ai">AI</option>
+      <option value="service">Services</option>
+    </select>
+    <button class="toolbar-btn primary" onclick="openNewContactModal()">+ Contact</button>
+  </div>
+  <div id="calendarToolbar" style="display:none;align-items:center;gap:10px;">
+    <div class="calendar-nav">
+      <button class="toolbar-btn" onclick="goToToday()">Today</button>
+      <button class="toolbar-btn" onclick="navigateCalendarDate(-1)">&larr;</button>
+      <button class="toolbar-btn" onclick="navigateCalendarDate(1)">&rarr;</button>
+      <span class="date-label" id="calendarDateLabel"></span>
+    </div>
+    <div class="view-toggle calendar-view-toggle">
+      <button id="agendaViewBtn" class="active" onclick="setCalendarView('agenda')">Agenda</button>
+      <button id="dayViewBtn" onclick="setCalendarView('day')">Day</button>
+      <button id="weekViewBtn" onclick="setCalendarView('week')">Week</button>
+    </div>
+    <button class="toolbar-btn primary" onclick="openNewEventModal()">+ Event</button>
+  </div>
+  <div id="credentialsToolbar" style="display:none;align-items:center;gap:10px;">
+    <button class="toolbar-btn" onclick="migrateFromVault()">Import from Vault</button>
+    <button class="toolbar-btn primary" onclick="openNewCredentialModal()">+ Credential</button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <h3>Browse</h3>
+      <div class="sidebar-item active" data-section="files" onclick="switchSection('files')">
+        <span class="icon">📁</span><span>Files</span>
+      </div>
+      <div class="sidebar-item" data-section="contacts" onclick="switchSection('contacts')">
+        <span class="icon">👤</span><span>Contacts</span>
+      </div>
+      <div class="sidebar-item" data-section="calendar" onclick="switchSection('calendar')">
+        <span class="icon">📅</span><span>Calendar</span>
+      </div>
+      <div class="sidebar-item" data-section="credentials" onclick="switchSection('credentials')">
+        <span class="icon">🔑</span><span>Credentials</span>
+      </div>
+    </div>
+    <div id="filesNav">
+      <div class="sidebar-section" id="favoritesSection" style="display:none;">
+        <h3>Favorites</h3>
+        <div id="favoritesList"></div>
+      </div>
+      <div class="sidebar-section" id="recentsSection" style="display:none;">
+        <h3>Recents</h3>
+        <div id="recentsList"></div>
+      </div>
+      <div class="sidebar-section" style="flex:1;">
+        <h3>Folders</h3>
+        <div id="folderTree"></div>
+      </div>
+      <div class="sidebar-section" id="brainSection">
+        <h3>Brain</h3>
+        <div id="brainCategoryList"></div>
+      </div>
+    </div>
+    <div id="contactsNav" style="display:none;">
+      <div class="sidebar-section">
+        <h3>Types</h3>
+        <div class="sidebar-item active" data-contact-type="" onclick="filterContactsByType('')">
+          <span class="icon">📋</span><span>All</span><span class="count" id="contactCountAll"></span>
+        </div>
+        <div class="sidebar-item" data-contact-type="human" onclick="filterContactsByType('human')">
+          <span class="icon">👤</span><span>People</span><span class="count" id="contactCountHuman"></span>
+        </div>
+        <div class="sidebar-item" data-contact-type="organization" onclick="filterContactsByType('organization')">
+          <span class="icon">🏢</span><span>Organizations</span><span class="count" id="contactCountOrg"></span>
+        </div>
+        <div class="sidebar-item" data-contact-type="ai" onclick="filterContactsByType('ai')">
+          <span class="icon">🤖</span><span>AI</span><span class="count" id="contactCountAi"></span>
+        </div>
+        <div class="sidebar-item" data-contact-type="service" onclick="filterContactsByType('service')">
+          <span class="icon">⚙️</span><span>Services</span><span class="count" id="contactCountService"></span>
+        </div>
+      </div>
+    </div>
+    <div id="calendarNav" style="display:none;">
+      <div class="sidebar-section">
+        <h3>Quick Nav</h3>
+        <div class="sidebar-item" onclick="goToToday()">
+          <span class="icon">📌</span><span>Today</span>
+        </div>
+        <div class="sidebar-item" onclick="goToThisWeek()">
+          <span class="icon">📅</span><span>This Week</span>
+        </div>
+      </div>
+      <div class="sidebar-section" style="flex:1;">
+        <h3>Upcoming</h3>
+        <div id="upcomingEvents"></div>
+      </div>
+    </div>
+    <div id="credentialsNav" style="display:none;">
+      <div class="sidebar-section">
+        <h3>Types</h3>
+        <div class="sidebar-item active" data-cred-type="" onclick="filterCredentialsByType('')">
+          <span class="icon">📋</span><span>All</span><span class="count" id="credCountAll"></span>
+        </div>
+        <div class="sidebar-item" data-cred-type="api_key" onclick="filterCredentialsByType('api_key')">
+          <span class="icon">🔑</span><span>API Keys</span><span class="count" id="credCountApiKey"></span>
+        </div>
+        <div class="sidebar-item" data-cred-type="token" onclick="filterCredentialsByType('token')">
+          <span class="icon">🔐</span><span>Tokens</span><span class="count" id="credCountToken"></span>
+        </div>
+        <div class="sidebar-item" data-cred-type="oauth" onclick="filterCredentialsByType('oauth')">
+          <span class="icon">🔓</span><span>OAuth</span><span class="count" id="credCountOauth"></span>
+        </div>
+        <div class="sidebar-item" data-cred-type="password" onclick="filterCredentialsByType('password')">
+          <span class="icon">🔒</span><span>Passwords</span><span class="count" id="credCountPassword"></span>
+        </div>
+        <div class="sidebar-item" data-cred-type="secret" onclick="filterCredentialsByType('secret')">
+          <span class="icon">🗝️</span><span>Secrets</span><span class="count" id="credCountSecret"></span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <div id="filesMain">
+      <div class="breadcrumb" id="breadcrumb">
+        <a onclick="navigateToRoot()">Library</a>
+      </div>
+      <div class="content-area" id="contentArea">
+        <div id="subfolders" class="subfolders"></div>
+        <div id="fileContainer"></div>
+        <div class="drop-zone" id="dropZone">
+          Drop files here to upload
+        </div>
+      </div>
+    </div>
+    <div id="contactsMain" style="display:none;">
+      <div class="breadcrumb">
+        <span class="current">Contacts</span>
+      </div>
+      <div class="content-area">
+        <div id="contactGrid" class="contact-grid"></div>
+      </div>
+    </div>
+    <div id="calendarMain" style="display:none;">
+      <div class="breadcrumb">
+        <span class="current">Calendar</span>
+      </div>
+      <div class="content-area">
+        <div id="calendarContent"></div>
+      </div>
+    </div>
+    <div id="credentialsMain" style="display:none;">
+      <div class="breadcrumb">
+        <span class="current">Credentials</span>
+      </div>
+      <div class="content-area">
+        <div id="credentialGrid" class="contact-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Detail panel -->
+  <aside class="detail-panel" id="detailPanel">
+    <div class="detail-header">
+      <div>
+        <div class="detail-icon" id="detailIcon"></div>
+        <div class="detail-name" id="detailName"></div>
+      </div>
+      <button class="close-btn" onclick="closeDetail()">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-actions" id="detailActions"></div>
+  </aside>
+</div>
+
+<!-- New Folder Modal -->
+<div class="modal-overlay" id="newFolderModal">
+  <div class="modal">
+    <h2>New Folder</h2>
+    <div class="modal-field">
+      <label>Name</label>
+      <input type="text" id="newFolderName" placeholder="Folder name" />
+    </div>
+    <div class="modal-actions">
+      <button class="toolbar-btn" onclick="closeNewFolderModal()">Cancel</button>
+      <button class="toolbar-btn primary" onclick="createFolder()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Contact Modal -->
+<div class="modal-overlay" id="newContactModal">
+  <div class="modal">
+    <h2>New Contact</h2>
+    <div class="modal-field">
+      <label>Name</label>
+      <input type="text" id="newContactName" placeholder="Contact name" />
+    </div>
+    <div class="modal-field">
+      <label>Type</label>
+      <select id="newContactType">
+        <option value="human">Person</option>
+        <option value="organization">Organization</option>
+        <option value="ai">AI</option>
+        <option value="service">Service</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Email</label>
+      <input type="email" id="newContactEmail" placeholder="email@example.com" />
+    </div>
+    <div class="modal-field">
+      <label>Phone</label>
+      <input type="tel" id="newContactPhone" placeholder="+1 (555) 000-0000" />
+    </div>
+    <div class="modal-field">
+      <label>Notes</label>
+      <textarea id="newContactNotes" placeholder="Notes..." rows="3"></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Tags (comma-separated)</label>
+      <input type="text" id="newContactTags" placeholder="client, developer, friend" />
+    </div>
+    <div class="modal-actions">
+      <button class="toolbar-btn" onclick="closeModal('newContactModal')">Cancel</button>
+      <button class="toolbar-btn primary" onclick="createContact()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Relationship Modal -->
+<div class="modal-overlay" id="newRelationshipModal">
+  <div class="modal">
+    <h2>Add Relationship</h2>
+    <div class="modal-field">
+      <label>Related Contact</label>
+      <select id="relTargetEntity"></select>
+    </div>
+    <div class="modal-field">
+      <label>Relationship Type</label>
+      <select id="relType">
+        <option value="collaborates_with">Collaborates with</option>
+        <option value="works_at">Works at</option>
+        <option value="owns">Owns</option>
+        <option value="introduced_by">Introduced by</option>
+        <option value="uses">Uses</option>
+        <option value="built_by">Built by</option>
+        <option value="reports_to">Reports to</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Label (optional)</label>
+      <input type="text" id="relLabel" placeholder="e.g. Founder, Lead Developer" />
+    </div>
+    <div class="modal-field">
+      <label>Notes (optional)</label>
+      <input type="text" id="relNotes" placeholder="Additional context" />
+    </div>
+    <div class="modal-actions">
+      <button class="toolbar-btn" onclick="closeModal('newRelationshipModal')">Cancel</button>
+      <button class="toolbar-btn primary" onclick="createRelationship()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Event Modal -->
+<div class="modal-overlay" id="newEventModal">
+  <div class="modal">
+    <h2>New Event</h2>
+    <div class="modal-field">
+      <label>Title</label>
+      <input type="text" id="newEventTitle" placeholder="Event title" />
+    </div>
+    <div class="modal-field">
+      <label>Date</label>
+      <input type="date" id="newEventDate" />
+    </div>
+    <div class="modal-field" style="display:flex;gap:10px;">
+      <div style="flex:1;">
+        <label>Start Time</label>
+        <input type="time" id="newEventStart" />
+      </div>
+      <div style="flex:1;">
+        <label>End Time</label>
+        <input type="time" id="newEventEnd" />
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Location</label>
+      <input type="text" id="newEventLocation" placeholder="Location" />
+    </div>
+    <div class="modal-field">
+      <label>Description</label>
+      <textarea id="newEventDescription" placeholder="Description..." rows="3"></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Attendees (comma-separated emails)</label>
+      <input type="text" id="newEventAttendees" placeholder="person@example.com, other@example.com" />
+    </div>
+    <div class="modal-actions">
+      <button class="toolbar-btn" onclick="closeModal('newEventModal')">Cancel</button>
+      <button class="toolbar-btn primary" onclick="createEvent()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Credential Modal -->
+<div class="modal-overlay" id="newCredentialModal">
+  <div class="modal">
+    <h2 id="credentialModalTitle">New Credential</h2>
+    <div class="modal-field">
+      <label>Name</label>
+      <input type="text" id="credentialName" placeholder="e.g. OpenRouter API Key" />
+    </div>
+    <div class="modal-field">
+      <label>Service</label>
+      <input type="text" id="credentialService" placeholder="e.g. openrouter, linear, twilio" />
+    </div>
+    <div class="modal-field">
+      <label>Type</label>
+      <select id="credentialType">
+        <option value="api_key">API Key</option>
+        <option value="token">Token</option>
+        <option value="oauth">OAuth</option>
+        <option value="password">Password</option>
+        <option value="secret">Secret</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Value</label>
+      <div style="position:relative;">
+        <input type="password" id="credentialValue" placeholder="Secret value" />
+        <button type="button" class="credential-reveal-btn" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);" onclick="toggleCredentialValueVisibility()">Show</button>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Env Variable (optional)</label>
+      <input type="text" id="credentialEnvVar" placeholder="e.g. OPENROUTER_API_KEY" />
+    </div>
+    <div class="modal-field">
+      <label>Notes</label>
+      <textarea id="credentialNotes" placeholder="Notes..." rows="2"></textarea>
+    </div>
+    <div class="modal-field">
+      <label>Tags (comma-separated)</label>
+      <input type="text" id="credentialTags" placeholder="production, ai" />
+    </div>
+    <div class="modal-actions">
+      <button class="toolbar-btn" onclick="closeModal('newCredentialModal')">Cancel</button>
+      <button class="toolbar-btn primary" id="credentialModalSubmit" onclick="saveCredential()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────
+let currentFolderId = null; // null = root
+let currentView = 'grid';
+let selectedFileId = null;
+let treeData = [];
+let expandedFolders = new Set();
+let searchTimeout = null;
+
+const API = '/api/library';
+const CONTACTS_API = '/api/contacts';
+const CREDENTIALS_API = '/api/credentials';
+let currentSection = 'files'; // 'files' | 'contacts' | 'calendar' | 'credentials'
+let allContacts = [];
+let selectedContactId = null;
+let contactTypeFilter = '';
+let contactSearchTimeout = null;
+let allCredentials = [];
+let selectedCredentialId = null;
+let credentialTypeFilter = '';
+let credentialSearchTimeout = null;
+let editingCredentialId = null;
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fileIcon(mime, name) {
+  if (!mime) return '📄';
+  if (mime.startsWith('image/')) return '🖼️';
+  if (mime.startsWith('video/')) return '🎬';
+  if (mime.startsWith('audio/')) return '🎵';
+  if (mime.includes('pdf')) return '📕';
+  if (mime.includes('spreadsheet') || mime.includes('csv') || mime.includes('excel')) return '📊';
+  if (mime.includes('presentation') || mime.includes('powerpoint')) return '📽️';
+  if (mime.includes('word') || mime.includes('document')) return '📝';
+  if (mime.includes('zip') || mime.includes('archive') || mime.includes('compressed')) return '📦';
+  if (mime.includes('json')) return '🔧';
+  if (mime.includes('javascript') || mime.includes('typescript')) return '⚡';
+  if (mime.includes('html') || mime.includes('xml')) return '🌐';
+  if (mime.includes('css')) return '🎨';
+  if (mime.includes('markdown') || mime.includes('text/plain')) return '📝';
+  return '📄';
+}
+
+function folderIcon(icon) {
+  const map = {
+    'file-text': '📄', 'image': '🖼️', 'film': '🎬', 'copy': '📋',
+    'bar-chart': '📊', 'inbox': '📥', 'folder': '📁', 'clock': '🕐',
+  };
+  return map[icon] || '📁';
+}
+
+async function api(path, opts) {
+  const res = await fetch(API + path, opts);
+  return res.json();
+}
+
+// ── Tree ──────────────────────────────────────────────────────────────────
+
+async function loadTree() {
+  const data = await api('/tree');
+  treeData = data.tree || [];
+  renderTree();
+  updateStats(data.unfiled);
+}
+
+function renderTree() {
+  const el = document.getElementById('folderTree');
+  el.innerHTML = renderTreeNodes(treeData, 0);
+
+  // All Unfiled item
+  const unfiledItem = document.createElement('div');
+  unfiledItem.className = 'sidebar-item' + (currentFolderId === '__unfiled' ? ' active' : '');
+  unfiledItem.innerHTML = '<span class="icon">📥</span><span>Unfiled</span>';
+  unfiledItem.onclick = () => navigateToUnfiled();
+  el.appendChild(unfiledItem);
+}
+
+function renderTreeNodes(nodes, depth) {
+  return nodes.map(n => {
+    const hasChildren = n.children && n.children.length > 0;
+    const expanded = expandedFolders.has(n.folder.id);
+    const isActive = currentFolderId === n.folder.id;
+    const isPinned = n.folder.systemType ? ' pinned' : '';
+
+    let html = `<div class="sidebar-item${isActive ? ' active' : ''}${isPinned}" onclick="navigateToFolder('${n.folder.id}')">`;
+    if (hasChildren) {
+      html += `<span class="tree-toggle" onclick="event.stopPropagation(); toggleTreeNode('${n.folder.id}')">${expanded ? '▾' : '▸'}</span>`;
+    } else {
+      html += '<span class="tree-toggle"></span>';
+    }
+    html += `<span class="icon">${folderIcon(n.folder.icon)}</span>`;
+    html += `<span>${n.folder.name}</span>`;
+    if (n.fileCount > 0) html += `<span class="count">${n.fileCount}</span>`;
+    html += '</div>';
+
+    if (hasChildren && expanded) {
+      html += `<div class="tree-children">${renderTreeNodes(n.children, depth + 1)}</div>`;
+    }
+
+    return html;
+  }).join('');
+}
+
+function toggleTreeNode(id) {
+  if (expandedFolders.has(id)) expandedFolders.delete(id);
+  else expandedFolders.add(id);
+  renderTree();
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────
+
+async function navigateToRoot() {
+  currentFolderId = null;
+  currentFolderSystemType = null;
+  selectedFileId = null;
+  closeDetail();
+  setViewActive(currentView);
+  await loadRootContent();
+  renderTree();
+  renderBreadcrumb([]);
+  document.getElementById('dropZone').style.display = '';
+}
+
+async function navigateToFolder(id) {
+  currentFolderId = id;
+  selectedFileId = null;
+  closeDetail();
+  expandedFolders.add(id);
+
+  const data = await api(`/folders/${id}`);
+  renderBreadcrumb(data.breadcrumb || []);
+
+  const dz = document.getElementById('dropZone');
+
+  // System folders with systemType default to feed view
+  if (data.folder && data.folder.systemType) {
+    currentFolderSystemType = data.folder.systemType;
+    currentView = 'feed';
+    setViewActive('feed');
+    dz.style.display = 'none';
+    document.getElementById('subfolders').innerHTML = '';
+    renderFeed(data.files || []);
+  } else {
+    currentFolderSystemType = null;
+    setViewActive(currentView);
+    dz.style.display = '';
+    if (currentView === 'feed') {
+      document.getElementById('subfolders').innerHTML = '';
+      renderFeed(data.files || []);
+    } else {
+      renderFolderContent(data.subfolders || [], data.files || []);
+    }
+  }
+
+  renderTree();
+}
+
+async function navigateToUnfiled() {
+  currentFolderId = '__unfiled';
+  currentFolderSystemType = null;
+  selectedFileId = null;
+  closeDetail();
+  setViewActive(currentView);
+
+  const data = await api('/files?unfiled=true&limit=200');
+  renderBreadcrumb([{ id: '__unfiled', name: 'Unfiled' }]);
+  renderFolderContent([], data.files || []);
+  renderTree();
+  document.getElementById('dropZone').style.display = '';
+}
+
+async function loadRootContent() {
+  // Show all root folders and recent files
+  const treeResp = await api('/tree');
+  treeData = treeResp.tree || [];
+  const rootFolders = treeData.map(n => ({
+    ...n.folder,
+    _fileCount: n.fileCount,
+    _childCount: n.children ? n.children.length : 0,
+  }));
+
+  const filesResp = await api('/files?limit=20');
+  renderRootContent(rootFolders, filesResp.files || []);
+}
+
+// ── Render content ───────────────────────────────────────────────────────
+
+function renderRootContent(folders, recentFiles) {
+  const subfoldersEl = document.getElementById('subfolders');
+  subfoldersEl.innerHTML = folders.map(f =>
+    `<div class="subfolder-card" onclick="navigateToFolder('${f.id}')">
+      <span class="folder-icon">${folderIcon(f.icon)}</span>
+      <span>${f.name}</span>
+      <span class="folder-count">${f._fileCount || 0}</span>
+    </div>`
+  ).join('');
+
+  renderFiles(recentFiles);
+}
+
+function renderFolderContent(subfolders, files) {
+  const subfoldersEl = document.getElementById('subfolders');
+  if (subfolders.length === 0) {
+    subfoldersEl.innerHTML = '';
+  } else {
+    subfoldersEl.innerHTML = subfolders.map(f =>
+      `<div class="subfolder-card" onclick="navigateToFolder('${f.id}')">
+        <span class="folder-icon">${folderIcon(f.icon)}</span>
+        <span>${f.name}</span>
+      </div>`
+    ).join('');
+  }
+  renderFiles(files);
+}
+
+function renderFiles(files) {
+  const container = document.getElementById('fileContainer');
+  if (files.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📂</div><p>No files here yet</p></div>';
+    return;
+  }
+
+  if (currentView === 'feed') {
+    renderFeed(sortFiles(files));
+    return;
+  }
+
+  if (currentView === 'grid') {
+    container.className = 'file-grid';
+    container.innerHTML = files.map(f =>
+      `<div class="file-card${selectedFileId === f.id ? ' selected' : ''}" onclick="selectFile('${f.id}')">
+        <div class="file-icon">${fileIcon(f.mimeType, f.name)}</div>
+        <div class="file-name" title="${f.name}">${f.name}</div>
+        <div class="file-meta">
+          <span>${formatBytes(f.sizeBytes)}</span>
+          <span>${formatDate(f.createdAt)}</span>
+        </div>
+      </div>`
+    ).join('');
+  } else {
+    container.className = 'file-list';
+    container.innerHTML = files.map(f =>
+      `<div class="file-row${selectedFileId === f.id ? ' selected' : ''}" onclick="selectFile('${f.id}')">
+        <div class="file-icon">${fileIcon(f.mimeType, f.name)}</div>
+        <div class="file-name" title="${f.name}">${f.name}</div>
+        <div class="file-meta-cell">${formatBytes(f.sizeBytes)}</div>
+        <div class="file-meta-cell">${formatDate(f.createdAt)}</div>
+        <div class="file-meta-cell">${f.category || '—'}</div>
+      </div>`
+    ).join('');
+  }
+}
+
+function renderBreadcrumb(trail) {
+  const el = document.getElementById('breadcrumb');
+  let html = '<a onclick="navigateToRoot()">Library</a>';
+  for (const item of trail) {
+    html += '<span class="sep">/</span>';
+    if (item === trail[trail.length - 1]) {
+      html += `<span class="current">${item.name}</span>`;
+    } else {
+      html += `<a onclick="navigateToFolder('${item.id}')">${item.name}</a>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+// ── File detail ──────────────────────────────────────────────────────────
+
+async function selectFile(id) {
+  selectedFileId = id;
+  const data = await api(`/files/${id}`);
+  if (!data.file) return;
+
+  const f = data.file;
+  const panel = document.getElementById('detailPanel');
+  panel.classList.add('open');
+
+  document.getElementById('detailIcon').textContent = fileIcon(f.mimeType, f.name);
+  document.getElementById('detailName').textContent = f.name;
+
+  const body = document.getElementById('detailBody');
+  body.innerHTML = `
+    <div class="detail-field">
+      <label>Type</label>
+      <div class="value">${f.mimeType}</div>
+    </div>
+    <div class="detail-field">
+      <label>Size</label>
+      <div class="value">${formatBytes(f.sizeBytes)}</div>
+    </div>
+    <div class="detail-field">
+      <label>Category</label>
+      <div class="value">${f.category || '—'}</div>
+    </div>
+    <div class="detail-field">
+      <label>Created</label>
+      <div class="value">${formatDate(f.createdAt)}</div>
+    </div>
+    <div class="detail-field">
+      <label>Updated</label>
+      <div class="value">${formatDate(f.updatedAt)}</div>
+    </div>
+    <div class="detail-field">
+      <label>Version</label>
+      <div class="value">v${f.version || 1}</div>
+    </div>
+    ${f.tags && f.tags.length > 0 ? `
+    <div class="detail-field">
+      <label>Tags</label>
+      <div class="detail-tags">${f.tags.map(t => `<span class="detail-tag">${t}</span>`).join('')}</div>
+    </div>` : ''}
+  `;
+
+  const actions = document.getElementById('detailActions');
+  actions.innerHTML = `
+    <button class="detail-action-btn" onclick="downloadFile('${f.id}')">⬇ Download</button>
+    <button class="detail-action-btn" onclick="moveFile('${f.id}')">📁 Move to folder</button>
+    <button class="detail-action-btn" onclick="toggleFav('${f.id}', 'file')">${data.favorited ? '★ Unfavorite' : '☆ Favorite'}</button>
+    <button class="detail-action-btn danger" onclick="archiveFile('${f.id}')">🗑 Archive</button>
+  `;
+
+  // Re-render file list to update selection highlight
+  refreshCurrentView();
+}
+
+function closeDetail() {
+  selectedFileId = null;
+  selectedContactId = null;
+  selectedCalendarEvent = null;
+  selectedCredentialId = null;
+  document.getElementById('detailPanel').classList.remove('open');
+  if (currentSection === 'files') refreshCurrentView();
+  if (currentSection === 'contacts' && allContacts.length > 0) renderContactGrid(allContacts);
+  if (currentSection === 'calendar' && calendarEvents.length > 0) renderCalendarView();
+  if (currentSection === 'credentials' && allCredentials.length > 0) renderCredentialGrid(allCredentials);
+}
+
+// ── Actions ──────────────────────────────────────────────────────────────
+
+function downloadFile(id) {
+  window.open(API + `/files/${id}/download`, '_blank');
+}
+
+async function archiveFile(id) {
+  if (!confirm('Archive this file?')) return;
+  await api(`/files/${id}`, { method: 'DELETE' });
+  closeDetail();
+  if (currentFolderId) {
+    await navigateToFolder(currentFolderId);
+  } else {
+    await navigateToRoot();
+  }
+  loadTree();
+}
+
+async function moveFile(id) {
+  const allFolders = await api('/tree');
+  const flat = flattenTree(allFolders.tree || []);
+  const options = flat.map(f => f.folder.path).join('\n');
+  const choice = prompt('Move to folder (enter path):\n\n' + options);
+  if (!choice) return;
+  const target = flat.find(f => f.folder.path === choice);
+  if (!target) { alert('Folder not found'); return; }
+  await api(`/files/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folderId: target.folder.id }),
+  });
+  if (currentFolderId && currentFolderId !== '__unfiled') {
+    await navigateToFolder(currentFolderId);
+  } else if (currentFolderId === '__unfiled') {
+    await navigateToUnfiled();
+  } else {
+    await navigateToRoot();
+  }
+  loadTree();
+}
+
+function flattenTree(nodes) {
+  const result = [];
+  for (const n of nodes) {
+    result.push(n);
+    if (n.children) result.push(...flattenTree(n.children));
+  }
+  return result;
+}
+
+async function toggleFav(id, type) {
+  await api(`/favorites/${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type }),
+  });
+  if (selectedFileId === id) selectFile(id);
+  loadFavorites();
+}
+
+// ── Upload ───────────────────────────────────────────────────────────────
+
+async function uploadFiles(files) {
+  for (const file of files) {
+    const form = new FormData();
+    form.append('file', file);
+    if (currentFolderId && currentFolderId !== '__unfiled') {
+      form.append('folderId', currentFolderId);
+    }
+    await fetch(API + '/files/upload', { method: 'POST', body: form });
+  }
+  // Refresh
+  if (currentFolderId && currentFolderId !== '__unfiled') {
+    await navigateToFolder(currentFolderId);
+  } else if (currentFolderId === '__unfiled') {
+    await navigateToUnfiled();
+  } else {
+    await navigateToRoot();
+  }
+  loadTree();
+}
+
+document.getElementById('uploadInput').addEventListener('change', (e) => {
+  if (e.target.files.length > 0) uploadFiles(e.target.files);
+  e.target.value = '';
+});
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+const contentArea = document.getElementById('contentArea');
+
+contentArea.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+
+contentArea.addEventListener('dragleave', () => {
+  dropZone.classList.remove('dragover');
+});
+
+contentArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+});
+
+// ── New folder ───────────────────────────────────────────────────────────
+
+document.getElementById('newFolderBtn').onclick = () => {
+  document.getElementById('newFolderModal').classList.add('open');
+  document.getElementById('newFolderName').value = '';
+  document.getElementById('newFolderName').focus();
+};
+
+function closeNewFolderModal() {
+  document.getElementById('newFolderModal').classList.remove('open');
+}
+
+async function createFolder() {
+  const name = document.getElementById('newFolderName').value.trim();
+  if (!name) return;
+  await api('/folders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      parentId: (currentFolderId && currentFolderId !== '__unfiled') ? currentFolderId : null,
+    }),
+  });
+  closeNewFolderModal();
+  await loadTree();
+  if (currentFolderId && currentFolderId !== '__unfiled') {
+    await navigateToFolder(currentFolderId);
+  } else {
+    await navigateToRoot();
+  }
+}
+
+document.getElementById('newFolderName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') createFolder();
+  if (e.key === 'Escape') closeNewFolderModal();
+});
+
+// ── Search ───────────────────────────────────────────────────────────────
+
+function handleFileSearch(q) {
+  clearTimeout(searchTimeout);
+  if (!q) {
+    if (currentFolderId && currentFolderId !== '__unfiled') {
+      navigateToFolder(currentFolderId);
+    } else {
+      navigateToRoot();
+    }
+    return;
+  }
+  searchTimeout = setTimeout(async () => {
+    const data = await api(`/search?q=${encodeURIComponent(q)}`);
+    renderBreadcrumb([{ id: '__search', name: `Search: "${q}"` }]);
+    const subfoldersEl = document.getElementById('subfolders');
+    if (data.folders && data.folders.length > 0) {
+      subfoldersEl.innerHTML = data.folders.map(f =>
+        `<div class="subfolder-card" onclick="navigateToFolder('${f.id}')">
+          <span class="folder-icon">${folderIcon(f.icon)}</span>
+          <span>${f.name}</span>
+        </div>`
+      ).join('');
+    } else {
+      subfoldersEl.innerHTML = '';
+    }
+    renderFiles(data.files || []);
+  }, 300);
+}
+
+// Unified search — routes to current section's search handler
+document.getElementById('globalSearchInput').addEventListener('input', (e) => {
+  const q = e.target.value.trim();
+  if (currentSection === 'files') {
+    handleFileSearch(q);
+  } else if (currentSection === 'contacts') {
+    handleContactSearch(q);
+  } else if (currentSection === 'credentials') {
+    handleCredentialSearch(q);
+  }
+  // calendar: no client-side search for now
+});
+
+// ── View toggle ──────────────────────────────────────────────────────────
+
+function setViewActive(view) {
+  document.getElementById('feedViewBtn').classList.toggle('active', view === 'feed');
+  document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
+  document.getElementById('listViewBtn').classList.toggle('active', view === 'list');
+  document.getElementById('feedSortSelect').style.display = view === 'feed' ? '' : 'none';
+}
+
+document.getElementById('feedViewBtn').onclick = () => {
+  currentView = 'feed';
+  setViewActive('feed');
+  refreshCurrentView();
+};
+
+document.getElementById('feedSortSelect').onchange = () => {
+  if (currentView === 'feed' && lastFeedFiles.length > 0) {
+    renderFeed(sortFiles(lastFeedFiles));
+  }
+};
+
+document.getElementById('gridViewBtn').onclick = () => {
+  currentView = 'grid';
+  setViewActive('grid');
+  refreshCurrentView();
+};
+
+document.getElementById('listViewBtn').onclick = () => {
+  currentView = 'list';
+  setViewActive('list');
+  refreshCurrentView();
+};
+
+async function refreshCurrentView() {
+  let files = [];
+  if (currentFolderId === '__unfiled') {
+    const data = await api('/files?unfiled=true&limit=200');
+    files = data.files || [];
+  } else if (currentFolderId) {
+    const data = await api(`/folders/${currentFolderId}`);
+    files = data.files || [];
+    if (currentView !== 'feed') {
+      renderFolderContent(data.subfolders || [], files);
+      return;
+    }
+  } else {
+    // Root: fetch recent files
+    const data = await api('/files?limit=50');
+    files = data.files || [];
+  }
+
+  if (currentView === 'feed') {
+    document.getElementById('subfolders').innerHTML = '';
+    renderFeed(sortFiles(files));
+  } else {
+    renderFiles(files);
+  }
+}
+
+// ── Recents & Favorites ─────────────────────────────────────────────────
+
+async function loadRecents() {
+  const data = await api('/recents?limit=10');
+  const section = document.getElementById('recentsSection');
+  const list = document.getElementById('recentsList');
+  const recents = data.recents || [];
+
+  if (recents.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  list.innerHTML = recents.map(r => {
+    const icon = r.targetType === 'folder' ? '📁' : '📄';
+    const label = r.name || r.targetId;
+    const onclick = r.targetType === 'folder'
+      ? `navigateToFolder('${r.targetId}')`
+      : `selectFile('${r.targetId}')`;
+    return `<div class="sidebar-item" onclick="${onclick}">
+      <span class="icon">${icon}</span>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(label)}</span>
+    </div>`;
+  }).join('');
+}
+
+async function loadFavorites() {
+  const data = await api('/favorites');
+  const section = document.getElementById('favoritesSection');
+  const list = document.getElementById('favoritesList');
+  const favs = data.favorites || [];
+
+  if (favs.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  list.innerHTML = favs.map(f => {
+    const icon = f.targetType === 'folder' ? '📁' : '⭐';
+    const onclick = f.targetType === 'folder'
+      ? `navigateToFolder('${f.targetId}')`
+      : `selectFile('${f.targetId}')`;
+    return `<div class="sidebar-item" onclick="${onclick}">
+      <span class="icon">${icon}</span>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.targetId.slice(0, 16)}…</span>
+    </div>`;
+  }).join('');
+}
+
+function updateStats(unfiled) {
+  const el = document.getElementById('stats');
+  const totalFolders = flattenTree(treeData).length;
+  el.innerHTML = `
+    <span>Folders: <span class="stat-val">${totalFolders}</span></span>
+    <span>Unfiled: <span class="stat-val">${unfiled ?? 0}</span></span>
+  `;
+}
+
+// ── Section Routing ──────────────────────────────────────────────────────
+
+function switchSection(section) {
+  if (section === currentSection) return;
+  currentSection = section;
+  history.replaceState(null, '', '#' + section);
+
+  // Update sidebar type nav
+  document.querySelectorAll('[data-section]').forEach(el => {
+    el.classList.toggle('active', el.dataset.section === section);
+  });
+
+  // Show/hide section-specific toolbar actions
+  document.getElementById('filesToolbar').style.display = section === 'files' ? 'flex' : 'none';
+  document.getElementById('contactsToolbar').style.display = section === 'contacts' ? 'flex' : 'none';
+  document.getElementById('calendarToolbar').style.display = section === 'calendar' ? 'flex' : 'none';
+  document.getElementById('credentialsToolbar').style.display = section === 'credentials' ? 'flex' : 'none';
+
+  // Update unified search placeholder and clear value
+  const searchInput = document.getElementById('globalSearchInput');
+  const placeholders = { files: 'Search files and folders...', contacts: 'Search contacts...', calendar: 'Search events...', credentials: 'Search credentials...' };
+  searchInput.placeholder = placeholders[section] || 'Search...';
+  searchInput.value = '';
+
+  // Show/hide sidebar nav sections
+  document.getElementById('filesNav').style.display = section === 'files' ? '' : 'none';
+  document.getElementById('contactsNav').style.display = section === 'contacts' ? '' : 'none';
+  document.getElementById('calendarNav').style.display = section === 'calendar' ? '' : 'none';
+  document.getElementById('credentialsNav').style.display = section === 'credentials' ? '' : 'none';
+
+  // Show/hide main content
+  document.getElementById('filesMain').style.display = section === 'files' ? '' : 'none';
+  document.getElementById('contactsMain').style.display = section === 'contacts' ? '' : 'none';
+  document.getElementById('calendarMain').style.display = section === 'calendar' ? '' : 'none';
+  document.getElementById('credentialsMain').style.display = section === 'credentials' ? '' : 'none';
+
+  // Close detail panel when switching
+  closeDetail();
+
+  // Load section data
+  if (section === 'contacts') loadContacts();
+  if (section === 'calendar') loadCalendar();
+  if (section === 'credentials') loadCredentials();
+}
+
+window.addEventListener('hashchange', () => {
+  const hash = location.hash.replace('#', '') || 'files';
+  if (['files', 'contacts', 'calendar', 'credentials'].includes(hash) && hash !== currentSection) {
+    switchSection(hash);
+  }
+});
+
+// ── Contacts Module ──────────────────────────────────────────────────────
+
+const CONTACT_ICONS = { human: '👤', ai: '🤖', organization: '🏢', service: '⚙️' };
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function loadContacts(typeFilter) {
+  if (typeFilter !== undefined) contactTypeFilter = typeFilter;
+  const url = contactTypeFilter
+    ? `${CONTACTS_API}/entities?type=${contactTypeFilter}`
+    : `${CONTACTS_API}/entities`;
+
+  try {
+    const data = await fetch(url).then(r => r.json());
+    allContacts = (data.entities || []).filter(e => e.status !== 'archived');
+    renderContactGrid(allContacts);
+    updateContactCounts();
+  } catch (err) {
+    console.error('Failed to load contacts:', err);
+    document.getElementById('contactGrid').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><p>Failed to load contacts</p></div>';
+  }
+}
+
+function renderContactGrid(contacts) {
+  const grid = document.getElementById('contactGrid');
+  if (contacts.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><div class="icon">👤</div><p>No contacts yet</p></div>';
+    return;
+  }
+
+  grid.innerHTML = contacts.map(c => {
+    const icon = CONTACT_ICONS[c.type] || '👤';
+    const topChannel = c.channels && c.channels.length > 0 ? c.channels[0].value : '';
+    const tags = (c.tags || []).slice(0, 3);
+
+    return `<div class="contact-card${selectedContactId === c.id ? ' selected' : ''}" onclick="selectContact('${c.id}')">
+      <div class="contact-card-header">
+        <span class="contact-card-icon">${icon}</span>
+        <div>
+          <div class="contact-card-name">${escapeHtml(c.name)}</div>
+          <span class="contact-type-badge ${c.type}">${c.type}</span>
+        </div>
+      </div>
+      ${topChannel ? `<div class="contact-card-channel">${escapeHtml(topChannel)}</div>` : ''}
+      ${tags.length > 0 ? `<div class="contact-card-tags">${tags.map(t => `<span class="detail-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function selectContact(id) {
+  selectedContactId = id;
+  const entity = allContacts.find(c => c.id === id);
+  if (!entity) return;
+
+  let edges = [];
+  try {
+    const data = await fetch(`${CONTACTS_API}/entities/${id}/relationships`).then(r => r.json());
+    edges = data.edges || [];
+  } catch (err) {
+    console.error('Failed to load relationships:', err);
+  }
+
+  renderContactDetail(entity, edges);
+  renderContactGrid(allContacts);
+}
+
+function renderContactDetail(entity, edges) {
+  const panel = document.getElementById('detailPanel');
+  panel.classList.add('open');
+
+  const icon = CONTACT_ICONS[entity.type] || '👤';
+  document.getElementById('detailIcon').textContent = icon;
+  document.getElementById('detailName').textContent = entity.name;
+
+  let html = `
+    <div class="detail-field">
+      <label>Type</label>
+      <div class="value"><span class="contact-type-badge ${entity.type}">${entity.type}</span></div>
+    </div>`;
+
+  if (entity.aliases && entity.aliases.length > 0) {
+    html += `<div class="detail-field">
+      <label>Aliases</label>
+      <div class="value">${entity.aliases.map(a => escapeHtml(a)).join(', ')}</div>
+    </div>`;
+  }
+
+  if (entity.channels && entity.channels.length > 0) {
+    html += `<div class="detail-field">
+      <label>Channels</label>
+      <div class="channel-list">
+        ${entity.channels.map(ch => `<div class="channel-item">
+          <span class="channel-type">${ch.type}</span>
+          <span class="channel-value">${escapeHtml(ch.value)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (entity.notes) {
+    html += `<div class="detail-field">
+      <label>Notes</label>
+      <div class="value" style="white-space:pre-wrap;">${escapeHtml(entity.notes)}</div>
+    </div>`;
+  }
+
+  if (entity.tags && entity.tags.length > 0) {
+    html += `<div class="detail-field">
+      <label>Tags</label>
+      <div class="detail-tags">${entity.tags.map(t => `<span class="detail-tag">${escapeHtml(t)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  html += `<div class="detail-field">
+    <label>Created</label>
+    <div class="value">${formatDate(entity.createdAt)}</div>
+  </div>`;
+
+  if (edges.length > 0) {
+    html += `<div class="detail-field">
+      <label>Relationships</label>
+      <div class="relationship-list">
+        ${edges.map(e => {
+          const isFrom = e.from === entity.id;
+          const otherId = isFrom ? e.to : e.from;
+          const other = allContacts.find(c => c.id === otherId);
+          const otherName = other ? other.name : otherId;
+          const otherIcon = other ? (CONTACT_ICONS[other.type] || '👤') : '👤';
+          const relLabel = e.label ? ` (${escapeHtml(e.label)})` : '';
+          return `<div class="relationship-item" onclick="selectContact('${otherId}')">
+            <span class="rel-icon">${otherIcon}</span>
+            <span class="rel-name">${escapeHtml(otherName)}</span>
+            <span class="rel-type">${e.type.replace(/_/g, ' ')}${relLabel}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  const body = document.getElementById('detailBody');
+  body.innerHTML = html;
+
+  const actions = document.getElementById('detailActions');
+  actions.innerHTML = `
+    <button class="detail-action-btn" onclick="openNewRelationshipModal('${entity.id}')">🔗 Add Relationship</button>
+    <button class="detail-action-btn danger" onclick="archiveContact('${entity.id}')">🗑 Archive</button>
+  `;
+}
+
+async function updateContactCounts() {
+  try {
+    const data = await fetch(`${CONTACTS_API}/entities`).then(r => r.json());
+    const all = (data.entities || []).filter(e => e.status !== 'archived');
+    const counts = { human: 0, organization: 0, ai: 0, service: 0 };
+    all.forEach(e => { if (counts[e.type] !== undefined) counts[e.type]++; });
+
+    const el = (id) => document.getElementById(id);
+    if (el('contactCountAll')) el('contactCountAll').textContent = all.length || '';
+    if (el('contactCountHuman')) el('contactCountHuman').textContent = counts.human || '';
+    if (el('contactCountOrg')) el('contactCountOrg').textContent = counts.organization || '';
+    if (el('contactCountAi')) el('contactCountAi').textContent = counts.ai || '';
+    if (el('contactCountService')) el('contactCountService').textContent = counts.service || '';
+  } catch (err) { /* non-critical */ }
+}
+
+function filterContactsByType(type) {
+  contactTypeFilter = type;
+  document.querySelectorAll('[data-contact-type]').forEach(el => {
+    el.classList.toggle('active', el.dataset.contactType === type);
+  });
+  const dropdown = document.getElementById('contactTypeFilter');
+  if (dropdown) dropdown.value = type;
+  loadContacts(type);
+}
+
+// ── Contact Modals ───────────────────────────────────────────────────────
+
+function openNewContactModal() {
+  document.getElementById('newContactModal').classList.add('open');
+  document.getElementById('newContactName').value = '';
+  document.getElementById('newContactType').value = 'human';
+  document.getElementById('newContactEmail').value = '';
+  document.getElementById('newContactPhone').value = '';
+  document.getElementById('newContactNotes').value = '';
+  document.getElementById('newContactTags').value = '';
+  document.getElementById('newContactName').focus();
+}
+
+async function createContact() {
+  const name = document.getElementById('newContactName').value.trim();
+  if (!name) return;
+
+  const type = document.getElementById('newContactType').value;
+  const email = document.getElementById('newContactEmail').value.trim();
+  const phone = document.getElementById('newContactPhone').value.trim();
+  const notes = document.getElementById('newContactNotes').value.trim();
+  const tagsStr = document.getElementById('newContactTags').value.trim();
+
+  const channels = [];
+  if (email) channels.push({ type: 'email', value: email });
+  if (phone) channels.push({ type: 'phone', value: phone });
+  const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  try {
+    await fetch(`${CONTACTS_API}/entities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, type, channels, notes: notes || undefined, tags }),
+    });
+    closeModal('newContactModal');
+    await loadContacts();
+  } catch (err) {
+    alert('Failed to create contact: ' + err.message);
+  }
+}
+
+function openNewRelationshipModal(entityId) {
+  document.getElementById('newRelationshipModal').classList.add('open');
+  document.getElementById('newRelationshipModal').dataset.fromEntity = entityId;
+  document.getElementById('relLabel').value = '';
+  document.getElementById('relNotes').value = '';
+  document.getElementById('relType').value = 'collaborates_with';
+
+  const select = document.getElementById('relTargetEntity');
+  select.innerHTML = allContacts
+    .filter(c => c.id !== entityId)
+    .map(c => `<option value="${c.id}">${escapeHtml(c.name)} (${c.type})</option>`)
+    .join('');
+}
+
+async function createRelationship() {
+  const modal = document.getElementById('newRelationshipModal');
+  const from = modal.dataset.fromEntity;
+  const to = document.getElementById('relTargetEntity').value;
+  const type = document.getElementById('relType').value;
+  const label = document.getElementById('relLabel').value.trim();
+  const notes = document.getElementById('relNotes').value.trim();
+
+  if (!from || !to) return;
+
+  try {
+    await fetch(`${CONTACTS_API}/edges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, type, label: label || undefined, notes: notes || undefined }),
+    });
+    closeModal('newRelationshipModal');
+    await selectContact(from);
+  } catch (err) {
+    alert('Failed to create relationship: ' + err.message);
+  }
+}
+
+async function archiveContact(id) {
+  if (!confirm('Archive this contact?')) return;
+  try {
+    await fetch(`${CONTACTS_API}/entities/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'archived' }),
+    });
+    closeDetail();
+    selectedContactId = null;
+    await loadContacts();
+  } catch (err) {
+    alert('Failed to archive contact: ' + err.message);
+  }
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// ── Contact Search ───────────────────────────────────────────────────────
+
+function handleContactSearch(q) {
+  clearTimeout(contactSearchTimeout);
+  const lq = (q || '').toLowerCase();
+  contactSearchTimeout = setTimeout(() => {
+    if (!lq) {
+      renderContactGrid(allContacts);
+      return;
+    }
+    const filtered = allContacts.filter(c =>
+      c.name.toLowerCase().includes(lq) ||
+      (c.notes && c.notes.toLowerCase().includes(lq)) ||
+      (c.tags && c.tags.some(t => t.toLowerCase().includes(lq))) ||
+      (c.channels && c.channels.some(ch => ch.value.toLowerCase().includes(lq)))
+    );
+    renderContactGrid(filtered);
+  }, 200);
+}
+
+document.getElementById('newContactName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') createContact();
+  if (e.key === 'Escape') closeModal('newContactModal');
+});
+
+// ── Credentials Module ────────────────────────────────────────────────────
+
+const CRED_ICONS = { api_key: '🔑', token: '🔐', oauth: '🔓', password: '🔒', secret: '🗝️' };
+
+async function loadCredentials(typeFilter) {
+  if (typeFilter !== undefined) credentialTypeFilter = typeFilter;
+  const params = new URLSearchParams();
+  if (credentialTypeFilter) params.set('type', credentialTypeFilter);
+  const url = params.toString() ? `${CREDENTIALS_API}?${params}` : CREDENTIALS_API;
+
+  try {
+    const data = await fetch(url).then(r => r.json());
+    allCredentials = (data.credentials || []).filter(c => c.status !== 'archived');
+    renderCredentialGrid(allCredentials);
+    updateCredentialCounts();
+  } catch (err) {
+    console.error('Failed to load credentials:', err);
+    document.getElementById('credentialGrid').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><p>Failed to load credentials</p></div>';
+  }
+}
+
+function renderCredentialGrid(creds) {
+  const grid = document.getElementById('credentialGrid');
+  if (creds.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><div class="icon">🔑</div><p>No credentials yet</p><p style="color:var(--text-dim);font-size:13px;">Click "+ Credential" to add one</p></div>';
+    return;
+  }
+
+  grid.innerHTML = creds.map(c => {
+    const icon = CRED_ICONS[c.type] || '🔑';
+    const tags = (c.tags || []).slice(0, 3);
+
+    return `<div class="contact-card${selectedCredentialId === c.id ? ' selected' : ''}" onclick="selectCredential('${c.id}')">
+      <div class="contact-card-header">
+        <span class="contact-card-icon">${icon}</span>
+        <div>
+          <div class="contact-card-name">${escapeHtml(c.service)}</div>
+          <span class="credential-type-badge ${c.type}">${c.type.replace('_', ' ')}</span>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text);">${escapeHtml(c.name)}</div>
+      <div class="credential-value">${escapeHtml(c.value)}</div>
+      ${tags.length > 0 ? `<div class="contact-card-tags">${tags.map(t => `<span class="detail-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function selectCredential(id) {
+  selectedCredentialId = id;
+  // Fetch full credential (with unmasked value) for detail view
+  try {
+    const cred = await fetch(`${CREDENTIALS_API}/${id}`).then(r => r.json());
+    renderCredentialDetail(cred);
+  } catch (err) {
+    console.error('Failed to load credential:', err);
+  }
+  renderCredentialGrid(allCredentials);
+}
+
+function renderCredentialDetail(cred) {
+  const panel = document.getElementById('detailPanel');
+  panel.classList.add('open');
+
+  const icon = CRED_ICONS[cred.type] || '🔑';
+  document.getElementById('detailIcon').textContent = icon;
+  document.getElementById('detailName').textContent = cred.name;
+
+  let html = `
+    <div class="detail-field">
+      <label>Service</label>
+      <div class="value">${escapeHtml(cred.service)}</div>
+    </div>
+    <div class="detail-field">
+      <label>Type</label>
+      <div class="value"><span class="credential-type-badge ${cred.type}">${cred.type.replace('_', ' ')}</span></div>
+    </div>
+    <div class="detail-field">
+      <label>Value</label>
+      <div class="value">
+        <code class="credential-value" id="credDetailValue" style="display:inline;">••••••••</code>
+        <button class="credential-reveal-btn" onclick="toggleRevealCredential('${cred.id}')">Reveal</button>
+        <button class="credential-reveal-btn" onclick="copyCredentialValue('${cred.id}')">Copy</button>
+      </div>
+    </div>`;
+
+  if (cred.envVar) {
+    html += `<div class="detail-field">
+      <label>Env Variable</label>
+      <div class="value" style="font-family:var(--mono);font-size:12px;">${escapeHtml(cred.envVar)}</div>
+    </div>`;
+  }
+
+  if (cred.notes) {
+    html += `<div class="detail-field">
+      <label>Notes</label>
+      <div class="value" style="white-space:pre-wrap;">${escapeHtml(cred.notes)}</div>
+    </div>`;
+  }
+
+  if (cred.tags && cred.tags.length > 0) {
+    html += `<div class="detail-field">
+      <label>Tags</label>
+      <div class="detail-tags">${cred.tags.map(t => `<span class="detail-tag">${escapeHtml(t)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  html += `<div class="detail-field">
+    <label>Created</label>
+    <div class="value">${formatDate(cred.createdAt)}</div>
+  </div>
+  <div class="detail-field">
+    <label>Updated</label>
+    <div class="value">${formatDate(cred.updatedAt)}</div>
+  </div>`;
+
+  if (cred.lastRotatedAt) {
+    html += `<div class="detail-field">
+      <label>Last Rotated</label>
+      <div class="value">${formatDate(cred.lastRotatedAt)}</div>
+    </div>`;
+  }
+
+  document.getElementById('detailBody').innerHTML = html;
+
+  // Store full value on the panel for reveal/copy
+  panel.dataset.credValue = cred.value || '';
+
+  document.getElementById('detailActions').innerHTML = `
+    <button class="detail-action-btn" onclick="openEditCredentialModal('${cred.id}')">✏️ Edit</button>
+    <button class="detail-action-btn" onclick="rotateCredential('${cred.id}')">🔄 Rotate</button>
+    <button class="detail-action-btn danger" onclick="archiveCredential('${cred.id}')">🗑 Archive</button>
+  `;
+}
+
+function toggleRevealCredential(id) {
+  const el = document.getElementById('credDetailValue');
+  const panel = document.getElementById('detailPanel');
+  const val = panel.dataset.credValue || '';
+  if (el.textContent === '••••••••') {
+    el.textContent = val;
+    el.parentElement.querySelector('.credential-reveal-btn').textContent = 'Hide';
+  } else {
+    el.textContent = '••••••••';
+    el.parentElement.querySelector('.credential-reveal-btn').textContent = 'Reveal';
+  }
+}
+
+async function copyCredentialValue(id) {
+  const panel = document.getElementById('detailPanel');
+  const val = panel.dataset.credValue || '';
+  try {
+    await navigator.clipboard.writeText(val);
+    const btn = document.querySelectorAll('.credential-reveal-btn')[1];
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500); }
+  } catch { alert('Failed to copy — check clipboard permissions'); }
+}
+
+async function updateCredentialCounts() {
+  try {
+    const data = await fetch(CREDENTIALS_API).then(r => r.json());
+    const all = (data.credentials || []).filter(c => c.status !== 'archived');
+    const counts = { api_key: 0, token: 0, oauth: 0, password: 0, secret: 0 };
+    all.forEach(c => { if (counts[c.type] !== undefined) counts[c.type]++; });
+
+    const el = (id) => document.getElementById(id);
+    if (el('credCountAll')) el('credCountAll').textContent = all.length || '';
+    if (el('credCountApiKey')) el('credCountApiKey').textContent = counts.api_key || '';
+    if (el('credCountToken')) el('credCountToken').textContent = counts.token || '';
+    if (el('credCountOauth')) el('credCountOauth').textContent = counts.oauth || '';
+    if (el('credCountPassword')) el('credCountPassword').textContent = counts.password || '';
+    if (el('credCountSecret')) el('credCountSecret').textContent = counts.secret || '';
+  } catch { /* non-critical */ }
+}
+
+function filterCredentialsByType(type) {
+  credentialTypeFilter = type;
+  document.querySelectorAll('[data-cred-type]').forEach(el => {
+    el.classList.toggle('active', el.dataset.credType === type);
+  });
+  loadCredentials(type);
+}
+
+// ── Credential Modals ────────────────────────────────────────────────────
+
+function openNewCredentialModal() {
+  editingCredentialId = null;
+  document.getElementById('credentialModalTitle').textContent = 'New Credential';
+  document.getElementById('credentialModalSubmit').textContent = 'Create';
+  document.getElementById('credentialName').value = '';
+  document.getElementById('credentialService').value = '';
+  document.getElementById('credentialType').value = 'api_key';
+  document.getElementById('credentialValue').value = '';
+  document.getElementById('credentialValue').type = 'password';
+  document.getElementById('credentialEnvVar').value = '';
+  document.getElementById('credentialNotes').value = '';
+  document.getElementById('credentialTags').value = '';
+  document.getElementById('newCredentialModal').classList.add('open');
+  document.getElementById('credentialName').focus();
+}
+
+async function openEditCredentialModal(id) {
+  const cred = await fetch(`${CREDENTIALS_API}/${id}`).then(r => r.json());
+  editingCredentialId = id;
+  document.getElementById('credentialModalTitle').textContent = 'Edit Credential';
+  document.getElementById('credentialModalSubmit').textContent = 'Save';
+  document.getElementById('credentialName').value = cred.name || '';
+  document.getElementById('credentialService').value = cred.service || '';
+  document.getElementById('credentialType').value = cred.type || 'api_key';
+  document.getElementById('credentialValue').value = cred.value || '';
+  document.getElementById('credentialValue').type = 'password';
+  document.getElementById('credentialEnvVar').value = cred.envVar || '';
+  document.getElementById('credentialNotes').value = cred.notes || '';
+  document.getElementById('credentialTags').value = (cred.tags || []).join(', ');
+  document.getElementById('newCredentialModal').classList.add('open');
+  document.getElementById('credentialName').focus();
+}
+
+function toggleCredentialValueVisibility() {
+  const input = document.getElementById('credentialValue');
+  const btn = input.parentElement.querySelector('.credential-reveal-btn');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = 'Hide';
+  } else {
+    input.type = 'password';
+    btn.textContent = 'Show';
+  }
+}
+
+async function saveCredential() {
+  const name = document.getElementById('credentialName').value.trim();
+  const service = document.getElementById('credentialService').value.trim();
+  const type = document.getElementById('credentialType').value;
+  const value = document.getElementById('credentialValue').value;
+  const envVar = document.getElementById('credentialEnvVar').value.trim() || undefined;
+  const notes = document.getElementById('credentialNotes').value.trim() || undefined;
+  const tagsStr = document.getElementById('credentialTags').value.trim();
+  const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  if (!name || !service || !value) {
+    alert('Name, Service, and Value are required.');
+    return;
+  }
+
+  try {
+    if (editingCredentialId) {
+      await fetch(`${CREDENTIALS_API}/${editingCredentialId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, service, type, value, envVar, notes, tags }),
+      });
+    } else {
+      await fetch(CREDENTIALS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, service, type, value, envVar, notes, tags }),
+      });
+    }
+    closeModal('newCredentialModal');
+    editingCredentialId = null;
+    closeDetail();
+    await loadCredentials();
+  } catch (err) {
+    alert('Failed to save credential: ' + err.message);
+  }
+}
+
+async function rotateCredential(id) {
+  const newValue = prompt('Enter the new secret value:');
+  if (!newValue) return;
+  try {
+    await fetch(`${CREDENTIALS_API}/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: newValue, lastRotatedAt: new Date().toISOString() }),
+    });
+    await loadCredentials();
+    await selectCredential(id);
+  } catch (err) {
+    alert('Failed to rotate credential: ' + err.message);
+  }
+}
+
+async function archiveCredential(id) {
+  if (!confirm('Archive this credential?')) return;
+  try {
+    await fetch(`${CREDENTIALS_API}/${id}`, { method: 'DELETE' });
+    closeDetail();
+    selectedCredentialId = null;
+    await loadCredentials();
+  } catch (err) {
+    alert('Failed to archive credential: ' + err.message);
+  }
+}
+
+async function migrateFromVault() {
+  if (!confirm('Import all keys from Settings vault into Credentials?\n\nExisting credentials with matching env vars will be skipped.')) return;
+  try {
+    const res = await fetch(`${CREDENTIALS_API}/migrate-vault`, { method: 'POST' });
+    const data = await res.json();
+    if (data.error) { alert('Migration failed: ' + data.error); return; }
+    let msg = `Imported ${data.migrated} key(s) from vault.`;
+    if (data.skipped && data.skipped.length > 0) {
+      msg += `\nSkipped ${data.skipped.length} (already exist): ${data.skipped.join(', ')}`;
+    }
+    alert(msg);
+    await loadCredentials();
+  } catch (err) {
+    alert('Migration failed: ' + err.message);
+  }
+}
+
+function handleCredentialSearch(q) {
+  clearTimeout(credentialSearchTimeout);
+  const lq = (q || '').toLowerCase();
+  credentialSearchTimeout = setTimeout(() => {
+    if (!lq) {
+      renderCredentialGrid(allCredentials);
+      return;
+    }
+    const filtered = allCredentials.filter(c =>
+      c.name.toLowerCase().includes(lq) ||
+      c.service.toLowerCase().includes(lq) ||
+      (c.tags && c.tags.some(t => t.toLowerCase().includes(lq)))
+    );
+    renderCredentialGrid(filtered);
+  }, 200);
+}
+
+document.getElementById('credentialName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveCredential();
+  if (e.key === 'Escape') closeModal('newCredentialModal');
+});
+
+// ── Calendar Module ──────────────────────────────────────────────────────
+
+let calendarView = 'agenda'; // 'agenda' | 'day' | 'week'
+let calendarDate = new Date();
+let calendarEvents = [];
+let selectedCalendarEvent = null;
+let googleAuthenticated = false;
+
+function formatEventTime(startStr, endStr) {
+  if (!startStr) return '';
+  if (startStr.length === 10) return 'All day';
+  const start = new Date(startStr);
+  const end = endStr ? new Date(endStr) : null;
+  const opts = { hour: 'numeric', minute: '2-digit', hour12: true };
+  let result = start.toLocaleTimeString('en-US', opts);
+  if (end) result += ' – ' + end.toLocaleTimeString('en-US', opts);
+  return result;
+}
+
+function calDateKey(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function startOfDay(d) {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function startOfWeek(d) {
+  const r = new Date(d);
+  r.setDate(r.getDate() - r.getDay());
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+function getCalendarDateRange() {
+  const day = startOfDay(calendarDate);
+  if (calendarView === 'day') return { start: day, end: addDays(day, 1) };
+  if (calendarView === 'week') {
+    const ws = startOfWeek(calendarDate);
+    return { start: ws, end: addDays(ws, 7) };
+  }
+  return { start: day, end: addDays(day, 14) }; // agenda: 2 weeks
+}
+
+async function loadCalendar() {
+  // Check if Google is authenticated (no session needed)
+  try {
+    const status = await fetch('/api/google/status').then(r => r.json());
+    googleAuthenticated = status.authenticated;
+  } catch (e) {
+    googleAuthenticated = false;
+  }
+
+  if (!googleAuthenticated) {
+    renderCalendarAuthGate();
+    return;
+  }
+
+  updateCalendarDateLabel();
+  const { start, end } = getCalendarDateRange();
+
+  try {
+    const params = new URLSearchParams({
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      maxResults: '100',
+    });
+    const res = await fetch(`/api/google/calendar/events?${params}`);
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      if (data.error && data.error.includes('not authenticated')) {
+        renderCalendarAuthGate();
+        return;
+      }
+      throw new Error(data.error || 'Failed to load events');
+    }
+
+    calendarEvents = data.events || [];
+    renderCalendarView();
+    loadUpcomingEvents();
+  } catch (err) {
+    console.error('Calendar load error:', err);
+    document.getElementById('calendarContent').innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><p>Failed to load calendar: ${escapeHtml(err.message)}</p></div>`;
+  }
+}
+
+function renderCalendarAuthGate() {
+  document.getElementById('calendarContent').innerHTML = `
+    <div class="auth-gate">
+      <div class="icon">📅</div>
+      <h3>Connect Google Calendar</h3>
+      <p>Connect your Google account to see your events here.</p>
+      <button class="toolbar-btn primary" onclick="initiateGoogleAuth()">Connect Google Calendar</button>
+    </div>`;
+}
+
+function initiateGoogleAuth() {
+  // Backend redirects directly to Google consent screen
+  window.open('/api/google/auth', 'google-auth', 'width=600,height=700');
+  // Listen for success message from callback page
+  window.addEventListener('message', function onMsg(e) {
+    if (e.data === 'google-connected') {
+      window.removeEventListener('message', onMsg);
+      loadCalendar();
+    }
+  });
+}
+
+function renderCalendarView() {
+  if (calendarView === 'agenda') renderAgendaView();
+  else if (calendarView === 'day') renderDayView();
+  else if (calendarView === 'week') renderWeekView();
+}
+
+function updateCalendarDateLabel() {
+  const label = document.getElementById('calendarDateLabel');
+  if (!label) return;
+  const opts = { month: 'long', day: 'numeric', year: 'numeric' };
+  if (calendarView === 'week') {
+    const ws = startOfWeek(calendarDate);
+    const we = addDays(ws, 6);
+    label.textContent = ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+      ' – ' + we.toLocaleDateString('en-US', opts);
+  } else if (calendarView === 'agenda') {
+    label.textContent = calendarDate.toLocaleDateString('en-US', opts) + ' (2 weeks)';
+  } else {
+    label.textContent = calendarDate.toLocaleDateString('en-US', opts);
+  }
+}
+
+// ── Agenda View ──
+
+function renderAgendaView() {
+  const content = document.getElementById('calendarContent');
+  if (calendarEvents.length === 0) {
+    content.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>No events in this period</p></div>';
+    return;
+  }
+
+  const groups = {};
+  calendarEvents.forEach((evt, idx) => {
+    const d = evt.start ? evt.start.substring(0, 10) : 'unknown';
+    if (!groups[d]) groups[d] = [];
+    groups[d].push({ ...evt, _idx: idx });
+  });
+
+  const todayStr = calDateKey(new Date());
+  const days = Object.keys(groups).sort();
+
+  content.innerHTML = `<div class="calendar-agenda">${days.map(day => {
+    const isToday = day === todayStr;
+    const dayDate = new Date(day + 'T12:00:00');
+    const dayLabel = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    return `<div class="agenda-day">
+      <div class="agenda-day-header${isToday ? ' today' : ''}">${isToday ? 'Today — ' : ''}${dayLabel}</div>
+      ${groups[day].map(evt => `<div class="agenda-event${selectedCalendarEvent && selectedCalendarEvent.id === evt.id ? ' selected' : ''}" onclick="selectCalendarEvent(${evt._idx})">
+        <div class="agenda-event-status ${evt.status || 'confirmed'}"></div>
+        <div class="agenda-event-time">${formatEventTime(evt.start, evt.end)}</div>
+        <div class="agenda-event-info">
+          <div class="agenda-event-title">${escapeHtml(evt.summary || 'Untitled')}</div>
+          ${evt.location ? `<div class="agenda-event-location">${escapeHtml(evt.location)}</div>` : ''}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ── Day View ──
+
+function renderDayView() {
+  const content = document.getElementById('calendarContent');
+  const dayStart = 7, dayEnd = 22;
+  const hours = [];
+  for (let h = dayStart; h <= dayEnd; h++) hours.push(h);
+
+  const dayEvents = calendarEvents.filter(evt => evt.start && evt.start.length > 10).map((evt, idx) => {
+    const start = new Date(evt.start);
+    const end = evt.end ? new Date(evt.end) : new Date(start.getTime() + 3600000);
+    return { ...evt, _idx: idx, startHour: start.getHours() + start.getMinutes() / 60, endHour: end.getHours() + end.getMinutes() / 60 };
+  });
+
+  const allDayEvents = calendarEvents.filter(evt => evt.start && evt.start.length === 10);
+
+  let html = '<div class="calendar-day-view">';
+
+  if (allDayEvents.length > 0) {
+    html += '<div style="padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;">';
+    allDayEvents.forEach((evt, idx) => {
+      html += `<div style="padding:4px 8px;background:rgba(109,93,252,0.2);border-radius:4px;margin:2px 0;cursor:pointer;" onclick="selectCalendarEvent(${calendarEvents.indexOf(evt)})">${escapeHtml(evt.summary || 'Untitled')} — All day</div>`;
+    });
+    html += '</div>';
+  }
+
+  hours.forEach(h => {
+    const label = h === 0 ? '12 AM' : h < 12 ? h + ' AM' : h === 12 ? '12 PM' : (h - 12) + ' PM';
+    html += `<div class="hour-slot"><div class="hour-label">${label}</div><div class="hour-content">`;
+    dayEvents.forEach(evt => {
+      if (evt.startHour >= h && evt.startHour < h + 1) {
+        const top = ((evt.startHour - h) * 48) + 'px';
+        const height = Math.max(20, (evt.endHour - evt.startHour) * 48) + 'px';
+        html += `<div class="day-event" style="top:${top};height:${height};" onclick="selectCalendarEvent(${evt._idx})">
+          <div class="event-title">${escapeHtml(evt.summary || 'Untitled')}</div>
+          <div class="event-time">${formatEventTime(evt.start, evt.end)}</div>
+        </div>`;
+      }
+    });
+    html += '</div></div>';
+  });
+
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+// ── Week View ──
+
+function renderWeekView() {
+  const content = document.getElementById('calendarContent');
+  const ws = startOfWeek(calendarDate);
+  const todayStr = calDateKey(new Date());
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayStart = 8, dayEnd = 20;
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(ws, i);
+    days.push({ date: d, key: calDateKey(d), label: dayNames[i] + ' ' + (d.getMonth() + 1) + '/' + d.getDate(), isToday: calDateKey(d) === todayStr });
+  }
+
+  const eventsByDay = {};
+  calendarEvents.forEach((evt, idx) => {
+    const dk = evt.start ? evt.start.substring(0, 10) : null;
+    if (dk) {
+      if (!eventsByDay[dk]) eventsByDay[dk] = [];
+      eventsByDay[dk].push({ ...evt, _idx: idx });
+    }
+  });
+
+  let html = '<div class="calendar-week-view">';
+  html += '<div class="week-header"></div>';
+  days.forEach(d => { html += `<div class="week-header${d.isToday ? ' today' : ''}">${d.label}</div>`; });
+
+  for (let h = dayStart; h <= dayEnd; h++) {
+    const label = h < 12 ? h + 'a' : h === 12 ? '12p' : (h - 12) + 'p';
+    html += `<div class="week-hour-label">${label}</div>`;
+    days.forEach(d => {
+      const dayEvts = (eventsByDay[d.key] || []).filter(evt => {
+        if (!evt.start || evt.start.length === 10) return h === dayStart;
+        return new Date(evt.start).getHours() === h;
+      });
+      html += '<div class="week-cell">';
+      dayEvts.forEach(evt => {
+        html += `<div class="week-event" onclick="selectCalendarEvent(${evt._idx})" title="${escapeHtml(evt.summary || '')}">${escapeHtml(evt.summary || '')}</div>`;
+      });
+      html += '</div>';
+    });
+  }
+
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+// ── Calendar Navigation ──
+
+function setCalendarView(view) {
+  calendarView = view;
+  document.getElementById('agendaViewBtn').classList.toggle('active', view === 'agenda');
+  document.getElementById('dayViewBtn').classList.toggle('active', view === 'day');
+  document.getElementById('weekViewBtn').classList.toggle('active', view === 'week');
+  loadCalendar();
+}
+
+function navigateCalendarDate(offset) {
+  if (calendarView === 'week') calendarDate = addDays(calendarDate, offset * 7);
+  else if (calendarView === 'day') calendarDate = addDays(calendarDate, offset);
+  else calendarDate = addDays(calendarDate, offset * 14);
+  loadCalendar();
+}
+
+function goToToday() {
+  calendarDate = new Date();
+  loadCalendar();
+}
+
+function goToThisWeek() {
+  calendarDate = new Date();
+  setCalendarView('week');
+}
+
+// ── Calendar Event Detail ──
+
+function selectCalendarEvent(idx) {
+  const evt = calendarEvents[idx];
+  if (!evt) return;
+  selectedCalendarEvent = evt;
+
+  const panel = document.getElementById('detailPanel');
+  panel.classList.add('open');
+  document.getElementById('detailIcon').textContent = '📅';
+  document.getElementById('detailName').textContent = evt.summary || 'Untitled';
+
+  let html = `
+    <div class="detail-field">
+      <label>Date & Time</label>
+      <div class="value">${formatEventTime(evt.start, evt.end)}</div>
+    </div>
+    <div class="detail-field">
+      <label>Date</label>
+      <div class="value">${evt.start ? new Date(evt.start.length === 10 ? evt.start + 'T12:00:00' : evt.start).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—'}</div>
+    </div>`;
+
+  if (evt.location) {
+    html += `<div class="detail-field"><label>Location</label><div class="value">${escapeHtml(evt.location)}</div></div>`;
+  }
+  if (evt.description) {
+    html += `<div class="detail-field"><label>Description</label><div class="value" style="white-space:pre-wrap;">${escapeHtml(evt.description)}</div></div>`;
+  }
+  if (evt.attendees && evt.attendees.length > 0) {
+    html += `<div class="detail-field"><label>Attendees</label><div class="value">${evt.attendees.map(a => escapeHtml(a)).join('<br>')}</div></div>`;
+  }
+  html += `<div class="detail-field"><label>Status</label><div class="value">${evt.status || 'confirmed'}</div></div>`;
+
+  document.getElementById('detailBody').innerHTML = html;
+
+  let actionsHtml = '';
+  if (evt.htmlLink) {
+    actionsHtml += `<button class="detail-action-btn" onclick="window.open('${evt.htmlLink}', '_blank')">🔗 Open in Google Calendar</button>`;
+  }
+  actionsHtml += `<button class="detail-action-btn danger" onclick="deleteCalendarEvent('${evt.id}')">🗑 Delete Event</button>`;
+  document.getElementById('detailActions').innerHTML = actionsHtml;
+
+  renderCalendarView();
+}
+
+async function deleteCalendarEvent(eventId) {
+  if (!confirm('Delete this event?')) return;
+  try {
+    const res = await fetch(`/api/google/calendar/events/${eventId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Delete failed');
+    closeDetail();
+    selectedCalendarEvent = null;
+    await loadCalendar();
+  } catch (err) {
+    alert('Failed to delete event: ' + err.message);
+  }
+}
+
+async function loadUpcomingEvents() {
+  const el = document.getElementById('upcomingEvents');
+  if (!el) return;
+  const now = new Date();
+  const upcoming = calendarEvents.filter(e => new Date(e.start) >= now).slice(0, 5);
+  if (upcoming.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text-dim);padding:4px 8px;">No upcoming events</div>';
+    return;
+  }
+  el.innerHTML = upcoming.map(evt => {
+    const evtIdx = calendarEvents.indexOf(evt);
+    return `<div class="upcoming-event" onclick="selectCalendarEvent(${evtIdx})">
+      <div class="upcoming-event-dot"></div>
+      <div>
+        <div class="upcoming-event-title">${escapeHtml(evt.summary || 'Untitled')}</div>
+        <div class="upcoming-event-time">${formatEventTime(evt.start, evt.end)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Calendar Event Modal ──
+
+function openNewEventModal() {
+  if (!googleAuthenticated) {
+    alert('Please connect Google Calendar first');
+    return;
+  }
+  document.getElementById('newEventModal').classList.add('open');
+  document.getElementById('newEventTitle').value = '';
+  document.getElementById('newEventDate').value = calDateKey(new Date());
+  document.getElementById('newEventStart').value = '09:00';
+  document.getElementById('newEventEnd').value = '10:00';
+  document.getElementById('newEventLocation').value = '';
+  document.getElementById('newEventDescription').value = '';
+  document.getElementById('newEventAttendees').value = '';
+  document.getElementById('newEventTitle').focus();
+}
+
+async function createEvent() {
+  const title = document.getElementById('newEventTitle').value.trim();
+  if (!title) return;
+
+  const date = document.getElementById('newEventDate').value;
+  const startTime = document.getElementById('newEventStart').value;
+  const endTime = document.getElementById('newEventEnd').value;
+  const location = document.getElementById('newEventLocation').value.trim();
+  const description = document.getElementById('newEventDescription').value.trim();
+  const attendeesStr = document.getElementById('newEventAttendees').value.trim();
+
+  const start = new Date(`${date}T${startTime}:00`).toISOString();
+  const end = new Date(`${date}T${endTime}:00`).toISOString();
+  const attendees = attendeesStr ? attendeesStr.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+  try {
+    const res = await fetch('/api/google/calendar/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title, start, end,
+        location: location || undefined,
+        description: description || undefined,
+        attendees: attendees.length > 0 ? attendees : undefined,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to create event');
+    }
+    closeModal('newEventModal');
+    await loadCalendar();
+  } catch (err) {
+    alert('Failed to create event: ' + err.message);
+  }
+}
+
+document.getElementById('newEventTitle').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal('newEventModal');
+});
+
+// ── Feed View ────────────────────────────────────────────────────────────
+
+let currentFolderSystemType = null;
+let lastFeedFiles = []; // cache for re-sorting without refetch
+
+function sortFiles(files) {
+  const order = document.getElementById('feedSortSelect').value;
+  const sorted = [...files];
+  switch (order) {
+    case 'name':
+      sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      break;
+    case 'name-desc':
+      sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+      break;
+    case 'size':
+      sorted.sort((a, b) => (b.sizeBytes || 0) - (a.sizeBytes || 0));
+      break;
+    case 'size-asc':
+      sorted.sort((a, b) => (a.sizeBytes || 0) - (b.sizeBytes || 0));
+      break;
+    case 'oldest':
+      sorted.sort((a, b) => new Date(a.updatedAt || a.createdAt).getTime() - new Date(b.updatedAt || b.createdAt).getTime());
+      break;
+    case 'recent':
+    default:
+      sorted.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+      break;
+  }
+  return sorted;
+}
+
+function renderFeed(files) {
+  lastFeedFiles = files;
+  const container = document.getElementById('fileContainer');
+  container.className = 'feed-stream';
+
+  if (files.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📑</div><p>No files to show</p></div>';
+    return;
+  }
+
+  container.innerHTML = files.map(f => {
+    const icon = fileIcon(f.mimeType, f.name);
+    const accessed = f._lastAccessed ? formatDate(f._lastAccessed) : formatDate(f.updatedAt);
+    return `<div class="feed-card" id="feed-${f.id}">
+      <div class="feed-card-header" onclick="selectFile('${f.id}')">
+        <span class="feed-icon">${icon}</span>
+        <span class="feed-title">${escapeHtml(f.name)}</span>
+        <span class="feed-meta">
+          <span>${formatBytes(f.sizeBytes)}</span>
+          <span>${accessed}</span>
+        </span>
+      </div>
+      <div class="feed-card-body loading" id="feed-body-${f.id}">Loading...</div>
+    </div>`;
+  }).join('');
+
+  // Load content for each file
+  files.forEach(f => loadFeedContent(f.id, f.mimeType, f.name, f.textPreview));
+}
+
+async function loadFeedContent(fileId, mimeType, name, textPreview) {
+  const bodyEl = document.getElementById(`feed-body-${fileId}`);
+  if (!bodyEl) return;
+
+  const textMimes = ['text/markdown', 'text/plain', 'text/yaml', 'text/csv', 'application/json', 'application/x-yaml'];
+  const isText = textMimes.some(m => (mimeType || '').includes(m))
+    || /\.(md|txt|yaml|yml|json|csv|log)$/i.test(name || '');
+
+  if (!isText) {
+    bodyEl.className = 'feed-card-body binary';
+    const icon = fileIcon(mimeType, name);
+    bodyEl.innerHTML = `<div style="font-size:32px;margin-bottom:8px;">${icon}</div>
+      <div>${mimeType || 'Binary file'}</div>
+      <div style="margin-top:6px;">${formatBytes(0)} — click header to view details</div>`;
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API}/files/${fileId}/content?max=10000`);
+    const data = await res.json();
+    if (data.content) {
+      bodyEl.className = 'feed-card-body';
+      let html = escapeHtml(data.content);
+      // Light markdown: headers
+      html = html.replace(/^(#{1,3}) (.+)$/gm, (_, hashes, text) => {
+        const level = hashes.length;
+        return `<h${level}>${text}</h${level}>`;
+      });
+      if (data.truncated) {
+        html += `<div class="truncated-note">Showing ${data.content.length.toLocaleString()} of ${data.totalChars.toLocaleString()} characters</div>`;
+      }
+      bodyEl.innerHTML = html;
+    } else {
+      // Fallback to stored textPreview
+      bodyEl.className = 'feed-card-body';
+      bodyEl.textContent = textPreview || '(No preview available)';
+    }
+  } catch {
+    bodyEl.className = 'feed-card-body';
+    bodyEl.textContent = textPreview || '(Failed to load content)';
+  }
+}
+
+// ── Brain Shadow Files ───────────────────────────────────────────────────
+
+let currentBrainCategory = null; // null or category key
+const BRAIN_API = '/api/library/brain';
+
+async function loadBrainCategories() {
+  try {
+    const data = await fetch(BRAIN_API).then(r => r.json());
+    const cats = data.categories || [];
+    const list = document.getElementById('brainCategoryList');
+    list.innerHTML = cats.map(cat =>
+      `<div class="sidebar-item${currentBrainCategory === cat.key ? ' active' : ''}" onclick="navigateToBrainCategory('${cat.key}')">
+        <span class="icon">${cat.icon}</span>
+        <span>${cat.label}</span>
+        <span class="count">${cat.fileCount}</span>
+      </div>`
+    ).join('');
+  } catch (err) {
+    console.error('Failed to load brain categories:', err);
+  }
+}
+
+async function navigateToBrainRoot() {
+  currentFolderId = null;
+  currentBrainCategory = null;
+  selectedFileId = null;
+  closeDetail();
+
+  const data = await fetch(BRAIN_API).then(r => r.json());
+  const cats = data.categories || [];
+
+  renderBreadcrumb([{ id: '__brain', name: 'Brain' }]);
+  const subfoldersEl = document.getElementById('subfolders');
+  subfoldersEl.innerHTML = '';
+  const container = document.getElementById('fileContainer');
+  container.className = 'file-grid';
+  container.innerHTML = cats.map(cat =>
+    `<div class="brain-category-card" onclick="navigateToBrainCategory('${cat.key}')">
+      <div class="cat-icon">${cat.icon}</div>
+      <div class="cat-label">${cat.label}</div>
+      <div class="cat-meta">${cat.fileCount} files &middot; ${formatBytes(cat.totalBytes)}</div>
+    </div>`
+  ).join('');
+
+  renderTree();
+  loadBrainCategories();
+}
+
+async function navigateToBrainCategory(key) {
+  currentFolderId = null;
+  currentBrainCategory = key;
+  selectedFileId = null;
+  closeDetail();
+
+  const data = await fetch(`${BRAIN_API}/${key}`).then(r => r.json());
+  if (!data.category) return;
+
+  renderBreadcrumb([
+    { id: '__brain', name: 'Brain' },
+    { id: `__brain_${key}`, name: data.category.label },
+  ]);
+
+  const subfoldersEl = document.getElementById('subfolders');
+  subfoldersEl.innerHTML = '';
+
+  renderBrainFiles(data.files || [], key);
+  renderTree();
+  loadBrainCategories();
+}
+
+function renderBrainFiles(files, category) {
+  const container = document.getElementById('fileContainer');
+  if (files.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📂</div><p>No files in this category</p></div>';
+    return;
+  }
+
+  if (currentView === 'grid') {
+    container.className = 'file-grid';
+    container.innerHTML = files.map(f =>
+      `<div class="file-card shadow${selectedFileId === f.id ? ' selected' : ''}" onclick="selectBrainFile('${category}', '${f.name}')">
+        <div class="file-icon">${fileIcon(f.mimeType, f.name)}</div>
+        <div class="file-name" title="${f.name}">${f.name}</div>
+        <div class="file-meta">
+          <span>${formatBytes(f.sizeBytes)}</span>
+          <span>${formatDate(f.modifiedAt)}</span>
+        </div>
+      </div>`
+    ).join('');
+  } else {
+    container.className = 'file-list';
+    container.innerHTML = files.map(f =>
+      `<div class="file-row shadow${selectedFileId === f.id ? ' selected' : ''}" onclick="selectBrainFile('${category}', '${f.name}')">
+        <div class="file-icon">${fileIcon(f.mimeType, f.name)}</div>
+        <div class="file-name" title="${f.name}">${f.name}</div>
+        <div class="file-meta-cell">${formatBytes(f.sizeBytes)}</div>
+        <div class="file-meta-cell">${formatDate(f.modifiedAt)}</div>
+        <div class="file-meta-cell">${f.mimeType.split('/')[1] || '—'}</div>
+      </div>`
+    ).join('');
+  }
+}
+
+async function selectBrainFile(category, filename) {
+  selectedFileId = `shadow_${category}_${filename}`;
+  const data = await fetch(`${BRAIN_API}/${category}`).then(r => r.json());
+  const f = (data.files || []).find(f => f.name === filename);
+  if (!f) return;
+
+  const panel = document.getElementById('detailPanel');
+  panel.classList.add('open');
+
+  document.getElementById('detailIcon').textContent = fileIcon(f.mimeType, f.name);
+  document.getElementById('detailName').innerHTML = f.name + '<span class="shadow-badge">Brain</span>';
+
+  const body = document.getElementById('detailBody');
+  body.innerHTML = `
+    <div class="detail-field">
+      <label>Source</label>
+      <div class="value" style="color:var(--purple);">🔒 Brain (read-only)</div>
+    </div>
+    <div class="detail-field">
+      <label>Type</label>
+      <div class="value">${f.mimeType}</div>
+    </div>
+    <div class="detail-field">
+      <label>Size</label>
+      <div class="value">${formatBytes(f.sizeBytes)}</div>
+    </div>
+    <div class="detail-field">
+      <label>Modified</label>
+      <div class="value">${formatDate(f.modifiedAt)}</div>
+    </div>
+    <div class="detail-field">
+      <label>Category</label>
+      <div class="value">${data.category.icon} ${data.category.label}</div>
+    </div>
+    ${f.textPreview ? `<div class="detail-field">
+      <label>Preview</label>
+      <div class="value" style="font-family:var(--mono);font-size:11px;white-space:pre-wrap;max-height:200px;overflow-y:auto;color:var(--text-dim);">${escapeHtml(f.textPreview)}</div>
+    </div>` : ''}
+  `;
+
+  const actions = document.getElementById('detailActions');
+  actions.innerHTML = `
+    <button class="detail-action-btn" onclick="downloadBrainFile('${category}', '${filename}')">⬇ Download</button>
+  `;
+
+  // Re-render file list to update selection highlight
+  if (currentBrainCategory) {
+    const reData = await fetch(`${BRAIN_API}/${currentBrainCategory}`).then(r => r.json());
+    renderBrainFiles(reData.files || [], currentBrainCategory);
+  }
+}
+
+function downloadBrainFile(category, filename) {
+  window.open(`${BRAIN_API}/${category}/${filename}/download`, '_blank');
+}
+
+// Patch renderBreadcrumb to handle brain items
+const _origRenderBreadcrumb = renderBreadcrumb;
+renderBreadcrumb = function(trail) {
+  const el = document.getElementById('breadcrumb');
+  let html = '<a onclick="navigateToRoot()">Library</a>';
+  for (const item of trail) {
+    html += '<span class="sep">/</span>';
+    if (item.id === '__brain') {
+      if (item === trail[trail.length - 1]) {
+        html += '<span class="current">Brain</span>';
+      } else {
+        html += '<a onclick="navigateToBrainRoot()">Brain</a>';
+      }
+    } else if (item.id && item.id.startsWith('__brain_')) {
+      html += `<span class="current">${item.name}</span>`;
+    } else if (item === trail[trail.length - 1]) {
+      html += `<span class="current">${item.name}</span>`;
+    } else {
+      html += `<a onclick="navigateToFolder('${item.id}')">${item.name}</a>`;
+    }
+  }
+  el.innerHTML = html;
+};
+
+// Patch navigateToRoot/Folder/Unfiled to clear brain state
+const _origNavigateToRoot = navigateToRoot;
+navigateToRoot = async function() {
+  currentBrainCategory = null;
+  await _origNavigateToRoot();
+  loadBrainCategories();
+};
+
+const _origNavigateToFolder = navigateToFolder;
+navigateToFolder = async function(id) {
+  currentBrainCategory = null;
+  await _origNavigateToFolder(id);
+  loadBrainCategories();
+};
+
+const _origNavigateToUnfiled = navigateToUnfiled;
+navigateToUnfiled = async function() {
+  currentBrainCategory = null;
+  await _origNavigateToUnfiled();
+  loadBrainCategories();
+};
+
+// ── Init ─────────────────────────────────────────────────────────────────
+
+async function init() {
+  await loadTree();
+  await loadRootContent();
+  loadRecents();
+  loadFavorites();
+  loadBrainCategories();
+
+  // Handle initial hash route
+  const hash = location.hash.replace('#', '');
+  if (['contacts', 'calendar', 'credentials'].includes(hash)) {
+    switchSection(hash);
+  }
+}
+
+init();
+
+// Auto-refresh tree every 10s
+setInterval(() => loadTree(), 10000);
+</script>
+<script src="/public/share-modal.js"></script>
+</body>
+</html>

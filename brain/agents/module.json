@@ -1,0 +1,15 @@
+{
+  "name": "agents",
+  "description": "Agent runtime: spawned Claude Code agent tasks, execution logs, runtime state.",
+  "keywords": ["agent", "agents", "agent task", "agent status", "spawned"],
+  "files": [
+    { "path": "tasks/", "role": "data" },
+    { "path": "runtime/", "role": "data" },
+    { "path": "logs/", "role": "log" }
+  ],
+  "endpoints": [
+    { "path": "/api/agents/tasks", "method": "GET" },
+    { "path": "/api/runtime/status", "method": "GET" }
+  ],
+  "promptOrder": 55
+}
