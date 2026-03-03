@@ -131,6 +131,74 @@ The system is grinding under load from its own feedback loops. Linear sync is sl
 
 ---
 
+---
+
+## v2.0 — Distribution & Update Channel
+
+> Brainstormed 2026-03-02. Not yet specced. These are the problems to solve
+> for Core to be a real multi-instance platform, not just a template you fork and forget.
+
+### The core tension
+
+Code evolves. Brain schema follows code. Brain data is personal. When an upstream code change
+alters the shape of settings.json, JSONL schemas, or adds new brain modules, every running
+instance needs to (a) learn about it, (b) migrate its brain data safely, (c) never lose
+personal memories/identity in the process.
+
+### U-001: Update subscription channel
+**Problem:** Instances are standalone forks. No mechanism to learn about upstream code changes,
+security patches, or new capabilities.
+**Ideas:**
+- On boot, Core pings a version endpoint (or checks a git remote), compares semver
+- Notification: "v0.2.0 available — 3 security fixes, 2 new capabilities"
+- Pull is always manual (local-first principle) — no auto-update
+- Security patches could get a stronger signal (banner in UI, push notification)
+- Channel is one-way: upstream → instance. No phoning home, no telemetry.
+
+### U-002: Brain migration system
+**Problem:** Code updates may change brain file schemas. Old instances have old-shape data.
+Need to transform brain data without losing personal content.
+**Ideas:**
+- `brain/settings.json` gets a `schemaVersion: number` field
+- Each release ships migration functions: `v1→v2`, `v2→v3`, etc.
+- On boot: check version, run pending migrations sequentially, backup brain/ first
+- Migrations only touch structure (add fields, rename columns, create new modules) — never
+  modify personal content (memories, experiences, identity)
+- Additive changes (new optional field, new module dir) use self-healing defaults — code
+  falls back gracefully, no migration needed
+- Structural changes (renames, type changes, removed fields) require explicit migration
+- Boot sequence: `initInstanceName()` → `runPendingMigrations()` → `loadVault()` → `start()`
+- Extends B-016 (JSONL schema migration framework)
+
+### U-003: Instance → upstream contribution
+**Problem:** When an instance tunes code or adds a feature, there's no way to push that
+improvement back to Core for other instances to benefit.
+**Ideas:**
+- Git upstream model: `git remote add upstream core-repo` → PR workflow
+- Code lives in `src/`, brain in `brain/` — clean separation means code PRs don't
+  carry personal data (brain/ is gitignored for clones)
+- Registry-based sharing (brain/registry.md): skills, templates, capabilities published
+  as packages. Instances subscribe to registries. Not code changes, but higher-level
+  modules.
+- Code contributions require review (security, quality) before merge to upstream
+
+### U-004: Security update fast-path
+**Problem:** Security patches must reach all instances quickly. Can't wait for users to
+manually check.
+**Ideas:**
+- Severity levels: critical (UI banner + push notification), standard (boot-time notice)
+- Signed update manifests so instances can verify authenticity
+- Critical patches: always ship, even in airplane mode queue them for next online boot
+- Security updates that touch code only (no schema change) skip migrations entirely
+
+### Open questions
+- Should instances track which upstream version they forked from? (git tag vs settings field)
+- How much divergence is acceptable before "update" becomes "merge conflict hell"?
+- Should brain migrations be reversible (down-migrations)?
+- Registry packages vs code updates — are these the same channel or separate?
+
+---
+
 ## Priority Map
 
 | Tier | Items | Theme | Manifesto Alignment |
