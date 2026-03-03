@@ -225,6 +225,37 @@ anchors and follow a proven path. They don't solve the route themselves.
 - Key principle: the brain is always yours. Local-first. No lock-in. Paid services
   add convenience, not captivity.
 
+### U-006: Virtual Brain Layer — brain-schema-agnostic architecture
+**Problem:** Core's architecture is hardcoded to Core's brain schema. Every
+`join("brain", ...)` path, every JSONL schema expectation means someone with a
+different knowledge system (Obsidian vault, Zettelkasten, flat markdown wiki)
+can't use Core without adopting our brain layout. The architecture should serve
+the brain, not dictate it.
+**Design:**
+- **Brain manifest** (`brain.manifest.yaml`) at the root of any brain directory
+  declares what modules exist, where they live, what format they use (jsonl,
+  markdown, sqlite, obsidian).
+- **Adapter pattern** — Core talks to a VBL interface (Recall, Learn, Tasks,
+  Activity, Identity, Schedule). Each brain type has an adapter that implements
+  those primitives against its own storage format.
+- **Template versioning** separate from architecture versioning. Templates are
+  the initial wiring a fresh brain spawns from. A living brain diverges
+  immediately. Upgrading templates = run migrations (extends U-002).
+**What needs abstraction:**
+- `FileSystemLongTermMemory` — path assumptions
+- `QueueStore` — direct JSONL manipulation
+- `activity/log.ts` — hardcoded log path
+- `traceInsights.ts` — hardcoded insights path
+- Context assembler — assumes specific section shapes
+- Every `join(process.cwd(), "brain", ...)` in the codebase
+**What's already halfway there:**
+- `LongTermMemoryStore` interface (right idea, implementations hardcode paths)
+- `BoardProvider` interface (already brain-agnostic)
+- `_schema` headers in JSONL (self-describing, not yet used for discovery)
+**Full research notes:** Discovered in Dash session 2026-03-03. See
+`brain/knowledge/notes/core-v2-virtual-brain-layer.md` in the Dash repo for
+the complete design exploration.
+
 ### Open questions
 - Should instances track which upstream version they forked from? (git tag vs settings field)
 - How much divergence is acceptable before "update" becomes "merge conflict hell"?
