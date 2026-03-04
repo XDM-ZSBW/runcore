@@ -1,6 +1,6 @@
 {
-  "instanceName": "Core",
   "airplaneMode": false,
+  "privateMode": false,
   "models": {
     "chat": "auto",
     "utility": "auto"
@@ -38,7 +38,11 @@
     "threshold": 60,
     "mode": "hybrid"
   },
-  "agentName": "Me",
+  "mesh": {
+    "lanAnnounce": false,
+    "allowIncoming": false
+  },
+  "instanceName": "Core",
   "integrations": {
     "enabled": true,
     "services": {
