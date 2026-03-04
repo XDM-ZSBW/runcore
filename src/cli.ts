@@ -174,7 +174,7 @@ async function findPort(preferred: number): Promise<number> {
 // ── Start ──────────────────────────────────────────────────────────
 
 async function startServer() {
-  const preferredPort = parseInt(getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.DASH_PORT ?? "3577", 10);
+  const preferredPort = parseInt(getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.CORE_PORT ?? "3577", 10);
   const dirArg = getFlag(args, "--dir") ?? process.env.CORE_HOME;
 
   const port = await findPort(preferredPort);
@@ -182,7 +182,7 @@ async function startServer() {
     console.log(`  Port ${preferredPort} in use, using ${port}`);
   }
 
-  process.env.DASH_PORT = String(port);
+  process.env.CORE_PORT = String(port);
   if (dirArg) {
     process.chdir(resolve(dirArg));
   }
@@ -227,7 +227,7 @@ async function startServer() {
 // ── Status ─────────────────────────────────────────────────────────
 
 async function status() {
-  const port = getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.DASH_PORT ?? "3577";
+  const port = getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.CORE_PORT ?? "3577";
   const url = `http://localhost:${port}/api/health`;
 
   try {

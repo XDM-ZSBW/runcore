@@ -250,7 +250,7 @@ function pickStreamFn(): (options: StreamOptions) => Promise<void> {
 
 // --- Config ---
 
-const PORT = parseInt(process.env.DASH_PORT ?? resolveEnv("PORT") ?? "3577", 10);
+const PORT = parseInt(process.env.CORE_PORT ?? resolveEnv("PORT") ?? "3577", 10);
 const SIDECAR_PORT = resolveEnv("SEARCH_PORT") ?? "3578";
 const BRAIN_DIR = join(process.cwd(), "brain");
 const SKILLS_DIR = join(process.cwd(), "skills");
