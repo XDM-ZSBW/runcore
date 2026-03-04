@@ -45,6 +45,8 @@ import { getProvider } from "./llm/providers/index.js";
 import type { StreamOptions } from "./llm/providers/types.js";
 import { withStreamRetry } from "./llm/retry.js";
 import { LLMError } from "./llm/errors.js";
+import { PrivateModeError, isPrivateMode, checkOllamaHealth } from "./llm/guard.js";
+import { installFetchGuard } from "./llm/fetch-guard.js";
 import {
   loadSettings,
   getSettings,
@@ -1788,7 +1790,15 @@ app.post("/api/branch", async (c) => {
 
   const activeProvider = resolveProvider();
   const activeChatModel = resolveChatModel();
-  const stream_fn = pickStreamFn();
+  let stream_fn: ReturnType<typeof pickStreamFn>;
+  try {
+    stream_fn = pickStreamFn();
+  } catch (err) {
+    if (err instanceof PrivateModeError) {
+      return c.json({ error: err.message }, 503);
+    }
+    throw err;
+  }
   const reqSignal = c.req.raw.signal;
 
   return streamSSE(c, async (stream) => {
@@ -1821,9 +1831,13 @@ app.post("/api/branch", async (c) => {
           stream.writeSSE({ data: JSON.stringify({ done: true }) }).catch(() => {});
           resolve();
         },
-        onError: (err) => {
+        onError: async (err) => {
           reqSignal?.removeEventListener("abort", onAbort);
-          const errorMsg = err instanceof LLMError ? err.userMessage : (err.message || "Stream error");
+          let errorMsg = err instanceof LLMError ? err.userMessage : (err.message || "Stream error");
+          if (isPrivateMode() && /ECONNREFUSED|fetch failed|network|socket/i.test(errorMsg)) {
+            const health = await checkOllamaHealth();
+            if (!health.ok) errorMsg += " — Check that Ollama is running. " + health.message;
+          }
           stream.writeSSE({ data: JSON.stringify({ error: errorMsg }) }).catch(() => {});
           resolve();
         },
@@ -4855,7 +4869,15 @@ app.post("/api/chat", async (c) => {
     }
   }
 
-  const stream_fn = pickStreamFn();
+  let stream_fn: ReturnType<typeof pickStreamFn>;
+  try {
+    stream_fn = pickStreamFn();
+  } catch (err) {
+    if (err instanceof PrivateModeError) {
+      return c.json({ error: err.message }, 503);
+    }
+    throw err;
+  }
 
   const activeProvider = resolveProvider();
   const activeChatModel = resolveChatModel();
@@ -5119,13 +5141,17 @@ app.post("/api/chat", async (c) => {
             resolve();
           }
         },
-        onError: (err) => {
+        onError: async (err) => {
           reqSignal?.removeEventListener("abort", onAbort);
           // If this error is from an abort, save partial and exit quietly
           if (reqSignal?.aborted) {
             savePartial();
           } else {
-            const errorMsg = err instanceof LLMError ? err.userMessage : (err.message || "Stream error");
+            let errorMsg = err instanceof LLMError ? err.userMessage : (err.message || "Stream error");
+            if (isPrivateMode() && /ECONNREFUSED|fetch failed|network|socket/i.test(errorMsg)) {
+              const health = await checkOllamaHealth();
+              if (!health.ok) errorMsg += " — Check that Ollama is running. " + health.message;
+            }
             stream.writeSSE({ data: JSON.stringify({ error: errorMsg }) }).catch(() => {});
           }
           resolve(); // Still resolve so stream closes
@@ -5150,6 +5176,9 @@ async function start() {
 
   // Load settings (airplane mode, model selection)
   const settings = await loadSettings();
+
+  // Install fetch guard before any routes or outbound calls
+  installFetchGuard();
 
   // Run independent initialization in parallel: LLM cache, auth, and sidecars
   const [, pairingCode, sidecarResults] = await Promise.all([

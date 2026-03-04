@@ -50,6 +50,10 @@ export function resolveService(envVarName: string): string | null {
  */
 export function isIntegrationEnabled(service: string): boolean {
   const settings = getSettings();
+
+  // privateMode → all integrations disabled (network isolation)
+  if (settings.privateMode) return false;
+
   const integrations = settings.integrations;
 
   // No integrations block at all → everything enabled (backwards compat)

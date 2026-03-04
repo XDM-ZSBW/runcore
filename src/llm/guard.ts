@@ -54,6 +54,27 @@ export function assertProviderAllowed(provider: ProviderName): void {
 }
 
 /**
+ * Lightweight Ollama health probe. Returns a result object instead of throwing,
+ * useful for non-critical paths (SSE error hints, status endpoints).
+ */
+export async function checkOllamaHealth(): Promise<{ ok: boolean; message: string }> {
+  const baseUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!res.ok) {
+      return { ok: false, message: `Ollama responded with status ${res.status}` };
+    }
+    return { ok: true, message: "Ollama is reachable" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, message: `Ollama not available at ${baseUrl}: ${msg}` };
+  }
+}
+
+/**
  * Check if Ollama is reachable. Used to fail loudly at startup when
  * privateMode is on but Ollama isn't available.
  */

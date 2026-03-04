@@ -143,3 +143,15 @@
 {"type":"observation","skillId":"bc.priority","timestamp":"2026-03-04T23:06:32.251Z","positive":true,"context":"DASH-3: priority=3"}
 {"type":"observation","skillId":"bc.file_paths","timestamp":"2026-03-04T23:06:32.251Z","positive":false,"context":"DASH-3: no file refs"}
 {"type":"observation","skillId":"bc.exchanges","timestamp":"2026-03-04T23:06:32.251Z","positive":false,"context":"DASH-3: 0 chat exchange(s)"}
+{"type":"observation","skillId":"bc.title","timestamp":"2026-03-04T23:26:32.269Z","positive":false,"context":"DASH-5: 6 words, no verb"}
+{"type":"observation","skillId":"bc.description","timestamp":"2026-03-04T23:26:32.269Z","positive":true,"context":"DASH-5: 1307 chars, has paths, has detail"}
+{"type":"observation","skillId":"bc.acceptance","timestamp":"2026-03-04T23:26:32.269Z","positive":false,"context":"DASH-5: no acceptance keywords"}
+{"type":"observation","skillId":"bc.priority","timestamp":"2026-03-04T23:26:32.269Z","positive":true,"context":"DASH-5: priority=2"}
+{"type":"observation","skillId":"bc.file_paths","timestamp":"2026-03-04T23:26:32.269Z","positive":true,"context":"DASH-5: references files"}
+{"type":"observation","skillId":"bc.exchanges","timestamp":"2026-03-04T23:26:32.269Z","positive":false,"context":"DASH-5: 0 chat exchange(s)"}
+{"type":"observation","skillId":"bc.title","timestamp":"2026-03-04T23:26:32.269Z","positive":false,"context":"DASH-6: 6 words, no verb"}
+{"type":"observation","skillId":"bc.description","timestamp":"2026-03-04T23:26:32.269Z","positive":true,"context":"DASH-6: 1277 chars, has paths, has detail"}
+{"type":"observation","skillId":"bc.acceptance","timestamp":"2026-03-04T23:26:32.269Z","positive":false,"context":"DASH-6: no acceptance keywords"}
+{"type":"observation","skillId":"bc.priority","timestamp":"2026-03-04T23:26:32.269Z","positive":true,"context":"DASH-6: priority=2"}
+{"type":"observation","skillId":"bc.file_paths","timestamp":"2026-03-04T23:26:32.269Z","positive":true,"context":"DASH-6: references files"}
+{"type":"observation","skillId":"bc.exchanges","timestamp":"2026-03-04T23:26:32.269Z","positive":false,"context":"DASH-6: 0 chat exchange(s)"}
