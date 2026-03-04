@@ -110,3 +110,40 @@
 {"timestamp":"2026-03-04T23:39:25.711Z","file":"operations/queue.jsonl","method":"readBrainLines"}
 {"timestamp":"2026-03-04T23:40:06.053Z","file":"agents/tasks/agent_1772667272299_b6ca34dd.json","method":"readBrainFile"}
 {"timestamp":"2026-03-04T23:40:15.734Z","file":"agents/tasks/agent_1772667272299_b6ca34dd.json","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:35.825Z","file":"agents/logs/agent_1772667272299_b6ca34dd.stdout.log","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:35.825Z","file":"agents/logs/agent_1772667272299_b6ca34dd.stderr.log","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:35.826Z","file":"agents/tasks/agent_1772667272299_b6ca34dd.json","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:35.827Z","file":"agents/tasks/agent_1772667272299_b6ca34dd.json","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:36.124Z","file":"agents/logs/agent_1772667272299_b6ca34dd.stdout.log","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:36.124Z","file":"agents/logs/agent_1772667272299_b6ca34dd.stderr.log","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:36.125Z","file":"agents/tasks/agent_1772667272299_b6ca34dd.json","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:36.126Z","file":"agents/tasks/agent_1772667272299_b6ca34dd.json","method":"readBrainFile"}
+{"timestamp":"2026-03-04T23:41:36.157Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:39.331Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:41:47.613Z","file":"vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.616Z","file":"memory/experiences.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.616Z","file":"memory/semantic.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.616Z","file":"memory/procedural.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.617Z","file":"memory/embeddings.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.653Z","file":"vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.657Z","file":"memory/experiences.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.657Z","file":"memory/semantic.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.657Z","file":"memory/procedural.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:47.658Z","file":"memory/embeddings.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:41:54.336Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:42:05.781Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:42:06.103Z","file":"memory/resonances.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:06.103Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:06.104Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:15.786Z","file":"memory/resonances.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:15.786Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:15.787Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:54.337Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:42:59.303Z","file":"vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:59.309Z","file":"memory/experiences.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:59.309Z","file":"memory/semantic.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:59.309Z","file":"memory/procedural.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:42:59.311Z","file":"memory/embeddings.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:43:04.329Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:43:05.780Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:43:16.105Z","file":"vault/vault/credentials.enc.jsonl","method":"readBrainLines"}
