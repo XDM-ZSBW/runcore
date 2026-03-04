@@ -1,0 +1,119 @@
+{
+  "window": {
+    "start": "2026-03-04T11:00:00.000Z",
+    "end": "2026-03-04T12:00:00.000Z",
+    "type": "hourly"
+  },
+  "metrics": [
+    {
+      "name": "agent.memory_usage",
+      "count": 120,
+      "sum": 9951527248,
+      "min": 82211024,
+      "max": 83846496,
+      "avg": 82929393.733,
+      "p50": 82936728,
+      "p95": 83502610.4,
+      "p99": 83719163.92,
+      "unit": "bytes"
+    },
+    {
+      "name": "http.concurrent_requests",
+      "count": 120,
+      "sum": 0,
+      "min": 0,
+      "max": 0,
+      "avg": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "unit": "count"
+    },
+    {
+      "name": "system.cpu.percent",
+      "count": 120,
+      "sum": 10.68,
+      "min": 0,
+      "max": 0.52,
+      "avg": 0.089,
+      "p50": 0.05,
+      "p95": 0.26,
+      "p99": 0.37,
+      "unit": "%"
+    },
+    {
+      "name": "system.disk.brain_bytes",
+      "count": 120,
+      "sum": 11878427,
+      "min": 37645,
+      "max": 160221,
+      "avg": 98986.892,
+      "p50": 101815,
+      "p95": 153365.05,
+      "p99": 159133.91,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.event_loop.drift",
+      "count": 120,
+      "sum": 1156.2099999999998,
+      "min": 0.02,
+      "max": 14.95,
+      "avg": 9.635,
+      "p50": 9.69,
+      "p95": 11.261,
+      "p99": 11.769,
+      "unit": "ms"
+    },
+    {
+      "name": "system.memory.external",
+      "count": 120,
+      "sum": 509051253,
+      "min": 4114262,
+      "max": 4374446,
+      "avg": 4242093.775,
+      "p50": 4244250,
+      "p95": 4347882,
+      "p99": 4370095.04,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.memory.heap_total",
+      "count": 120,
+      "sum": 10345381888,
+      "min": 85409792,
+      "max": 87769088,
+      "avg": 86211515.733,
+      "p50": 86196224,
+      "p95": 86982656,
+      "p99": 87407329.28,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.memory.heap_used",
+      "count": 120,
+      "sum": 9952534680,
+      "min": 82115128,
+      "max": 83906688,
+      "avg": 82937789,
+      "p50": 82961556,
+      "p95": 83527560,
+      "p99": 83714636.88,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.memory.rss",
+      "count": 120,
+      "sum": 11212447744,
+      "min": 71024640,
+      "max": 146362368,
+      "avg": 93437064.533,
+      "p50": 78993408,
+      "p95": 111375360,
+      "p99": 146268160,
+      "unit": "bytes"
+    }
+  ],
+  "pointsProcessed": 1080,
+  "generatedAt": "2026-03-04T12:01:31.852Z"
+}

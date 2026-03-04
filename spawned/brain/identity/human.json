@@ -1,0 +1,10 @@
+{
+  "name": "Me",
+  "safeWordHash": "2744ccd10c7533bd736ad890f9dd5cab2adb27b07d500b9493f29cdc420cb2e0",
+  "pbkdf2Salt": "b3c6d8aa1a9b812b88375791b6c86ae9",
+  "recovery": {
+    "question": "me",
+    "answerHash": "2744ccd10c7533bd736ad890f9dd5cab2adb27b07d500b9493f29cdc420cb2e0"
+  },
+  "pairedAt": "2026-03-04T10:53:36.459Z"
+}

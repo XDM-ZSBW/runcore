@@ -1,0 +1,94 @@
+{
+  "lastScan": null,
+  "lastBoardWatermark": null,
+  "lastActivityId": 0,
+  "trees": {
+    "board_craft": {
+      "label": "Board Craft",
+      "level": 1,
+      "unlocked": true,
+      "skills": {
+        "bc.title": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "bc.description": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "bc.acceptance": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "bc.priority": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "bc.file_paths": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "bc.exchanges": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        }
+      }
+    },
+    "observatory_literacy": {
+      "label": "Observatory Literacy",
+      "level": 2,
+      "unlocked": false,
+      "skills": {
+        "ol.observatory": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "ol.briefing": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "ol.bridge": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "ol.grooming": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        }
+      }
+    },
+    "tuning_core": {
+      "label": "Tuning Core",
+      "level": 3,
+      "unlocked": false,
+      "skills": {
+        "tc.settings": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "tc.goals": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        },
+        "tc.patterns": {
+          "signal": 0,
+          "observations": 0,
+          "status": "undiscovered"
+        }
+      }
+    }
+  },
+  "nextNudge": null
+}

@@ -1,0 +1,25 @@
+{"_schema":"activity","_version":"1.0"}
+{"id":1,"timestamp":"2026-03-04T10:50:24.061Z","source":"system","summary":"Webhook admin routes mounted at /api/webhooks/ (routes:0.0ms)","traceId":"ts_8ee099826347"}
+{"id":2,"timestamp":"2026-03-04T10:50:39.367Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_a494cb4660f6"}
+{"id":3,"timestamp":"2026-03-04T10:50:39.371Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 1ms [registry:1ms recovery:0ms]","traceId":"ts_559dee2e8779"}
+{"id":4,"timestamp":"2026-03-04T10:50:39.375Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_e3ec4bc6bd98"}
+{"id":5,"timestamp":"2026-03-04T11:27:28.080Z","source":"system","summary":"Webhook admin routes mounted at /api/webhooks/ (routes:0.0ms)","traceId":"ts_c4a57e109e9c"}
+{"id":6,"timestamp":"2026-03-04T11:27:43.460Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_92a78e4cfe1e"}
+{"id":7,"timestamp":"2026-03-04T11:27:43.464Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 1ms [registry:1ms recovery:0ms]","traceId":"ts_7911ad95f223"}
+{"id":8,"timestamp":"2026-03-04T11:27:43.475Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_e96005e7a9fb"}
+{"id":9,"timestamp":"2026-03-04T11:39:20.826Z","source":"system","summary":"Webhook admin routes mounted at /api/webhooks/ (routes:0.0ms)","traceId":"ts_c77b5182c932"}
+{"id":10,"timestamp":"2026-03-04T11:39:36.188Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_40b2b36cc701"}
+{"id":11,"timestamp":"2026-03-04T11:39:36.191Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 1ms [registry:1ms recovery:0ms]","traceId":"ts_bd01e0a99b0b"}
+{"id":12,"timestamp":"2026-03-04T11:39:36.199Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_b76a12e74eeb"}
+{"id":13,"timestamp":"2026-03-04T11:55:09.532Z","source":"system","summary":"Webhook admin routes mounted at /api/webhooks/ (routes:0.0ms)","traceId":"ts_71139c074e8c"}
+{"id":14,"timestamp":"2026-03-04T11:55:24.930Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_03a778898d2d"}
+{"id":15,"timestamp":"2026-03-04T11:55:24.934Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 1ms [registry:1ms recovery:0ms]","traceId":"ts_f4a80b8f529a"}
+{"id":16,"timestamp":"2026-03-04T11:55:24.950Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_0a025c927123"}
+{"id":17,"timestamp":"2026-03-04T11:57:09.351Z","source":"system","summary":"Webhook admin routes mounted at /api/webhooks/ (routes:0.0ms)","traceId":"ts_a37bd9c144fc"}
+{"id":18,"timestamp":"2026-03-04T11:57:24.567Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_696640c16dfd"}
+{"id":19,"timestamp":"2026-03-04T11:57:24.570Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 1ms [registry:1ms recovery:0ms]","traceId":"ts_2c47a3345484"}
+{"id":20,"timestamp":"2026-03-04T11:57:24.580Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_c7fa0215db25"}
+{"id":21,"timestamp":"2026-03-04T12:01:16.614Z","source":"system","summary":"Webhook admin routes mounted at /api/webhooks/ (routes:0.0ms)","traceId":"ts_673626d470f8"}
+{"id":22,"timestamp":"2026-03-04T12:01:31.830Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_bc90d8f3044b"}
+{"id":23,"timestamp":"2026-03-04T12:01:31.835Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 2ms [registry:2ms recovery:0ms]","traceId":"ts_c8f813600a58"}
+{"id":24,"timestamp":"2026-03-04T12:01:31.855Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_d3ffb9e3f19f"}

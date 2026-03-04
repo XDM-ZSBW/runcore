@@ -1,0 +1,155 @@
+{
+  "window": {
+    "start": "2026-03-04T09:00:00.000Z",
+    "end": "2026-03-04T10:00:00.000Z",
+    "type": "hourly"
+  },
+  "metrics": [
+    {
+      "name": "agent.memory_usage",
+      "count": 10,
+      "sum": 767597968,
+      "min": 75030408,
+      "max": 81337064,
+      "avg": 76759796.8,
+      "p50": 75809492,
+      "p95": 81106743.2,
+      "p99": 81290999.84,
+      "unit": "bytes"
+    },
+    {
+      "name": "firewall.analysis.entries_kept",
+      "count": 1,
+      "sum": 0,
+      "min": 0,
+      "max": 0,
+      "avg": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "unit": "count"
+    },
+    {
+      "name": "firewall.analysis.entries_raw",
+      "count": 1,
+      "sum": 4,
+      "min": 4,
+      "max": 4,
+      "avg": 4,
+      "p50": 4,
+      "p95": 4,
+      "p99": 4,
+      "unit": "count"
+    },
+    {
+      "name": "firewall.routine.filtered",
+      "count": 1,
+      "sum": 4,
+      "min": 4,
+      "max": 4,
+      "avg": 4,
+      "p50": 4,
+      "p95": 4,
+      "p99": 4,
+      "unit": "count"
+    },
+    {
+      "name": "http.concurrent_requests",
+      "count": 10,
+      "sum": 0,
+      "min": 0,
+      "max": 0,
+      "avg": 0,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "unit": "count"
+    },
+    {
+      "name": "system.cpu.percent",
+      "count": 10,
+      "sum": 2.8,
+      "min": 0,
+      "max": 1.09,
+      "avg": 0.28,
+      "p50": 0.025,
+      "p95": 1.09,
+      "p99": 1.09,
+      "unit": "%"
+    },
+    {
+      "name": "system.disk.brain_bytes",
+      "count": 10,
+      "sum": 81345,
+      "min": 3630,
+      "max": 12889,
+      "avg": 8134.5,
+      "p50": 7929,
+      "p95": 12477.7,
+      "p99": 12806.74,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.event_loop.drift",
+      "count": 10,
+      "sum": 83.94,
+      "min": 4.69,
+      "max": 11.38,
+      "avg": 8.394,
+      "p50": 8.92,
+      "p95": 10.759,
+      "p99": 11.256,
+      "unit": "ms"
+    },
+    {
+      "name": "system.memory.external",
+      "count": 10,
+      "sum": 39148422,
+      "min": 3874620,
+      "max": 4041098,
+      "avg": 3914842.2,
+      "p50": 3887273.5,
+      "p95": 4030197.2,
+      "p99": 4038917.84,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.memory.heap_total",
+      "count": 10,
+      "sum": 868917248,
+      "min": 80154624,
+      "max": 111874048,
+      "avg": 86891724.8,
+      "p50": 80809984,
+      "p95": 111520153.6,
+      "p99": 111803269.12,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.memory.heap_used",
+      "count": 10,
+      "sum": 764612560,
+      "min": 74809440,
+      "max": 80572976,
+      "avg": 76461256,
+      "p50": 75657300,
+      "p95": 80301867.2,
+      "p99": 80518754.24,
+      "unit": "bytes"
+    },
+    {
+      "name": "system.memory.rss",
+      "count": 10,
+      "sum": 1453977600,
+      "min": 138362880,
+      "max": 168226816,
+      "avg": 145397760,
+      "p50": 140048384,
+      "p95": 168003788.8,
+      "p99": 168182210.56,
+      "unit": "bytes"
+    }
+  ],
+  "pointsProcessed": 93,
+  "generatedAt": "2026-03-04T11:19:10.223Z"
+}

@@ -15,3 +15,7 @@
 {"id":14,"timestamp":"2026-03-04T10:15:28.285Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_35a8f41434a0"}
 {"id":15,"timestamp":"2026-03-04T10:15:28.290Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 1ms [registry:1ms recovery:0ms]","traceId":"ts_2cdd4bd13098"}
 {"id":16,"timestamp":"2026-03-04T10:15:28.297Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_8845edfd21da"}
+{"id":17,"timestamp":"2026-03-04T11:31:04.781Z","source":"system","summary":"Webhook admin routes mounted at /api/webhooks/ (routes:0.0ms)","traceId":"ts_f5bd54e0a257"}
+{"id":18,"timestamp":"2026-03-04T11:31:04.809Z","source":"board","summary":"GitHub integration initialized","traceId":"ts_f5db8372f80f"}
+{"id":19,"timestamp":"2026-03-04T11:31:04.815Z","source":"agent","summary":"Agent runtime initialized","detail":"Driver: claude-cli, max agents: 5, init 2ms [registry:1ms recovery:1ms]","traceId":"ts_6c17f7c08fc4"}
+{"id":20,"timestamp":"2026-03-04T11:31:04.830Z","source":"agent","summary":"Instance manager initialized","detail":"GC every 30000ms, health every 30000ms","traceId":"ts_1813ab1c6d20"}
