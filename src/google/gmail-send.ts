@@ -13,7 +13,7 @@ import { createLogger } from "../utils/logger.js";
 const log = createLogger("google.gmail-send");
 
 const GMAIL_API = "https://www.googleapis.com/gmail/v1/users/me";
-const DEFAULT_FROM = "lfcasalf@gmail.com";
+const DEFAULT_FROM = process.env.GMAIL_FROM ?? "noreply@example.com";
 
 // --- Types ---
 

@@ -1,15 +1,28 @@
 {
-  "name": "core-brain",
+  "name": "runcore",
   "version": "0.1.0",
-  "description": "File-based personal operating system for an AI agent — the brain: memory, context assembly, and decision cycle",
+  "description": "Local-first AI agent runtime. One command, your machine, your data.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "runcore": "dist/cli.js",
+    "core": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "public/*.html",
+    "public/*.js",
+    "public/*.css",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "example": "tsx example/demo.ts",
-    "chat": "tsx watch --env-file=.env src/server.ts",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:watch": "vitest",
@@ -17,13 +30,21 @@
   },
   "keywords": [
     "agent",
+    "ai",
+    "local-first",
+    "sovereign",
     "context-engineering",
     "memory",
     "coala",
     "llm"
   ],
-  "author": "",
+  "author": "The Herrman Group LLC",
   "license": "MIT",
+  "homepage": "https://runcore.sh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XDM-ZSBW/core"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@vitest/ui": "^4.0.18",

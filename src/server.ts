@@ -5236,10 +5236,15 @@ async function start() {
   });
 }
 
-start().catch((err) => {
-  log.error("Failed to start", { error: err instanceof Error ? err.message : String(err) });
-  process.exit(1);
-});
+export { start };
+
+const isDirectRun = process.argv[1]?.replace(/\\/g, "/").includes("server");
+if (isDirectRun) {
+  start().catch((err) => {
+    log.error("Failed to start", { error: err instanceof Error ? err.message : String(err) });
+    process.exit(1);
+  });
+}
 
 // Graceful shutdown: agent pool first (drains queue, terminates agents, cleans resources),
 // then sidecars, timers, and monitors.

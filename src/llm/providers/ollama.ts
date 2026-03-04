@@ -1,5 +1,5 @@
 /**
- * Ollama (local) LLM provider for Core.
+ * Ollama (local) LLM provider for Dash.
  * Wraps the existing Ollama streaming + completion logic behind the LLMProvider interface.
  */
 
@@ -12,8 +12,71 @@ const log = createLogger("llm.provider.ollama");
 const DEFAULT_CHAT_MODEL = "llama3.1:8b";
 const DEFAULT_UTILITY_MODEL = "llama3.1:8b";
 
+// Models ranked by quality for chat (best first). Auto picks the largest one available.
+const CHAT_MODEL_RANK = [
+  "qwen3:8b",
+  "llama3.1:8b",
+  "llama3:latest",
+  "gemma3:4b",
+  "phi3:latest",
+  "llama3.2:3b",
+  "llama3.2:1b",
+  "tinyllama:latest",
+];
+
+// Embedding/utility models to exclude from chat selection
+const NON_CHAT_MODELS = new Set(["nomic-embed-text:latest"]);
+
 function getBaseUrl(): string {
   return process.env.OLLAMA_URL ?? "http://localhost:11434";
+}
+
+/** Cached best model — refreshed on each call to bestLocalModel() */
+let _cachedBestModel: string | null = null;
+let _cachedAt = 0;
+const CACHE_TTL = 60_000; // 1 minute
+
+/**
+ * Query Ollama for available models and pick the best chat model.
+ * Prefers models in CHAT_MODEL_RANK order. Falls back to the largest
+ * non-embedding model if none match the ranking.
+ */
+export async function bestLocalModel(): Promise<string> {
+  if (_cachedBestModel && Date.now() - _cachedAt < CACHE_TTL) return _cachedBestModel;
+
+  const baseUrl = getBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return DEFAULT_CHAT_MODEL;
+
+    const data = (await res.json()) as { models: Array<{ name: string; size: number }> };
+    const available = new Set(data.models.map((m) => m.name));
+
+    // First: try ranked models in preference order
+    for (const model of CHAT_MODEL_RANK) {
+      if (available.has(model)) {
+        _cachedBestModel = model;
+        _cachedAt = Date.now();
+        log.info("Auto-selected local model", { model, method: "ranked" });
+        return model;
+      }
+    }
+
+    // Fallback: pick the largest non-embedding model
+    const chatModels = data.models
+      .filter((m) => !NON_CHAT_MODELS.has(m.name))
+      .sort((a, b) => b.size - a.size);
+
+    if (chatModels.length > 0) {
+      _cachedBestModel = chatModels[0].name;
+      _cachedAt = Date.now();
+      log.info("Auto-selected local model", { model: _cachedBestModel, method: "largest" });
+      return _cachedBestModel;
+    }
+  } catch {
+    // Ollama unreachable
+  }
+  return DEFAULT_CHAT_MODEL;
 }
 
 function formatMessages(messages: ContextMessage[]) {
