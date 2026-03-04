@@ -1,1 +1,9 @@
-{}
+[
+  {
+    "taskId": "q_1772658000_p1b",
+    "lastFailedAt": "2026-03-04T22:59:02.349Z",
+    "failureCount": 1,
+    "lastError": "Pool terminal failure (exit null)",
+    "label": "Audit git history for PII across repos"
+  }
+]
