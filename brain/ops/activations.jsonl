@@ -8,3 +8,4 @@
 {"type":"voltage","triggerId":"pulse_5","anchor":"Metabolic pulse #5","voltageAtTrigger":120.5,"timestamp":"2026-03-04T22:51:26.920Z"}
 {"type":"cdt","triggerId":"ins_1fcd43f7","sourceKey":"insight:bottleneck","anchor":"Long-running system task for auto-decision updates","voltageAtTrigger":80,"loopsInvolved":["ts_55e34be52bec"],"voltageContribution":15,"timestamp":"2026-03-04T22:53:57.808Z"}
 {"type":"voltage","triggerId":"pulse_6","anchor":"Metabolic pulse #6","voltageAtTrigger":90.6,"timestamp":"2026-03-04T22:57:30.336Z"}
+{"type":"voltage","triggerId":"pulse_7","anchor":"Metabolic pulse #7","voltageAtTrigger":167.9,"timestamp":"2026-03-04T22:59:02.347Z"}
