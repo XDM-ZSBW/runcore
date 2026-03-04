@@ -241,18 +241,21 @@ export async function pair(input: {
   code: string;
   name: string;
   safeWord: string;
-  recoveryQuestion: string;
-  recoveryAnswer: string;
+  recoveryQuestion?: string;
+  recoveryAnswer?: string;
+  skipCodeCheck?: boolean;
 }): Promise<{ session: Session; sessionKey: Buffer } | { error: string }> {
   // Check not already paired
   const human = await readHuman();
   if (human) return { error: "Already paired" };
 
-  // Verify pairing code
-  const stored = await readPairingCode();
-  if (!stored) return { error: "No pairing code found — restart the server" };
-  if (input.code.trim().toLowerCase() !== stored.code) {
-    return { error: "Invalid pairing code" };
+  if (!input.skipCodeCheck) {
+    // Verify pairing code
+    const stored = await readPairingCode();
+    if (!stored) return { error: "No pairing code found — restart the server" };
+    if (input.code.trim().toLowerCase() !== stored.code) {
+      return { error: "Invalid pairing code" };
+    }
   }
 
   // Create identity with salt for session encryption
@@ -261,10 +264,10 @@ export async function pair(input: {
     name: input.name.trim(),
     safeWordHash: sha256(input.safeWord),
     pbkdf2Salt: salt,
-    recovery: {
+    recovery: input.recoveryQuestion && input.recoveryAnswer ? {
       question: input.recoveryQuestion.trim(),
       answerHash: sha256(input.recoveryAnswer),
-    },
+    } : undefined as any,
     pairedAt: new Date().toISOString(),
   };
 

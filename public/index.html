@@ -3,16 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{INSTANCE_NAME}}</title>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js/+esm",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
-    "talkinghead": "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/modules/talkinghead.mjs"
-  }
-}
-</script>
+<title>Core</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -173,6 +164,34 @@
     background: #22c55e;
   }
 
+  .chat-header .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+  }
+
+  .chat-header .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .chat-header .header-nav a:hover { color: var(--text); border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .chat-header .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .header-nav .nav-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 4px;
+    align-self: center;
+  }
+
   .messages {
     flex: 1;
     overflow-y: auto;
@@ -241,6 +260,22 @@
   .message .content strong { font-weight: 600; }
   .message .content em { font-style: italic; }
 
+  /* Streaming cursor — blinking caret while tokens arrive */
+  .streaming-cursor::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--accent, #6d5dfc);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: cursor-blink 0.8s steps(2) infinite;
+  }
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
   .composer {
     border-top: 1px solid var(--border);
     background: var(--surface);
@@ -290,6 +325,85 @@
     display: inline-block;
   }
 
+  /* ─── Proactive question greeting ─── */
+
+  .dash-greeting {
+    max-width: var(--max-width);
+    margin: 12px auto 0;
+    padding: 0 20px;
+  }
+
+  .greeting-text {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .question-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .question-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .question-chip:hover {
+    border-color: var(--accent);
+    background: rgba(109,93,252,0.06);
+  }
+
+  .question-chip .chip-icon {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .question-chip .chip-text { flex: 1; }
+
+  .question-chip .chip-dismiss {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+  }
+
+  .question-chip:hover .chip-dismiss { opacity: 1; }
+  .question-chip .chip-dismiss:hover { background: var(--surface2); color: var(--text); }
+
   .composer button {
     padding: 10px 16px;
     background: var(--accent);
@@ -325,6 +439,75 @@
   }
 
   .composer-actions button:hover { background: var(--surface); color: var(--text); }
+  #incognito-btn.active { color: #ef4444; background: var(--surface); }
+
+  /* Incognito mode — red border signals local-only */
+  .composer.incognito textarea {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25);
+  }
+  .composer.incognito textarea.redacted {
+    color: transparent;
+    text-shadow: 0 0 8px rgba(224, 224, 224, 0.5);
+  }
+  .composer.incognito .incognito-label {
+    display: block;
+  }
+  .incognito-label {
+    display: none;
+    font-size: 11px;
+    color: #ef4444;
+    text-align: center;
+    padding: 2px 0;
+    letter-spacing: 0.05em;
+  }
+  .composer.incognito #attach-btn,
+  .composer.incognito #screenshot-btn {
+    opacity: 0.2;
+    pointer-events: none;
+  }
+  /* Incognito — selective PII redaction */
+  .pii-redact {
+    filter: blur(5px);
+    transition: filter 0.2s;
+    user-select: none;
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0 2px;
+    background: rgba(239, 68, 68, 0.08);
+  }
+  .pii-redact:hover {
+    filter: none;
+    user-select: auto;
+    background: rgba(239, 68, 68, 0.15);
+  }
+  /* Block all selection/copy on incognito messages */
+  .message.incognito {
+    user-select: none;
+    -webkit-user-select: none;
+    border-left: 3px solid #ef4444;
+    padding-left: 12px;
+    position: relative;
+  }
+  .message.incognito .content {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .message.incognito .role::after {
+    content: " \1F512";
+    font-size: 11px;
+    opacity: 0.5;
+  }
+  /* Screenshot protection: hide incognito content from print/capture */
+  .message.incognito.screen-capture .content { filter: blur(20px) !important; }
+  @media print {
+    .message.incognito .content { display: none !important; }
+    .message.incognito::after {
+      content: "[incognito content hidden]";
+      color: var(--text-dim);
+      font-style: italic;
+    }
+  }
 
   .attachment-preview {
     display: flex;
@@ -619,6 +802,61 @@
 
   .prompt-textarea:focus { border-color: var(--accent); }
   .prompt-textarea::placeholder { color: var(--text-dim); }
+
+  /* Personality trait sliders */
+  .personality-traits { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+  .trait-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .trait-label { width: 72px; text-align: right; color: var(--text-dim); flex-shrink: 0; }
+  .trait-label-right { width: 72px; text-align: left; color: var(--text-dim); flex-shrink: 0; }
+  .trait-slider {
+    flex: 1;
+    position: relative;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+  .trait-slider::before {
+    content: "";
+    position: absolute;
+    left: 4px; right: 4px;
+    top: 50%;
+    height: 2px;
+    background: var(--border);
+    transform: translateY(-50%);
+    border-radius: 1px;
+  }
+  .trait-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+    transition: background 0.15s, border-color 0.15s;
+    padding: 0;
+  }
+  .trait-dot:hover { border-color: var(--accent); }
+  .trait-dot.active {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .custom-rules-toggle { margin-top: 4px; }
+  .custom-rules-toggle summary {
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 0;
+  }
+  .custom-rules-toggle summary:hover { color: var(--text); }
 
   .prompt-actions {
     display: flex;
@@ -1156,86 +1394,114 @@
     min-height: 0;
   }
 
-  .avatar-panel {
-    width: 280px;
+
+  /* ─── Thread sidebar ─── */
+
+  .thread-sidebar {
+    width: 260px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
     border-right: 1px solid var(--border);
     background: var(--surface);
-    padding: 16px;
-    position: relative;
-  }
-
-  .avatar-panel.hidden { display: none; }
-
-  .avatar-panel canvas {
-    width: 100%;
-    height: 100%;
-    border-radius: 8px;
-  }
-
-  .avatar-panel video {
-    width: 200px;
-    height: 200px;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-
-  .avatar-state {
-    position: absolute;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 11px;
-    color: var(--text-dim);
-    background: rgba(0,0,0,0.6);
-    padding: 2px 10px;
-    border-radius: 10px;
-    pointer-events: none;
-  }
-
-  .avatar-placeholder {
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-dim), var(--accent));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 64px;
-    color: #fff;
-    opacity: 0.8;
     overflow: hidden;
   }
 
-  .avatar-placeholder img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
+  .thread-sidebar.hidden { display: none; }
+
+  .thread-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
 
-  .avatar-placeholder.speaking {
-    animation: pulse-speak 1s ease-in-out infinite;
+  .thread-sidebar-header span {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    flex: 1;
   }
 
-  .avatar-placeholder.listening {
-    animation: pulse-listen 0.8s ease-in-out infinite;
-    border: 3px solid #22c55e;
+  .thread-new-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .thread-new-btn:hover { background: var(--accent-dim); }
+
+  .thread-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
   }
 
-  @keyframes pulse-speak {
-    0%, 100% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.05); opacity: 1; }
+  .thread-item {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.1s, border-color 0.1s;
   }
 
-  @keyframes pulse-listen {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.03); }
+  .thread-item:hover { background: rgba(255,255,255,0.03); }
+
+  .thread-item.active {
+    background: rgba(109,93,252,0.08);
+    border-left-color: var(--accent);
   }
+
+  .thread-item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .thread-item-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .thread-toggle-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .thread-toggle-btn:hover { color: var(--text); border-color: var(--accent); }
+
+  .thread-current-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .thread-current-label:hover { color: var(--text); }
 
   .mic-btn {
     width: 42px;
@@ -1295,8 +1561,144 @@
 
   .speaker-btn:hover { opacity: 1; }
 
-  @media (max-width: 700px) {
-    .avatar-panel { display: none; }
+
+  /* UI update toast */
+  .ui-update-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 10000;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    box-shadow: 0 4px 20px rgba(124, 111, 239, 0.15);
+    font-size: 13px;
+    color: var(--text);
+  }
+  .ui-update-toast.visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  .ui-update-toast button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .ui-update-toast button:hover { opacity: 0.85; }
+  .ui-update-toast .dismiss {
+    background: none;
+    color: var(--text-dim);
+    padding: 5px 8px;
+    font-size: 16px;
+  }
+
+  /* ─── Mobile ─── */
+  @media (max-width: 640px) {
+    /* Header: hide full nav, show hamburger-style overflow */
+    .chat-header {
+      padding: 8px 12px;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .chat-header .header-nav {
+      order: 10;
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      margin-left: 0;
+      padding: 4px 0;
+      gap: 6px;
+    }
+    .chat-header .header-nav::-webkit-scrollbar { display: none; }
+    .chat-header .header-nav a {
+      font-size: 12px;
+      padding: 4px 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .nav-divider { display: none; }
+
+    /* Tab group compact */
+    .tab-group { margin-left: 4px; }
+    .tab-btn { font-size: 11px; padding: 3px 8px; }
+
+    /* Thread sidebar: full overlay on mobile */
+    .thread-sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 280px;
+      z-index: 50;
+      box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+    }
+    .thread-sidebar.hidden { display: none; }
+
+    /* Messages: tighter padding */
+    .message { padding: 10px 12px; }
+    .message .content { font-size: 14px; }
+    .message .role { font-size: 10px; }
+
+    /* Composer: stack on small screens */
+    .composer { padding: 8px 10px; }
+    .composer-inner { gap: 6px; }
+    .composer textarea {
+      font-size: 16px; /* prevents iOS zoom on focus */
+      padding: 8px 10px;
+      min-height: 38px;
+    }
+    .composer button { padding: 8px 12px; font-size: 13px; }
+    .composer-actions button { padding: 6px; font-size: 14px; }
+    .mic-btn { width: 34px; height: 34px; font-size: 16px; }
+
+    /* Settings panel: full width on mobile */
+    .vault-panel { width: 100vw; max-width: 100vw; }
+
+    /* Proactive chips: horizontal scroll */
+    .question-chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .question-chip { flex-shrink: 0; }
+
+    /* Gear buttons: bigger tap targets */
+    .gear-btn { padding: 6px 8px; font-size: 20px; }
+
+    /* Toast: full width on mobile */
+    .ui-update-toast {
+      left: 8px;
+      right: 8px;
+      transform: translateX(0) translateY(-100px);
+      width: auto;
+    }
+    .ui-update-toast.visible {
+      transform: translateX(0) translateY(0);
+    }
+
+    /* Thread toggle: always visible */
+    .thread-toggle-btn { display: inline-flex !important; }
+
+    /* Hide stream controls text on narrow */
+    .stream-controls { font-size: 12px; }
+
+    /* Code blocks: smaller on mobile */
+    .message .content pre { font-size: 12px; padding: 6px 8px; }
+    .message .content code { font-size: 12px; }
+  }
+
+  /* Small phone (< 380px) */
+  @media (max-width: 380px) {
+    .composer-actions button:not(#incognito-btn) { display: none; }
+    .chat-header .header-nav a { font-size: 11px; padding: 3px 6px; }
+    .gear-btn { font-size: 18px; padding: 4px 6px; }
   }
 </style>
 </head>
@@ -1306,25 +1708,35 @@
 <div id="pair-screen" class="screen">
   <div class="center-wrap">
     <div class="card">
-      <!-- Step 1: Pairing code -->
+      <!-- Step 1: Pairing code (manual flow only) -->
       <div id="pair-step-1" class="step active">
-        <h1>Hello, human.</h1>
-        <p>I'm {{INSTANCE_NAME}}. I've been waiting for you. Enter the pairing code to prove you're the one.</p>
+        <h1>Hello.</h1>
+        <p>Enter the pairing code from your terminal to get started.</p>
         <div id="pair-error" class="error-msg"></div>
         <label for="pair-code">Pairing Code</label>
         <input type="text" id="pair-code" placeholder="amber-castle-seven-river-oak-noon" autocomplete="off" spellcheck="false">
         <button class="btn" id="pair-code-btn">Verify</button>
       </div>
 
-      <!-- Step 2: Name + safe word -->
+      <!-- Step 2: Name -->
       <div id="pair-step-2" class="step">
-        <h1>Code accepted.</h1>
-        <p>Now let's create our shared secret. Tell me your name and choose a safe word — something only we'll know.</p>
+        <h1>Hello.</h1>
+        <p>What should I call you?</p>
         <div id="pair-error-2" class="error-msg"></div>
         <label for="pair-name">Your Name</label>
-        <input type="text" id="pair-name" placeholder="What should I call you?" autocomplete="off">
+        <input type="text" id="pair-name" placeholder="First name is fine" autocomplete="off">
+        <button class="btn" id="pair-name-btn">Continue</button>
+      </div>
+
+      <!-- Step 2b: Safe word -->
+      <div id="pair-step-2b" class="step">
+        <h1 id="pair-greeting">Nice to meet you.</h1>
+        <p>Choose a safe word — something only we'll know. This encrypts your data.</p>
+        <div id="pair-error-2b" class="error-msg"></div>
         <label for="pair-safeword">Safe Word</label>
-        <input type="password" id="pair-safeword" placeholder="Our shared secret">
+        <input type="password" id="pair-safeword" placeholder="Something memorable">
+        <label for="pair-safeword-confirm">Confirm Safe Word</label>
+        <input type="password" id="pair-safeword-confirm" placeholder="Type it again">
         <button class="btn" id="pair-sw-btn">Continue</button>
       </div>
 
@@ -1337,7 +1749,23 @@
         <input type="text" id="pair-question" placeholder="What was the name of...?">
         <label for="pair-answer">Recovery Answer</label>
         <input type="text" id="pair-answer" placeholder="Your answer">
-        <button class="btn" id="pair-finish-btn">Complete Pairing</button>
+        <button class="btn" id="pair-recovery-btn">Continue</button>
+      </div>
+
+      <!-- Step 4: Name the agent -->
+      <div id="pair-step-4" class="step">
+        <h1 id="pair-agent-greeting">One more thing.</h1>
+        <p>What would you like to call me?</p>
+        <div id="pair-error-4" class="error-msg"></div>
+        <label for="pair-agent-name">Agent Name</label>
+        <input type="text" id="pair-agent-name" placeholder="Dash, Atlas, Nova... anything" autocomplete="off">
+        <button class="btn" id="pair-finish-btn">Let's go</button>
+      </div>
+
+      <!-- Step 5: Transition -->
+      <div id="pair-step-5" class="step">
+        <h1 id="pair-ready-msg">Setting things up...</h1>
+        <p id="pair-ready-sub" style="opacity:0.6;"></p>
       </div>
     </div>
   </div>
@@ -1376,8 +1804,22 @@
 <div id="chat-screen" class="screen">
   <div class="chat-header">
     <span class="dot"></span>
-    <span>{{INSTANCE_NAME}}</span>
-    <div class="tab-group">
+    <a href="/" style="color:inherit;text-decoration:none;font-weight:600;" id="agent-name-header">Core</a>
+    <nav class="header-nav" id="header-nav">
+      <a href="/" class="active">Chat</a>
+      <a href="/library">Library</a>
+      <a href="/personal">Personal</a>
+      <a href="/life">Life</a>
+      <a href="/registry">Registry</a>
+      <span class="nav-divider"></span>
+      <a href="/observatory">Observatory</a>
+      <a href="/ops">Operations</a>
+      <a href="/board">Board</a>
+      <a href="/roadmap">Roadmap</a>
+    </nav>
+    <button class="thread-toggle-btn" id="thread-toggle-btn" title="Toggle threads">&#9776;</button>
+    <span class="thread-current-label" id="thread-current-label" title="Click to toggle threads"></span>
+    <div class="tab-group" id="tab-group">
       <button class="tab-btn active" id="tab-chat" onclick="window.__switchTab('chat')">Chat</button>
       <button class="tab-btn" id="tab-activity" onclick="window.__switchTab('activity')">Stream<span class="tab-badge" id="activity-badge"></span></button>
     </div>
@@ -1386,13 +1828,18 @@
     <button class="gear-btn" id="vault-open-btn" title="Settings">&#9881;</button>
   </div>
   <div class="chat-body">
-    <div class="avatar-panel hidden" id="avatar-panel">
-      <video id="avatar-video" style="display:none;" playsinline></video>
-      <canvas id="avatar-canvas" style="display:none;"></canvas>
-      <div class="avatar-placeholder" id="avatar-placeholder"><img src="/public/avatar/photo.png" alt="{{INSTANCE_NAME}}" onerror="this.style.display='none';this.parentNode.textContent='D';" /></div>
-      <div class="avatar-state" id="avatar-state"></div>
+    <div class="thread-sidebar hidden" id="thread-sidebar">
+      <div class="thread-sidebar-header">
+        <span>Threads</span>
+        <button class="thread-new-btn" id="thread-new-btn">+ New</button>
+      </div>
+      <div class="thread-list" id="thread-list"></div>
     </div>
     <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
+      <div id="dash-greeting" class="dash-greeting" style="display:none;">
+        <div class="greeting-text" id="greeting-text">Thinking...</div>
+        <div id="question-chips" class="question-chips"></div>
+      </div>
       <div class="messages" id="messages"></div>
       <div id="activity-view">
         <div class="stream-controls">
@@ -1415,12 +1862,14 @@
         </div>
       </div>
       <div class="composer" id="composer">
+        <div class="incognito-label">incognito — local only, no memory</div>
         <div class="attachment-preview" id="attachment-preview"></div>
         <div class="composer-inner">
           <button class="mic-btn" id="mic-btn" title="Click to speak">&#127908;</button>
           <div class="composer-actions">
             <button id="attach-btn" title="Attach image">&#128206;</button>
             <button id="screenshot-btn" title="Screen capture">&#128247;</button>
+            <button id="incognito-btn" title="Incognito — local only, no memory, plain text">&#128373;</button>
           </div>
           <input type="file" id="file-input" accept="image/*,.pdf,.docx,.doc,.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.xml,.yaml,.yml,.toml,.log,.sh,.bat,.c,.cpp,.java,.go,.rs,.rb,.php,.sql,.r,.swift" multiple style="display:none;" />
           <textarea id="chat-input" placeholder="Say something..." rows="1"></textarea>
@@ -1441,15 +1890,69 @@
         <a href="/ops" title="Ops"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></a>
         <a href="/observatory" title="Observatory"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></a>
         <a href="/library" title="Library"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></a>
+        <a href="/registry" title="Registry"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
       </nav>
       <button class="vault-close" id="vault-close-btn">&times;</button>
     </div>
     <div class="vault-body" id="vault-body">
+      <div style="text-align:center;margin-bottom:12px;">
+        <a href="/registry" style="color:var(--accent);font-size:13px;text-decoration:none;">Manage Services &amp; Capabilities &rarr;</a>
+      </div>
       <!-- Personality section -->
       <div class="settings-section">
         <h3 class="settings-section-title">Personality</h3>
-        <p class="settings-hint">Customize how {{INSTANCE_NAME}} behaves. These instructions are added to {{INSTANCE_NAME}}'s system prompt.</p>
-        <textarea class="prompt-textarea" id="prompt-textarea" placeholder="e.g. Be concise and use dry humor. Always greet me by name. Speak like a pirate on Fridays." rows="5"></textarea>
+        <p class="settings-hint">Customize behavior. Slide traits away from center to shape the personality.</p>
+        <div class="personality-traits" id="personality-traits">
+          <div class="trait-row" data-trait="verbosity">
+            <span class="trait-label">Concise</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Concise"></button>
+              <button class="trait-dot active" data-value="2" title="Balanced"></button>
+              <button class="trait-dot" data-value="3" title="Verbose"></button>
+            </div>
+            <span class="trait-label-right">Verbose</span>
+          </div>
+          <div class="trait-row" data-trait="assertiveness">
+            <span class="trait-label">Gentle</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Gentle"></button>
+              <button class="trait-dot active" data-value="2" title="Moderate"></button>
+              <button class="trait-dot" data-value="3" title="Pushy"></button>
+            </div>
+            <span class="trait-label-right">Pushy</span>
+          </div>
+          <div class="trait-row" data-trait="tone">
+            <span class="trait-label">Edgy</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Edgy"></button>
+              <button class="trait-dot active" data-value="2" title="Neutral"></button>
+              <button class="trait-dot" data-value="3" title="Safe"></button>
+            </div>
+            <span class="trait-label-right">Safe</span>
+          </div>
+          <div class="trait-row" data-trait="formality">
+            <span class="trait-label">Casual</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Casual"></button>
+              <button class="trait-dot active" data-value="2" title="Adaptive"></button>
+              <button class="trait-dot" data-value="3" title="Formal"></button>
+            </div>
+            <span class="trait-label-right">Formal</span>
+          </div>
+          <div class="trait-row" data-trait="curiosity">
+            <span class="trait-label">Task-focused</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Task-focused"></button>
+              <button class="trait-dot active" data-value="2" title="Balanced"></button>
+              <button class="trait-dot" data-value="3" title="Exploratory"></button>
+            </div>
+            <span class="trait-label-right">Exploratory</span>
+          </div>
+        </div>
+        <details class="custom-rules-toggle">
+          <summary>Custom rules</summary>
+          <textarea class="prompt-textarea" id="custom-rules-textarea" placeholder="One rule per line, e.g.&#10;Don't use emojis&#10;Always greet me by name" rows="4"></textarea>
+        </details>
         <div class="prompt-actions">
           <button class="vault-add-btn" id="prompt-save-btn">Save</button>
           <span class="prompt-status" id="prompt-status"></span>
@@ -1553,7 +2056,7 @@
         <div class="toggle-row">
           <div>
             <div class="toggle-label">Auto-play responses</div>
-            <div class="toggle-sublabel">Automatically speak {{INSTANCE_NAME}}'s replies</div>
+            <div class="toggle-sublabel">Automatically speak replies</div>
           </div>
           <label class="toggle">
             <input type="checkbox" id="autoplay-toggle">
@@ -1563,38 +2066,6 @@
         <div class="prompt-actions" style="margin-top: 10px;">
           <button class="vault-add-btn" id="voice-save-btn">Save</button>
           <span class="settings-saved" id="voice-save-status">Saved</span>
-        </div>
-      </div>
-      <!-- Avatar section -->
-      <div class="settings-section" id="avatar-settings-section">
-        <h3 class="settings-section-title">Avatar</h3>
-        <div class="toggle-row">
-          <div>
-            <div class="toggle-label">MuseTalk Avatar</div>
-            <div class="toggle-sublabel" id="avatar-status-label">Checking...</div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="avatar-toggle">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-        <div class="model-field">
-          <label>MuseTalk path</label>
-          <input type="text" id="avatar-musetalk-path" placeholder="C:\AI\MuseTalk">
-        </div>
-        <div class="model-field">
-          <label>Photo</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span id="avatar-photo-name" style="font-size:13px;color:var(--text-dim);">photo.png</span>
-            <label class="vault-add-btn" style="cursor:pointer;margin:0;font-size:12px;padding:4px 10px;">
-              Upload
-              <input type="file" id="avatar-photo-upload" accept="image/*" style="display:none;">
-            </label>
-          </div>
-        </div>
-        <div class="prompt-actions" style="margin-top: 10px;">
-          <button class="vault-add-btn" id="avatar-save-btn">Save</button>
-          <span class="settings-saved" id="avatar-save-status">Saved</span>
         </div>
       </div>
       <!-- Google Workspace section -->
@@ -1646,6 +2117,7 @@
   // --- State ---
   let sessionId = null;
   let userName = null;
+  let agentName = "Core";
   let streaming = false;
   let abortController = null;
 
@@ -1695,6 +2167,8 @@
   let pairCode = "";
   let pairName = "";
   let pairSafeWord = "";
+  let pairAgentName = "";
+  let isFirstRun = false;
 
   // --- DOM refs ---
   const pairScreen = document.getElementById("pair-screen");
@@ -1707,6 +2181,246 @@
   const attachBtn = document.getElementById("attach-btn");
   const screenshotBtn = document.getElementById("screenshot-btn");
   const attachmentPreview = document.getElementById("attachment-preview");
+  const composerEl = document.getElementById("composer");
+  const incognitoBtn = document.getElementById("incognito-btn");
+
+  // --- Incognito mode state ---
+  let incognitoMode = false;
+  let incognitoHistory = [];
+  let incognitoModel = "llama3.1:8b"; // updated on toggle via /api/local-model
+  const defaultPlaceholder = "Say something...";
+  const incognitoPlaceholder = "incognito — local only...";
+
+  incognitoBtn.addEventListener("click", async () => {
+    incognitoMode = !incognitoMode;
+    composerEl.classList.toggle("incognito", incognitoMode);
+    incognitoBtn.classList.toggle("active", incognitoMode);
+    chatInput.placeholder = incognitoMode ? incognitoPlaceholder : defaultPlaceholder;
+    if (incognitoMode) {
+      incognitoHistory = [];
+      // Auto-detect best local model
+      try {
+        const r = await fetch("/api/local-model");
+        if (r.ok) { const d = await r.json(); incognitoModel = d.model; }
+      } catch {}
+      addMessage("system", "Incognito mode on — " + incognitoModel + ", local only, no memory.");
+    } else {
+      chatInput.classList.remove("redacted");
+      addMessage("system", "Incognito mode off — back to normal.");
+    }
+    chatInput.focus();
+  });
+
+  // In incognito: block copy from chat messages
+  document.addEventListener("copy", (e) => {
+    if (!incognitoMode) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    // Check if selection touches an incognito message
+    const anchor = sel.anchorNode?.parentElement?.closest?.(".message.incognito");
+    const focus = sel.focusNode?.parentElement?.closest?.(".message.incognito");
+    if (anchor || focus) {
+      e.preventDefault();
+      e.clipboardData?.setData("text/plain", "[redacted — incognito]");
+    }
+  });
+
+  // In incognito: strip paste to plain text, block file attach
+  chatInput.addEventListener("paste", (e) => {
+    if (!incognitoMode) return; // normal mode — let default happen
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData("text/plain");
+    document.execCommand("insertText", false, text);
+  });
+  chatInput.addEventListener("drop", (e) => { if (incognitoMode) e.preventDefault(); });
+  chatInput.addEventListener("dragover", (e) => { if (incognitoMode) e.preventDefault(); });
+
+  // Screenshot protection: blur incognito messages on PrintScreen / screen capture
+  function setScreenCapture(on) {
+    document.querySelectorAll(".message.incognito").forEach(el => {
+      el.classList.toggle("screen-capture", on);
+    });
+  }
+  // PrintScreen key detection (Windows/Linux)
+  document.addEventListener("keyup", (e) => {
+    if (e.key === "PrintScreen") {
+      setScreenCapture(true);
+      setTimeout(() => setScreenCapture(false), 3000);
+    }
+  });
+  // Windows Snipping Tool: Win+Shift+S triggers blur on keydown
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "s" && e.shiftKey && e.metaKey) {
+      setScreenCapture(true);
+      setTimeout(() => setScreenCapture(false), 5000);
+    }
+  });
+  // Visibility change: blur when tab loses focus (screen share, some capture tools)
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      setScreenCapture(true);
+    } else {
+      setTimeout(() => setScreenCapture(false), 500);
+    }
+  });
+
+  // Auto-redact: visible on hover/focus, blurs when mouse leaves and not focused
+  chatInput.addEventListener("mouseenter", () => {
+    if (incognitoMode) chatInput.classList.remove("redacted");
+  });
+  chatInput.addEventListener("mouseleave", () => {
+    if (incognitoMode && document.activeElement !== chatInput && chatInput.value.trim()) chatInput.classList.add("redacted");
+  });
+  chatInput.addEventListener("focus", () => {
+    if (incognitoMode) chatInput.classList.remove("redacted");
+  });
+  chatInput.addEventListener("blur", () => {
+    if (incognitoMode && chatInput.value.trim()) chatInput.classList.add("redacted");
+  });
+
+  // --- Thread state ---
+  const threadSidebar = document.getElementById("thread-sidebar");
+  const threadListEl = document.getElementById("thread-list");
+  const threadToggleBtn = document.getElementById("thread-toggle-btn");
+  const threadNewBtn = document.getElementById("thread-new-btn");
+  const threadCurrentLabel = document.getElementById("thread-current-label");
+  let currentThreadId = null;
+  let threadSidebarOpen = false;
+  let threads = [];
+
+  // Mobile thread backdrop
+  const threadBackdrop = document.createElement("div");
+  threadBackdrop.style.cssText = "display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:49;";
+  document.body.appendChild(threadBackdrop);
+  threadBackdrop.addEventListener("click", () => toggleThreadSidebar());
+
+  function toggleThreadSidebar() {
+    threadSidebarOpen = !threadSidebarOpen;
+    threadSidebar.classList.toggle("hidden", !threadSidebarOpen);
+    // Show backdrop on mobile when sidebar is open
+    const isMobile = window.innerWidth <= 640;
+    threadBackdrop.style.display = (threadSidebarOpen && isMobile) ? "block" : "none";
+    if (threadSidebarOpen) loadThreads();
+  }
+
+  threadToggleBtn.addEventListener("click", toggleThreadSidebar);
+  threadCurrentLabel.addEventListener("click", toggleThreadSidebar);
+
+  async function loadThreads() {
+    try {
+      const data = await api("/api/threads?sessionId=" + encodeURIComponent(sessionId));
+      threads = data.threads || [];
+      renderThreadList();
+    } catch (err) {
+      console.log("Failed to load threads:", err.message);
+    }
+  }
+
+  function renderThreadList() {
+    threadListEl.innerHTML = "";
+    // Add "Main chat" as the default option
+    const mainItem = document.createElement("div");
+    mainItem.className = "thread-item" + (currentThreadId === null ? " active" : "");
+    mainItem.innerHTML = '<div class="thread-item-title">Main chat</div><div class="thread-item-meta">Default conversation</div>';
+    mainItem.addEventListener("click", () => switchThread(null));
+    threadListEl.appendChild(mainItem);
+
+    for (const t of threads) {
+      const item = document.createElement("div");
+      item.className = "thread-item" + (currentThreadId === t.id ? " active" : "");
+      item.dataset.id = t.id;
+      const ago = timeAgo(t.updatedAt);
+      item.innerHTML = '<div class="thread-item-title">' + escapeHtml(t.title) + '</div>'
+        + '<div class="thread-item-meta">' + ago + '</div>';
+      item.addEventListener("click", () => switchThread(t.id));
+      threadListEl.appendChild(item);
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function timeAgo(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return hours + "h ago";
+    const days = Math.floor(hours / 24);
+    return days + "d ago";
+  }
+
+  async function switchThread(threadId) {
+    if (threadId === currentThreadId) return;
+    currentThreadId = threadId;
+    messagesEl.innerHTML = "";
+    renderThreadList();
+    updateThreadLabel();
+
+    if (threadId) {
+      // Load thread-specific history
+      try {
+        const data = await api("/api/threads/" + encodeURIComponent(threadId) + "/history?sessionId=" + encodeURIComponent(sessionId));
+        if (data.messages) {
+          for (const msg of data.messages) {
+            let content = msg.content;
+            if (typeof content === "string" && content.includes("[AGENT_REQUEST]")) {
+              content = content.replace(/\s*\[AGENT_REQUEST\][\s\S]*?\[\/AGENT_REQUEST\]\s*/g, "").trim();
+            }
+            addMessage(msg.role === "user" ? "user" : "assistant", content);
+          }
+        }
+      } catch (err) {
+        console.log("Failed to load thread history:", err.message);
+      }
+    } else {
+      // Load main session history
+      try {
+        const data = await api("/api/history?sessionId=" + encodeURIComponent(sessionId));
+        if (data.messages) {
+          for (const msg of data.messages) {
+            let content = msg.content;
+            if (typeof content === "string" && content.includes("[AGENT_REQUEST]")) {
+              content = content.replace(/\s*\[AGENT_REQUEST\][\s\S]*?\[\/AGENT_REQUEST\]\s*/g, "").trim();
+            }
+            addMessage(msg.role === "user" ? "user" : "assistant", content);
+          }
+        }
+      } catch (err) {
+        console.log("Failed to load history:", err.message);
+      }
+    }
+  }
+
+  function updateThreadLabel() {
+    if (currentThreadId) {
+      const t = threads.find(t => t.id === currentThreadId);
+      threadCurrentLabel.textContent = t ? t.title : "Thread";
+    } else {
+      threadCurrentLabel.textContent = "";
+    }
+  }
+
+  threadNewBtn.addEventListener("click", async () => {
+    try {
+      const data = await fetch("/api/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      }).then(r => r.json());
+
+      if (data.thread) {
+        await loadThreads();
+        await switchThread(data.thread.id);
+      }
+    } catch (err) {
+      console.error("Failed to create thread:", err.message);
+    }
+  });
 
   // --- Attached files ---
   let pendingImages = []; // { data: base64, mimeType: string }
@@ -1717,7 +2431,7 @@
 
   function getFileExt(name) { return "." + name.split(".").pop().toLowerCase(); }
 
-  attachBtn.addEventListener("click", () => fileInput.click());
+  attachBtn.addEventListener("click", () => { if (incognitoMode) return; fileInput.click(); });
   fileInput.addEventListener("change", async () => {
     for (const file of fileInput.files) {
       const ext = getFileExt(file.name);
@@ -1767,6 +2481,7 @@
   });
 
   screenshotBtn.addEventListener("click", async () => {
+    if (incognitoMode) return;
     try {
       // Use html2canvas-style approach: capture the visible page
       const canvas = document.createElement("canvas");
@@ -1861,7 +2576,42 @@
   // --- Init ---
   async function init() {
     try {
+      // Check for startup token in URL (zero-friction local auth)
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get("token");
+
+      if (token) {
+        // Clean the token from the URL (don't leave it in browser history)
+        window.history.replaceState({}, "", window.location.pathname);
+
+        try {
+          const tokenResult = await api("/api/auth/token?t=" + encodeURIComponent(token));
+          if (tokenResult.valid) {
+            if (tokenResult.needsPairing) {
+              // First run: skip code entry, go straight to name + safe word
+              showScreen("pair-screen");
+              showStep("pair-screen", "pair-step-2");
+              pairCode = "__auto_token__";
+              isFirstRun = true;
+              document.getElementById("pair-name").focus();
+              return;
+            }
+            // Already paired — try to resume session
+            const check = await api("/api/auth/active-session");
+            if (check.valid) {
+              sessionId = check.sessionId;
+              userName = check.name;
+              enterChat();
+              return;
+            }
+          }
+        } catch (e) {
+          console.log("Token auth failed, falling back to normal flow:", e);
+        }
+      }
+
       const status = await api("/api/status");
+      if (status.agentName) agentName = status.agentName;
       if (status.paired) {
         // "restart" mode: try to resume session
         if (status.safeWordMode === "restart") {
@@ -1917,6 +2667,7 @@
       return;
     }
     pairCode = code;
+    isFirstRun = true;
     showStep("pair-screen", "pair-step-2");
     document.getElementById("pair-name").focus();
   });
@@ -1925,34 +2676,64 @@
     if (e.key === "Enter") document.getElementById("pair-code-btn").click();
   });
 
-  // Step 2: Name + safe word
-  document.getElementById("pair-sw-btn").addEventListener("click", () => {
+  // Step 2: Name only
+  document.getElementById("pair-name-btn").addEventListener("click", () => {
     clearError("pair-error-2");
     const name = document.getElementById("pair-name").value.trim();
-    const sw = document.getElementById("pair-safeword").value.trim();
     if (!name) { showError("pair-error-2", "Enter your name"); return; }
-    if (!sw) { showError("pair-error-2", "Choose a safe word"); return; }
     pairName = name;
-    pairSafeWord = sw;
-    showStep("pair-screen", "pair-step-3");
-    document.getElementById("pair-question").focus();
+    document.getElementById("pair-greeting").textContent = `Nice to meet you, ${name}.`;
+    showStep("pair-screen", "pair-step-2b");
+    document.getElementById("pair-safeword").focus();
   });
 
-  document.getElementById("pair-safeword").addEventListener("keydown", (e) => {
+  document.getElementById("pair-name").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("pair-name-btn").click();
+  });
+
+  // Step 2b: Safe word with confirmation
+  document.getElementById("pair-sw-btn").addEventListener("click", () => {
+    clearError("pair-error-2b");
+    const sw = document.getElementById("pair-safeword").value.trim();
+    const confirm = document.getElementById("pair-safeword-confirm").value.trim();
+    if (!sw) { showError("pair-error-2b", "Choose a safe word"); return; }
+    if (sw !== confirm) { showError("pair-error-2b", "Safe words don't match"); return; }
+    pairSafeWord = sw;
+    document.getElementById("pair-agent-greeting").textContent = `Thanks, ${pairName}.`;
+    showStep("pair-screen", "pair-step-4");
+    document.getElementById("pair-agent-name").focus();
+  });
+
+  document.getElementById("pair-safeword-confirm").addEventListener("keydown", (e) => {
     if (e.key === "Enter") document.getElementById("pair-sw-btn").click();
   });
 
-  // Step 3: Recovery → submit all
-  document.getElementById("pair-finish-btn").addEventListener("click", async () => {
+  // Step 3: Recovery → go to agent naming
+  document.getElementById("pair-recovery-btn").addEventListener("click", () => {
     clearError("pair-error-3");
     const question = document.getElementById("pair-question").value.trim();
     const answer = document.getElementById("pair-answer").value.trim();
     if (!question) { showError("pair-error-3", "Enter a recovery question"); return; }
     if (!answer) { showError("pair-error-3", "Enter a recovery answer"); return; }
+    document.getElementById("pair-agent-greeting").textContent = `Thanks, ${pairName}.`;
+    showStep("pair-screen", "pair-step-4");
+    document.getElementById("pair-agent-name").focus();
+  });
+
+  document.getElementById("pair-answer").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("pair-recovery-btn").click();
+  });
+
+  // Step 4: Name the agent → submit all
+  document.getElementById("pair-finish-btn").addEventListener("click", async () => {
+    clearError("pair-error-4");
+    const agentName = document.getElementById("pair-agent-name").value.trim();
+    if (!agentName) { showError("pair-error-4", "Give me a name"); return; }
+    pairAgentName = agentName;
 
     const btn = document.getElementById("pair-finish-btn");
     btn.disabled = true;
-    btn.textContent = "Pairing...";
+    btn.textContent = "Setting up...";
 
     try {
       const result = await api("/api/pair", {
@@ -1961,27 +2742,31 @@
           code: pairCode,
           name: pairName,
           safeWord: pairSafeWord,
-          recoveryQuestion: question,
-          recoveryAnswer: answer,
+          agentName: pairAgentName,
         },
       });
       sessionId = result.sessionId;
       userName = result.name;
+
+      // Transition moment
+      showStep("pair-screen", "pair-step-5");
+      document.getElementById("pair-ready-msg").textContent = `${pairAgentName} is ready.`;
+      document.getElementById("pair-ready-sub").textContent = `Nice to meet you, ${pairName}.`;
+      await new Promise(r => setTimeout(r, 1800));
       enterChat();
     } catch (err) {
-      showError("pair-error-3", err.message);
-      // If it's a code error, go back to step 1
+      showError("pair-error-4", err.message);
       if (err.message.toLowerCase().includes("code")) {
         showStep("pair-screen", "pair-step-1");
         showError("pair-error", err.message);
       }
     } finally {
       btn.disabled = false;
-      btn.textContent = "Complete Pairing";
+      btn.textContent = "Let's go";
     }
   });
 
-  document.getElementById("pair-answer").addEventListener("keydown", (e) => {
+  document.getElementById("pair-agent-name").addEventListener("keydown", (e) => {
     if (e.key === "Enter") document.getElementById("pair-finish-btn").click();
   });
 
@@ -2065,6 +2850,23 @@
   async function enterChat() {
     // Persist session for "restart" mode — survives page refresh but not browser close
     if (sessionId) sessionStorage.setItem("dash_sid", sessionId);
+    // Update header with agent name
+    const hdr = document.getElementById("agent-name-header");
+    if (hdr) hdr.textContent = agentName;
+    document.title = agentName;
+
+    // First-run: simplified UI — just chat, settings, share
+    if (isFirstRun) {
+      const nav = document.getElementById("header-nav");
+      const tabs = document.getElementById("tab-group");
+      const threadBtn = document.getElementById("thread-toggle-btn");
+      const threadLabel = document.getElementById("thread-current-label");
+      if (nav) nav.style.display = "none";
+      if (tabs) tabs.style.display = "none";
+      if (threadBtn) threadBtn.style.display = "none";
+      if (threadLabel) threadLabel.style.display = "none";
+    }
+
     showScreen("chat-screen");
     chatInput.focus();
 
@@ -2085,16 +2887,111 @@
       console.log("No history to restore:", err.message);
     }
 
+    // First-run: agent introduces itself
+    if (isFirstRun) {
+      isFirstRun = false;
+      const intro = `Hey ${userName || "there"}! I'm ${agentName}. I'm your personal AI — everything stays local on your machine. No cloud, no tracking, just us.\n\nHere's what I can help with:\n- **Chat** about anything — I'll remember our conversations\n- **Settings** (gear icon) to customize my personality\n- **Share** (envelope icon) to invite someone to run their own instance\n\nWhat would you like to talk about first?`;
+      addMessage("assistant", intro);
+    }
+
     startActivityPolling();
+
+    // Pre-load threads list
+    await loadThreads();
+
+    // Restore thread + scroll after toast refresh
+    try {
+      const restore = sessionStorage.getItem("_dash_restore");
+      if (restore) {
+        sessionStorage.removeItem("_dash_restore");
+        const { thread, scroll } = JSON.parse(restore);
+        if (thread) await switchThread(thread);
+        if (scroll && messagesEl) requestAnimationFrame(() => { messagesEl.scrollTop = scroll; });
+      }
+    } catch (e) { console.log("Restore failed:", e); }
 
     // Initialize voice features (non-blocking)
     initVoice();
+
+    // Load proactive questions ("Dash is wondering...")
+    loadPendingQuestions();
 
     // Auto-open settings if linked from another page via ?settings=open
     if (new URLSearchParams(location.search).get('settings') === 'open') {
       document.getElementById('vault-open-btn')?.click();
       history.replaceState({}, '', '/');
     }
+  }
+
+  function loadPendingQuestions() {
+    const greetingEl = document.getElementById("dash-greeting");
+    const chipsEl = document.getElementById("question-chips");
+    if (!greetingEl || !chipsEl) return;
+
+    fetch("/api/pending-questions")
+      .then(r => r.json())
+      .then(data => {
+        const questions = data.questions;
+        if (!questions || questions.length === 0) {
+          greetingEl.style.display = "none";
+          return;
+        }
+
+        chipsEl.innerHTML = "";
+        for (const q of questions) {
+          const chip = document.createElement("div");
+          chip.className = "question-chip";
+          chip.dataset.questionId = q.id;
+
+          const icon = document.createElement("span");
+          icon.className = "chip-icon";
+          icon.textContent = "?";
+
+          const text = document.createElement("span");
+          text.className = "chip-text";
+          text.textContent = q.question;
+
+          const dismiss = document.createElement("button");
+          dismiss.className = "chip-dismiss";
+          dismiss.textContent = "\u00d7";
+          dismiss.title = "Dismiss";
+          dismiss.addEventListener("click", (e) => {
+            e.stopPropagation();
+            fetch("/api/dismiss-question", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ questionId: q.id }),
+            });
+            chip.remove();
+            if (chipsEl.children.length === 0) greetingEl.style.display = "none";
+          });
+
+          chip.appendChild(icon);
+          chip.appendChild(text);
+          chip.appendChild(dismiss);
+
+          chip.addEventListener("click", () => {
+            chatInput.value = q.question;
+            greetingEl.style.display = "none";
+            sendMessage();
+          });
+
+          chipsEl.appendChild(chip);
+        }
+
+        greetingEl.style.display = "block";
+      })
+      .catch(() => {
+        greetingEl.style.display = "none";
+      });
+
+    // Hide greeting when user starts typing their own message
+    chatInput.addEventListener("input", function hideGreeting() {
+      if (chatInput.value.trim().length > 0) {
+        greetingEl.style.display = "none";
+        chatInput.removeEventListener("input", hideGreeting);
+      }
+    });
   }
 
   // Lightweight markdown → HTML (bold, italic, code, bullets, line breaks)
@@ -2124,6 +3021,44 @@
     return html;
   }
 
+  // Streaming-aware markdown: auto-close incomplete patterns so partial
+  // markdown renders progressively as tokens arrive instead of staying
+  // unformatted until the closing syntax appears.
+  function renderStreamingMarkdown(text) {
+    var patched = text;
+
+    // 1. Auto-close unclosed fenced code blocks
+    var codeBlockTicks = patched.match(/```/g);
+    if (codeBlockTicks && codeBlockTicks.length % 2 !== 0) {
+      patched += "\n```";
+    }
+
+    // Strip code blocks + inline code for further pattern counting
+    var noCodeBlocks = patched.replace(/```[\s\S]*?```/g, "");
+    var noInline = noCodeBlocks.replace(/`[^`]*`/g, "");
+
+    // 2. Auto-close unclosed inline code
+    var backticks = noCodeBlocks.match(/`/g);
+    if (backticks && backticks.length % 2 !== 0) {
+      patched += "`";
+    }
+
+    // 3. Auto-close unclosed bold **
+    var boldMarkers = noInline.match(/\*\*/g);
+    if (boldMarkers && boldMarkers.length % 2 !== 0) {
+      patched += "**";
+    }
+
+    // 4. Auto-close unclosed italic * (after stripping bold pairs)
+    var afterBold = noInline.replace(/\*\*/g, "");
+    var italicMarkers = afterBold.match(/\*/g);
+    if (italicMarkers && italicMarkers.length % 2 !== 0) {
+      patched += "*";
+    }
+
+    return renderMarkdown(patched);
+  }
+
   function friendlyLLMError(raw) {
     if (/402|credits|afford/i.test(raw)) return "I'm out of API credits — top up at openrouter.ai/settings/credits and try again.";
     if (/429|rate.limit/i.test(raw)) return "Rate limited by the LLM provider. Wait a moment and try again.";
@@ -2133,13 +3068,69 @@
     return "LLM error: " + raw;
   }
 
+  // PII detection — wraps sensitive patterns in redaction spans
+  const PII_PATTERNS = [
+    // Phone numbers: (213) 248-4250, 213-248-4250, 213.248.4250, +1 213 248 4250, 5555555555
+    /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
+    // Email addresses
+    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+    // SSN: 123-45-6789 or 123 45 6789
+    /\b\d{3}[-\s]\d{2}[-\s]\d{4}\b/g,
+    // Credit card-ish: 4 groups of 4 digits
+    /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
+    // IP addresses
+    /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
+    // Common profanity
+    /\b(?:fuck|shit|damn|ass|bitch|hell|crap|dick|cock|pussy|bastard|asshole|bullshit|motherfuck\w*)\b/gi,
+  ];
+
+  function redactPII(text) {
+    // Collect all match ranges
+    const ranges = [];
+    for (const pat of PII_PATTERNS) {
+      pat.lastIndex = 0;
+      let m;
+      while ((m = pat.exec(text)) !== null) {
+        ranges.push([m.index, m.index + m[0].length]);
+      }
+    }
+    if (ranges.length === 0) return null; // nothing to redact
+
+    // Sort and merge overlapping ranges
+    ranges.sort((a, b) => a[0] - b[0]);
+    const merged = [ranges[0]];
+    for (let i = 1; i < ranges.length; i++) {
+      const last = merged[merged.length - 1];
+      if (ranges[i][0] <= last[1]) {
+        last[1] = Math.max(last[1], ranges[i][1]);
+      } else {
+        merged.push(ranges[i]);
+      }
+    }
+
+    // Build HTML with redaction spans
+    let html = "";
+    let cursor = 0;
+    for (const [start, end] of merged) {
+      html += escapeHtml(text.slice(cursor, start));
+      html += '<span class="pii-redact">' + escapeHtml(text.slice(start, end)) + '</span>';
+      cursor = end;
+    }
+    html += escapeHtml(text.slice(cursor));
+    return html;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
   function addMessage(role, content) {
     const div = document.createElement("div");
     div.className = "message " + role;
     if (role === "system") {
       div.innerHTML = '<div class="content"></div>';
     } else {
-      div.innerHTML = '<div class="role">' + (role === "user" ? userName || "You" : "{{INSTANCE_NAME}}") + '</div>'
+      div.innerHTML = '<div class="role">' + (role === "user" ? userName || "You" : agentName) + '</div>'
         + '<div class="content"></div>';
     }
     // Render markdown for assistant messages, plain text for user
@@ -2156,7 +3147,7 @@
   function createStreamingMessage() {
     const div = document.createElement("div");
     div.className = "message assistant";
-    div.innerHTML = '<div class="role">{{INSTANCE_NAME}}<span class="model-tag" id="streaming-model-tag"></span></div><div class="content"></div>';
+    div.innerHTML = '<div class="role">' + agentName + '<span class="model-tag" id="streaming-model-tag"></span></div><div class="content"></div>';
     messagesEl.appendChild(div);
     return div.querySelector(".content");
   }
@@ -2198,15 +3189,88 @@
     pendingFiles = [];
     renderAttachmentPreviews();
     autoResize();
-    addMessage("user", text + attachLabel);
+    const userMsg = addMessage("user", text + attachLabel);
+    if (incognitoMode) {
+      userMsg.classList.add("incognito");
+      const redacted = redactPII(text + attachLabel);
+      if (redacted) userMsg.querySelector(".content").innerHTML = redacted;
+    }
 
     streaming = true;
     abortController = new AbortController();
     setButtonStop();
 
+    // --- Incognito: route to local Ollama, skip server entirely ---
+    if (incognitoMode) {
+      incognitoHistory.push({ role: "user", content: msgText });
+      const ollamaMessages = [
+        { role: "system", content: "You are " + agentName + ", running in incognito mode. Local only. No memory. No network. Be concise." },
+        ...incognitoHistory.slice(-10)
+      ];
+      // 30s timeout for local model
+      const ollamaTimeout = setTimeout(() => { if (abortController) abortController.abort(); }, 35000);
+      try {
+        const res = await fetch("http://localhost:11434/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: incognitoModel, messages: ollamaMessages, stream: true }),
+          signal: abortController.signal,
+        });
+        if (!res.ok) {
+          addMessage("system", "Ollama error: " + res.status + " — is Ollama running?");
+          return;
+        }
+        const contentEl = createStreamingMessage();
+        contentEl.closest(".message").classList.add("incognito");
+        contentEl.classList.add("streaming-cursor");
+        const tag = document.getElementById("streaming-model-tag");
+        if (tag) { tag.textContent = "ollama/local"; tag.removeAttribute("id"); }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "", fullReply = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              const token = parsed.message?.content || "";
+              fullReply += token;
+              contentEl.innerHTML = renderStreamingMarkdown(fullReply);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            } catch {}
+          }
+        }
+        contentEl.classList.remove("streaming-cursor");
+        const redactedReply = redactPII(fullReply);
+        contentEl.innerHTML = redactedReply || (fullReply ? renderMarkdown(fullReply) : "");
+        incognitoHistory.push({ role: "assistant", content: fullReply });
+      } catch (err) {
+        if (err.name === "AbortError") {
+          addMessage("system", "Local model timed out or was stopped.");
+        } else {
+          addMessage("system", "Ollama connection failed — is it running?");
+        }
+        var cursorEl = messagesEl.querySelector(".streaming-cursor");
+        if (cursorEl) cursorEl.classList.remove("streaming-cursor");
+      } finally {
+        clearTimeout(ollamaTimeout);
+        streaming = false;
+        abortController = null;
+        setButtonSend();
+        chatInput.focus();
+      }
+      return;
+    }
+
     try {
       const payload = { sessionId, message: msgText };
       if (imgPayload) payload.images = imgPayload;
+      if (currentThreadId) payload.threadId = currentThreadId;
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -2241,9 +3305,11 @@
 
       // Streamed chat response
       const contentEl = createStreamingMessage();
+      contentEl.classList.add("streaming-cursor");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let streamingText = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -2266,7 +3332,8 @@
               }
             }
             if (data.token) {
-              contentEl.textContent += data.token;
+              streamingText += data.token;
+              contentEl.innerHTML = renderStreamingMarkdown(streamingText);
               messagesEl.scrollTop = messagesEl.scrollHeight;
             }
             if (data.agentSpawned) {
@@ -2292,7 +3359,7 @@
         }
       }
       // Strip [AGENT_REQUEST]...[/AGENT_REQUEST] and start agent poll
-      let finalText = contentEl ? contentEl.textContent : "";
+      let finalText = streamingText;
       if (finalText.includes("[AGENT_REQUEST]")) {
         // Count how many blocks were found
         const blockMatches = finalText.match(/\[AGENT_REQUEST\]/g);
@@ -2322,9 +3389,10 @@
           .trim();
       }
 
-      // Render markdown in the final response
-      if (contentEl && finalText) {
-        contentEl.innerHTML = renderMarkdown(finalText);
+      // Remove streaming cursor and re-render final clean markdown
+      if (contentEl) {
+        contentEl.classList.remove("streaming-cursor");
+        contentEl.innerHTML = finalText ? renderMarkdown(finalText) : "";
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
@@ -2338,11 +3406,16 @@
       } else {
         addMessage("system", "Connection error: " + err.message);
       }
+      // Remove streaming cursor on error/abort too
+      var cursorEl = messagesEl.querySelector(".streaming-cursor");
+      if (cursorEl) cursorEl.classList.remove("streaming-cursor");
     } finally {
       streaming = false;
       abortController = null;
       setButtonSend();
       chatInput.focus();
+      // Refresh threads to pick up auto-generated titles
+      if (currentThreadId) loadThreads();
     }
   }
 
@@ -2573,7 +3646,7 @@
 
   function openSettings() {
     vaultOverlay.classList.add("open");
-    loadPrompt();
+    loadPersonality();
     loadSecuritySettings();
     loadMeshSettings();
     loadLlmSettings();
@@ -2595,30 +3668,66 @@
     vaultError.classList.remove("visible");
   }
 
-  // --- Prompt (personality) ---
+  // --- Personality (trait sliders + custom rules) ---
 
-  const promptTextarea = document.getElementById("prompt-textarea");
+  const personalityTraits = document.getElementById("personality-traits");
+  const customRulesTextarea = document.getElementById("custom-rules-textarea");
   const promptStatus = document.getElementById("prompt-status");
 
-  async function loadPrompt() {
+  // Dot click handler — activate clicked dot, deactivate siblings
+  personalityTraits.addEventListener("click", (e) => {
+    const dot = e.target.closest(".trait-dot");
+    if (!dot) return;
+    const slider = dot.closest(".trait-slider");
+    slider.querySelectorAll(".trait-dot").forEach(d => d.classList.remove("active"));
+    dot.classList.add("active");
+  });
+
+  async function loadPersonality() {
     try {
-      const data = await api("/api/prompt?sessionId=" + encodeURIComponent(sessionId));
-      promptTextarea.value = data.prompt || "";
+      const data = await api("/api/personality?sessionId=" + encodeURIComponent(sessionId));
+      // Set trait dots
+      if (data.traits) {
+        for (const [trait, value] of Object.entries(data.traits)) {
+          const row = personalityTraits.querySelector(`[data-trait="${trait}"]`);
+          if (!row) continue;
+          row.querySelectorAll(".trait-dot").forEach(d => {
+            d.classList.toggle("active", d.dataset.value === String(value));
+          });
+        }
+      }
+      // Set custom rules
+      customRulesTextarea.value = (data.customRules || []).join("\n");
     } catch {
-      promptTextarea.value = "";
+      // defaults already set in HTML
+      customRulesTextarea.value = "";
     }
   }
 
-  async function savePrompt() {
+  async function savePersonality() {
     const btn = document.getElementById("prompt-save-btn");
     btn.disabled = true;
     promptStatus.textContent = "";
     promptStatus.className = "prompt-status";
 
+    // Collect trait values
+    const traits = {};
+    personalityTraits.querySelectorAll(".trait-row").forEach(row => {
+      const trait = row.dataset.trait;
+      const active = row.querySelector(".trait-dot.active");
+      traits[trait] = active ? parseInt(active.dataset.value) : 2;
+    });
+
+    // Collect custom rules (non-empty lines)
+    const customRules = customRulesTextarea.value
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean);
+
     try {
-      await api("/api/prompt", {
+      await api("/api/personality", {
         method: "PUT",
-        body: { sessionId, prompt: promptTextarea.value },
+        body: { sessionId, traits, customRules },
       });
       promptStatus.textContent = "Saved";
       promptStatus.classList.add("visible");
@@ -2631,7 +3740,7 @@
     }
   }
 
-  document.getElementById("prompt-save-btn").addEventListener("click", savePrompt);
+  document.getElementById("prompt-save-btn").addEventListener("click", savePersonality);
 
   // --- LLM Settings ---
 
@@ -2877,7 +3986,6 @@
   const activityView = document.getElementById("activity-view");
   const activityBadge = document.getElementById("activity-badge");
   const activityEmpty = document.getElementById("activity-empty");
-  const composerEl = document.getElementById("composer");
   const activityEntries = document.getElementById("activity-entries");
   const freezeBtn = document.getElementById("stream-freeze-btn");
   const selectionCount = document.getElementById("stream-selection-count");
@@ -3071,7 +4179,7 @@
     // Append assistant placeholder
     const asstDiv = document.createElement("div");
     asstDiv.className = "branch-message assistant";
-    asstDiv.innerHTML = '<div class="branch-role">{{INSTANCE_NAME}}</div><div class="branch-content"></div>';
+    asstDiv.innerHTML = '<div class="branch-role">' + agentName + '</div><div class="branch-content"></div>';
     branchMessages.appendChild(asstDiv);
     const contentEl = asstDiv.querySelector(".branch-content");
 
@@ -3142,13 +4250,6 @@
   // --- Voice ---
 
   const micBtn = document.getElementById("mic-btn");
-  const avatarPanel = document.getElementById("avatar-panel");
-  const avatarPlaceholder = document.getElementById("avatar-placeholder");
-  const avatarState = document.getElementById("avatar-state");
-  const avatarVideo = document.getElementById("avatar-video");
-  let avatarVideoAvailable = false;
-  let avatarPollTimer = null;
-  let avatarPollAfter = 0;
 
   async function initVoice() {
     try {
@@ -3156,14 +4257,6 @@
       voiceStatus = { tts: !!data.tts, stt: !!data.stt };
     } catch {
       voiceStatus = { tts: false, stt: false };
-    }
-
-    // Check avatar status
-    try {
-      const avatarStatus = await api("/api/avatar/status");
-      avatarVideoAvailable = !!avatarStatus.available;
-    } catch {
-      avatarVideoAvailable = false;
     }
 
     // Load settings for autoPlay and toggle states
@@ -3175,11 +4268,6 @@
       document.getElementById("autoplay-toggle").checked = ttsAutoPlay;
       document.getElementById("tts-status-label").textContent = voiceStatus.tts ? "Piper running" : "Not available";
       document.getElementById("stt-status-label").textContent = voiceStatus.stt ? "Whisper running" : "Not available";
-      // Avatar settings
-      document.getElementById("avatar-toggle").checked = settings.avatar?.enabled !== false;
-      document.getElementById("avatar-musetalk-path").value = settings.avatar?.musetalkPath || "";
-      document.getElementById("avatar-status-label").textContent = avatarVideoAvailable ? "MuseTalk running" : "Not available";
-      document.getElementById("avatar-photo-name").textContent = (settings.avatar?.photoPath || "photo.png").split("/").pop();
     } catch {}
 
     // Check board provider status
@@ -3216,7 +4304,7 @@
         gLabel.textContent = "Connected";
         gScopes.textContent = "Calendar, Gmail, Docs, Sheets, Tasks";
         gDot.style.background = "#22c55e";
-        gHint.textContent = 'Ask {{INSTANCE_NAME}} about your "schedule", "inbox", or "email from [name]" in chat.';
+        gHint.textContent = 'Ask about your "schedule", "inbox", or "email from [name]" in chat.';
         gBtn.textContent = "Reconnect Google";
       } else if (googleStatus.configured) {
         gLabel.textContent = "Configured";
@@ -3252,160 +4340,33 @@
             gLabel.textContent = "Connected";
             gScopes.textContent = "Calendar, Gmail, Docs, Sheets, Tasks";
             gDot.style.background = "#22c55e";
-            gHint.textContent = 'Ask {{INSTANCE_NAME}} about your "schedule", "inbox", or "email from [name]" in chat.';
+            gHint.textContent = 'Ask about your "schedule", "inbox", or "email from [name]" in chat.';
             gBtn.textContent = "Reconnect Google";
           }
         } catch {}
       }
     });
 
-    // Show avatar panel if TTS is available
-    if (voiceStatus.tts) {
-      avatarPanel.classList.remove("hidden");
-
-      // Try to initialize TalkingHead 3D avatar (async, non-blocking) — only if no video avatar
-      if (!avatarVideoAvailable && window.__talkingHead) {
-        window.__talkingHead.init().then(function(ok) {
-          if (ok) console.log("TalkingHead avatar loaded");
-          else console.log("TalkingHead: no model at /public/avatar/dash.glb — using placeholder");
-        });
-      }
-    }
-
-    // Start polling for avatar videos if available
-    if (avatarVideoAvailable) {
-      avatarPanel.classList.remove("hidden");
-      restoreAvatarIdle();
-      startAvatarPoll();
-    } else {
-      // Avatar loads in background — retry every 10s for up to 2 minutes
-      let avatarRetries = 0;
-      const avatarRetryTimer = setInterval(async () => {
-        avatarRetries++;
-        if (avatarRetries > 12) { clearInterval(avatarRetryTimer); return; }
-        try {
-          const s = await api("/api/avatar/status");
-          if (s.available) {
-            clearInterval(avatarRetryTimer);
-            avatarVideoAvailable = true;
-            avatarPanel.classList.remove("hidden");
-            restoreAvatarIdle();
-            startAvatarPoll();
-            console.log("[avatar] MuseTalk sidecar ready (after " + (avatarRetries * 10) + "s)");
-          }
-        } catch {}
-      }, 10000);
-    }
-  }
-
-  // --- Avatar video polling ---
-
-  function startAvatarPoll() {
-    if (avatarPollTimer) return;
-    avatarPollTimer = setInterval(pollAvatarVideo, 3000);
-  }
-
-  async function pollAvatarVideo() {
-    if (!avatarVideoAvailable) return;
-    try {
-      const data = await api("/api/avatar/latest?after=" + avatarPollAfter);
-      if (data.videos && data.videos.length > 0) {
-        // Play the newest video
-        const latest = data.videos[data.videos.length - 1];
-        avatarPollAfter = latest.timestamp;
-        playAvatarVideo(latest.url);
-      }
-    } catch {}
-  }
-
-  function playAvatarVideo(url) {
-    // Play video muted — TTS already handled the audio, video is just lip-sync visual
-    avatarVideo.loop = false;
-    avatarVideo.muted = true;
-    avatarVideo.src = url;
-    avatarVideo.style.display = "block";
-    avatarPlaceholder.style.display = "none";
-    if (document.getElementById("avatar-canvas")) document.getElementById("avatar-canvas").style.display = "none";
-    setAvatarState("speaking");
-
-    avatarVideo.play().catch(function(err) {
-      console.log("Avatar video play failed:", err);
-      restoreAvatarIdle();
-    });
-
-    avatarVideo.onended = function() {
-      restoreAvatarIdle();
-    };
-
-    avatarVideo.onerror = function() {
-      restoreAvatarIdle();
-    };
-  }
-
-  function restoreAvatarIdle() {
-    // Loop the idle video (silent face) instead of showing a static photo
-    if (avatarVideoAvailable) {
-      avatarVideo.src = "/public/avatar/idle.mp4";
-      avatarVideo.loop = true;
-      avatarVideo.muted = true;
-      avatarVideo.style.display = "block";
-      avatarPlaceholder.style.display = "none";
-      avatarVideo.play().catch(function() {
-        // Fallback to static photo if idle video fails
-        avatarVideo.style.display = "none";
-        avatarPlaceholder.style.display = "flex";
-      });
-    } else {
-      avatarVideo.style.display = "none";
-      avatarVideo.src = "";
-      avatarPlaceholder.style.display = "flex";
-    }
-    setAvatarState("idle");
   }
 
   // TTS: speak a text string — fetches WAV from server, plays in browser
-  // If avatar video is available, skip TTS audio (video has audio muxed in).
-  // If TalkingHead is loaded, routes audio through it for lip-sync.
-  // Otherwise falls back to plain Web Audio playback.
   async function speakText(text) {
     if (!voiceStatus.tts || !text) return;
-
-    // Trim to reasonable length for TTS
     const ttsText = text.slice(0, 2000);
-
     try {
-      setAvatarState("speaking");
       const res = await fetch("/api/tts?text=" + encodeURIComponent(ttsText));
-      if (!res.ok) { setAvatarState("idle"); return; }
-
+      if (!res.ok) return;
       const arrayBuf = await res.arrayBuffer();
-
-      // Try TalkingHead first — it plays audio AND does lip-sync
-      if (window.__talkingHead && window.__talkingHead.isLoaded()) {
-        const ok = await window.__talkingHead.speakAudio(arrayBuf, ttsText);
-        if (ok) {
-          // TalkingHead handles playback; avatar returns to idle on its own
-          currentAudio = { talkingHead: true };
-          return;
-        }
-      }
-
-      // Fallback: plain Web Audio playback with CSS avatar animation
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
-
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioCtx.destination);
-      source.onended = () => {
-        setAvatarState("idle");
-        currentAudio = null;
-      };
+      source.onended = () => { currentAudio = null; };
       source.start(0);
       currentAudio = { source, ctx: audioCtx };
     } catch (err) {
       console.log("TTS playback error:", err);
-      setAvatarState("idle");
     }
   }
 
@@ -3416,12 +4377,7 @@
         if (currentAudio.source) currentAudio.source.stop();
         if (currentAudio.ctx) currentAudio.ctx.close();
       } catch {}
-      // Stop TalkingHead if active
-      if (currentAudio.talkingHead && window.__talkingHead) {
-        try { window.__talkingHead.setMood("neutral"); } catch {}
-      }
       currentAudio = null;
-      setAvatarState("idle");
     }
   }
 
@@ -3437,21 +4393,15 @@
   let speechBuffer = ""; // Accumulates text across chunks until user pauses
   let silenceCount = 0; // Consecutive silent chunks
 
-  // Is Dash currently talking? (streaming, TTS, or avatar video)
+  // Is Dash currently talking? (streaming or TTS)
   function isDashTalking() {
-    return !!currentAudio
-      || (avatarVideo && !avatarVideo.paused && !avatarVideo.loop)
-      || streaming;
+    return !!currentAudio || streaming;
   }
 
-  // Barge-in: stop all Dash audio/video playback + abort streaming
+  // Barge-in: stop TTS playback + abort streaming
   function bargeIn() {
     console.log("[barge-in] Stopping Dash");
     stopSpeaking();
-    if (avatarVideo && !avatarVideo.paused) {
-      avatarVideo.pause();
-      restoreAvatarIdle();
-    }
     if (streaming && abortController) {
       abortController.abort();
     }
@@ -3549,7 +4499,7 @@
       listenStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       alwaysListening = true;
       micBtn.classList.add("listening");
-      micBtn.title = "Mic on — speak to {{INSTANCE_NAME}} (click to stop)";
+      micBtn.title = "Mic on — speaking (click to stop)";
       console.log("[mic] Always-listening started");
 
       // Set up barge-in volume monitor — uses RMS of time-domain waveform
@@ -3605,7 +4555,7 @@
       listenStream = null;
     }
     micBtn.classList.remove("listening", "recording");
-    micBtn.title = "Click to talk to {{INSTANCE_NAME}}";
+    micBtn.title = "Click to talk";
     console.log("[mic] Stopped listening");
   }
 
@@ -3639,7 +4589,6 @@
         const webmBlob = new Blob(chunks, { type: "audio/webm" });
         micBtn.classList.remove("recording");
         micRecording = false;
-        setAvatarState("idle");
         try {
           const wavBlob = await blobToWav(webmBlob);
           const res = await fetch("/api/stt", { method: "POST", body: wavBlob });
@@ -3657,7 +4606,6 @@
       mediaRecorder.start();
       micRecording = true;
       micBtn.classList.add("recording");
-      setAvatarState("listening");
     } catch (err) {
       console.log("Mic access denied:", err);
     }
@@ -3669,29 +4617,6 @@
     // State cleanup happens in onstop handler
   }
 
-  // Avatar state management — drives both CSS placeholder and TalkingHead
-  function setAvatarState(state) {
-    // CSS placeholder animations
-    avatarPlaceholder.classList.remove("speaking", "listening");
-    if (state === "speaking") {
-      avatarPlaceholder.classList.add("speaking");
-      avatarState.textContent = "Speaking...";
-    } else if (state === "listening") {
-      avatarPlaceholder.classList.add("listening");
-      avatarState.textContent = "Listening...";
-    } else {
-      avatarState.textContent = "";
-    }
-
-    // TalkingHead mood
-    if (window.__talkingHead && window.__talkingHead.isLoaded()) {
-      if (state === "listening") {
-        window.__talkingHead.setMood("happy");
-      } else {
-        window.__talkingHead.setMood("neutral");
-      }
-    }
-  }
 
   // Voice settings save
   document.getElementById("voice-save-btn").addEventListener("click", async function() {
@@ -3728,175 +4653,37 @@
     }
   });
 
-  // Avatar settings save
-  document.getElementById("avatar-save-btn").addEventListener("click", async function() {
-    const btn = this;
-    btn.disabled = true;
-    const statusEl = document.getElementById("avatar-save-status");
-    statusEl.classList.remove("visible");
-
-    try {
-      await api("/api/settings", {
-        method: "PUT",
-        body: {
-          avatar: {
-            enabled: document.getElementById("avatar-toggle").checked,
-            musetalkPath: document.getElementById("avatar-musetalk-path").value.trim(),
-          },
-        },
-      });
-      statusEl.classList.add("visible");
-      setTimeout(() => statusEl.classList.remove("visible"), 2000);
-    } catch (err) {
-      statusEl.textContent = err.message;
-      statusEl.classList.add("visible");
-      setTimeout(() => {
-        statusEl.textContent = "Saved";
-        statusEl.classList.remove("visible");
-      }, 3000);
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  // Avatar photo upload
-  document.getElementById("avatar-photo-upload").addEventListener("change", async function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    document.getElementById("avatar-photo-name").textContent = "Uploading...";
-
-    try {
-      const arrayBuf = await file.arrayBuffer();
-      const res = await fetch("/api/avatar/photo?sessionId=" + encodeURIComponent(sessionId), {
-        method: "POST",
-        body: arrayBuf,
-      });
-      const data = await res.json();
-      if (data.ok) {
-        document.getElementById("avatar-photo-name").textContent = file.name;
-      } else {
-        document.getElementById("avatar-photo-name").textContent = data.error || "Upload failed";
-      }
-    } catch (err) {
-      document.getElementById("avatar-photo-name").textContent = "Upload failed";
-    }
-    e.target.value = "";
-  });
 
   // --- Start ---
   init();
 })();
 </script>
 
-<script type="module">
-// --- TalkingHead 3D Avatar ---
-// Loaded as ESM module, bridges to the IIFE via window globals.
-
-import { TalkingHead } from "talkinghead";
-
-const canvas = document.getElementById("avatar-canvas");
-const placeholder = document.getElementById("avatar-placeholder");
-const stateEl = document.getElementById("avatar-state");
-let head = null;
-
-async function initTalkingHead() {
-  // Check if a GLB model file is available
-  const modelUrl = "/public/avatar/dash.glb";
-  try {
-    const probe = await fetch(modelUrl, { method: "HEAD" });
-    if (!probe.ok) return false;
-  } catch {
-    return false;
-  }
-
-  try {
-    head = new TalkingHead(canvas, {
-      ttsEndpoint: null,
-      lipsyncModules: ["en"],
-      lipsyncLang: "en",
-      cameraView: "upper",
-      cameraRotateEnable: false,
-      cameraPanEnable: false,
-      cameraZoomEnable: false,
-      modelPixelRatio: window.devicePixelRatio || 1,
-      avatarMood: "neutral",
-      avatarIdleEyeContact: 0.7,
-      lightAmbientColor: "#b0b0b0",
-      lightAmbientIntensity: 2,
-      lightDirectColor: "#ffffff",
-      lightDirectIntensity: 15,
-    });
-
-    await head.showAvatar({
-      url: modelUrl,
-      body: "M",
-      avatarMood: "neutral",
-      lipsyncLang: "en",
-    });
-
-    // Success — show canvas, hide placeholder
-    canvas.style.display = "block";
-    placeholder.style.display = "none";
-    return true;
-  } catch (err) {
-    console.log("TalkingHead init failed:", err);
-    head = null;
-    return false;
-  }
-}
-
-// Expose to the IIFE
-window.__talkingHead = {
-  init: initTalkingHead,
-
-  /**
-   * Speak with lip-sync. Takes a WAV ArrayBuffer from /api/tts and the
-   * original text. Word timings are estimated by distributing words evenly
-   * across the audio duration (Piper doesn't provide timestamps).
-   */
-  async speakAudio(wavArrayBuffer, text) {
-    if (!head) return false;
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const audioBuffer = await audioCtx.decodeAudioData(wavArrayBuffer.slice(0));
-
-      // Estimate word timings from text and audio duration
-      const words = (text || "").split(/\s+/).filter(Boolean);
-      const durationMs = audioBuffer.duration * 1000;
-      const wordDuration = words.length > 0 ? durationMs / words.length : durationMs;
-      const wtimes = words.map((_, i) => Math.round(i * wordDuration));
-      const wdurations = words.map(() => Math.round(wordDuration));
-
-      head.speakAudio({
-        audio: audioBuffer,
-        words: words,
-        wtimes: wtimes,
-        wdurations: wdurations,
-      });
-      return true;
-    } catch (err) {
-      console.log("TalkingHead speakAudio failed:", err);
-      return false;
-    }
-  },
-
-  /** Set mood: "neutral", "happy", "sad", "angry", etc. */
-  setMood(mood) {
-    if (head) head.setMood(mood);
-  },
-
-  /** Play a built-in gesture: "handup", "thumbup", "shrug", etc. */
-  playGesture(name) {
-    if (head) head.playGesture(name);
-  },
-
-  /** Check if TalkingHead is loaded and has a model. */
-  isLoaded() {
-    return !!head;
-  },
-};
-</script>
 <script src="/public/share-modal.js"></script>
+
+<!-- UI update toast -->
+<div class="ui-update-toast" id="ui-update-toast">
+  <span>Hi — there's been a tweak to this UI. Want to try it?</span>
+  <button onclick="try{sessionStorage.setItem('_dash_restore',JSON.stringify({thread:typeof currentThreadId!=='undefined'?currentThreadId:null,scroll:document.getElementById('messages')?.scrollTop||0}))}catch(e){}location.reload()">Refresh</button>
+  <button class="dismiss" onclick="this.parentElement.classList.remove('visible')">&times;</button>
+</div>
+<script>
+(function() {
+  let knownVersion = null;
+  async function checkUiVersion() {
+    try {
+      const r = await fetch("/api/ui-version");
+      if (!r.ok) return;
+      const { version } = await r.json();
+      if (!knownVersion) { knownVersion = version; return; }
+      if (version !== knownVersion) {
+        document.getElementById("ui-update-toast").classList.add("visible");
+      }
+    } catch {}
+  }
+  checkUiVersion();
+  setInterval(checkUiVersion, 30000);
+})();
+</script>
 </body>
 </html>

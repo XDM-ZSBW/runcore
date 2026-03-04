@@ -11,6 +11,8 @@
 
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { exec } from "node:child_process";
+import { createServer } from "node:net";
 
 const VERSION = "0.1.0";
 
@@ -127,6 +129,7 @@ async function ensureBrain(root: string): Promise<boolean> {
           airplaneMode: false,
           models: { chat: "auto", agent: "auto" },
           encryptBrainFiles: false,
+          safeWordMode: "restart",
         },
         null,
         2
@@ -139,13 +142,47 @@ async function ensureBrain(root: string): Promise<boolean> {
   return true;
 }
 
+// ── Port detection ────────────────────────────────────────────────
+
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const srv = createServer();
+    srv.once("error", () => resolve(false));
+    srv.once("listening", () => { srv.close(); resolve(true); });
+    srv.listen(port, "0.0.0.0");
+  });
+}
+
+async function findPort(preferred: number): Promise<number> {
+  if (await isPortAvailable(preferred)) return preferred;
+  // Try a few nearby ports, then random
+  for (let p = preferred + 1; p <= preferred + 10; p++) {
+    if (await isPortAvailable(p)) return p;
+  }
+  // OS-assigned random port
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.listen(0, "0.0.0.0", () => {
+      const addr = srv.address();
+      const port = typeof addr === "object" && addr ? addr.port : 0;
+      srv.close(() => resolve(port));
+    });
+    srv.once("error", reject);
+  });
+}
+
 // ── Start ──────────────────────────────────────────────────────────
 
 async function startServer() {
-  const port = getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.DASH_PORT ?? "3577";
+  const preferredPort = parseInt(getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.DASH_PORT ?? "3577", 10);
   const dirArg = getFlag(args, "--dir") ?? process.env.CORE_HOME;
 
-  process.env.DASH_PORT = port;
+  const port = await findPort(preferredPort);
+  if (port !== preferredPort) {
+    console.log(`  Port ${preferredPort} in use, using ${port}`);
+  }
+
+  process.env.DASH_PORT = String(port);
   if (dirArg) {
     process.chdir(resolve(dirArg));
   }
@@ -155,10 +192,36 @@ async function startServer() {
   // Auto-init if no brain exists
   await ensureBrain(root);
 
-  console.log(`Core starting on http://localhost:${port}`);
+  // Suppress JSON log noise during startup — only show warnings/errors
+  if (!process.env.LOG_LEVEL) process.env.LOG_LEVEL = "warn";
 
-  const { start } = await import("./server.js");
+  // Spinner while server boots
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  let i = 0;
+  const spinner = setInterval(() => {
+    process.stdout.write(`\r  ${frames[i++ % frames.length]} Starting Core...`);
+  }, 80);
+
+  const { start, getStartupToken } = await import("./server.js");
   await start();
+
+  clearInterval(spinner);
+  process.stdout.write("\r" + " ".repeat(40) + "\r");
+
+  // Auto-open browser with startup token for zero-friction onboarding
+  const token = getStartupToken();
+  if (token) {
+    const url = `http://localhost:${port}?token=${token}`;
+
+    // Open browser FIRST, then print — so browser gets focus
+    const openCmd =
+      process.platform === "win32" ? `start "" "${url}"`
+      : process.platform === "darwin" ? `open "${url}"`
+      : `xdg-open "${url}"`;
+    exec(openCmd, () => {});
+
+    console.log(`\n  Core is ready on port ${port}\n`);
+  }
 }
 
 // ── Status ─────────────────────────────────────────────────────────

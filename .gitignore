@@ -63,6 +63,7 @@ public/avatar/*.glb
 # Test coverage & temp
 coverage/
 .vitest/
+test-instance*/
 
 # Runtime cache & backups
 .core/

@@ -7,8 +7,14 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+
+// Package root (where public/ lives) — works whether run from CWD or npx
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PKG_ROOT = join(__dirname, "..");
 import { writeFileSync } from "node:fs";
 import { initInstanceName, getInstanceName, getInstanceNameLower, resolveEnv, getAlertEmailFrom } from "./instance.js";
 
@@ -291,6 +297,13 @@ const chatSessions = new Map<string, ChatSession>();
 const sessionKeys = new Map<string, Buffer>();
 let goalTimerStarted = false;
 
+/** One-time startup token for zero-friction local auth. */
+let startupToken: string | null = null;
+
+export function getStartupToken(): string | null {
+  return startupToken;
+}
+
 /** Autonomous timer started flag. */
 let autonomousStarted = false;
 const tracer = new Tracer();
@@ -492,8 +505,8 @@ app.onError((err, c) => {
   return c.json({ error: msg }, 500);
 });
 
-// Serve static files from public/
-app.use("/public/*", serveStatic({ root: "./" }));
+// Serve static files from public/ (relative to package, not CWD)
+app.use("/public/*", serveStatic({ root: PKG_ROOT }));
 
 // --- HTML template cache (replaces {{INSTANCE_NAME}} with configured name) ---
 const htmlCache = new Map<string, { content: string; mtime: number }>();
@@ -510,7 +523,7 @@ async function serveHtmlTemplate(filePath: string): Promise<string> {
 
 // Serve index.html at root
 app.get("/", async (c) => {
-  const html = await serveHtmlTemplate(join(process.cwd(), "public", "index.html"));
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "index.html"));
   return c.html(html);
 });
 
@@ -597,19 +610,23 @@ app.get("/api/status", async (c) => {
     tts: isTtsAvailable(),
     stt: isSttAvailable(),
     avatar: isAvatarAvailable(),
+    agentName: (settings as unknown as Record<string, unknown>).agentName || "Core",
   });
 });
 
 // Pairing ceremony
 app.post("/api/pair", async (c) => {
   const body = await c.req.json();
-  const { code, name, safeWord, recoveryQuestion, recoveryAnswer } = body;
+  let { code, name, safeWord, recoveryQuestion, recoveryAnswer, agentName } = body;
 
-  if (!code || !name || !safeWord || !recoveryQuestion || !recoveryAnswer) {
-    return c.json({ error: "All fields required" }, 400);
+  if (!code || !name || !safeWord) {
+    return c.json({ error: "Name and safe word required" }, 400);
   }
 
-  const result = await pair({ code, name, safeWord, recoveryQuestion, recoveryAnswer });
+  // Auto-token bypass: startup token already proved the user is local.
+  const skipCodeCheck = code === "__auto_token__";
+
+  const result = await pair({ code, name, safeWord, recoveryQuestion, recoveryAnswer, skipCodeCheck });
   if ("error" in result) {
     return c.json({ error: result.error }, 400);
   }
@@ -618,7 +635,19 @@ app.post("/api/pair", async (c) => {
   setEncryptionKey(result.sessionKey);
   cacheSessionKey(result.sessionKey);
   await loadVault(result.sessionKey);
-  return c.json({ sessionId: result.session.id, name: result.session.name });
+
+  // Save agent name to settings
+  if (agentName) {
+    try {
+      const settingsPath = join(process.cwd(), "brain", "settings.json");
+      const raw = await readFile(settingsPath, "utf-8");
+      const settings = JSON.parse(raw);
+      settings.agentName = agentName.trim();
+      await writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+    } catch {}
+  }
+
+  return c.json({ sessionId: result.session.id, name: result.session.name, agentName: agentName || "Core" });
 });
 
 // Auth: return visit
@@ -663,6 +692,17 @@ app.get("/api/auth/active-session", async (c) => {
     }
   }
   return c.json({ valid: false });
+});
+
+// Auto-token auth: zero-friction local first-run bypass
+app.get("/api/auth/token", async (c) => {
+  const token = c.req.query("t");
+  if (!token || !startupToken || token !== startupToken) {
+    return c.json({ valid: false, error: "Invalid or expired token" }, 401);
+  }
+  startupToken = null;
+  const status = await getStatus();
+  return c.json({ valid: true, needsPairing: !status.paired, codeBypass: true });
 });
 
 // Recovery question (GET)
@@ -1467,7 +1507,7 @@ app.get("/api/avatar/video/:hash", async (c) => {
     return c.json({ error: "Invalid hash" }, 400);
   }
 
-  const filePath = join(process.cwd(), "public", "avatar", "cache", hash);
+  const filePath = join(PKG_ROOT, "public", "avatar", "cache", hash);
   try {
     const mp4 = await readFile(filePath);
     return new Response(mp4, {
@@ -1496,7 +1536,7 @@ app.post("/api/avatar/photo", async (c) => {
 
   const avatarConfig = getAvatarConfig();
   const photoPath = join(process.cwd(), avatarConfig.photoPath);
-  await mkdir(join(process.cwd(), "public", "avatar"), { recursive: true });
+  await mkdir(join(PKG_ROOT, "public", "avatar"), { recursive: true });
   await writeFile(photoPath, Buffer.from(body));
 
   const ok = await preparePhoto(photoPath);
@@ -3314,7 +3354,7 @@ app.get("/api/cache", (c) => {
 // --- Help page routes (no auth — knowledge exchange for other AIs/humans) ---
 
 app.get("/help", async (c) => {
-  const html = await serveHtmlTemplate(join(process.cwd(), "public", "help.html"));
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "help.html"));
   return c.html(html);
 });
 
@@ -3361,31 +3401,31 @@ app.get("/api/help/context", async (c) => {
 
 // Serve observatory.html
 app.get("/observatory", async (c) => {
-  const html = await serveHtmlTemplate(join(process.cwd(), "public", "observatory.html"));
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "observatory.html"));
   return c.html(html);
 });
 
 // Serve ops.html
 app.get("/ops", async (c) => {
-  const html = await serveHtmlTemplate(join(process.cwd(), "public", "ops.html"));
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "ops.html"));
   return c.html(html);
 });
 
 // Serve board.html (kanban view)
 app.get("/board", async (c) => {
-  const html = await serveHtmlTemplate(join(process.cwd(), "public", "board.html"));
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "board.html"));
   return c.html(html);
 });
 
 // Serve library.html (file explorer)
 app.get("/library", async (c) => {
-  const html = await serveHtmlTemplate(join(process.cwd(), "public", "library.html"));
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "library.html"));
   return c.html(html);
 });
 
 // Serve browser.html (agent's-eye view of web pages)
 app.get("/browser", async (c) => {
-  const html = await serveHtmlTemplate(join(process.cwd(), "public", "browser.html"));
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "browser.html"));
   return c.html(html);
 });
 
@@ -5132,6 +5172,10 @@ async function start() {
     const taskCount = await queueProvider.getStore().count();
     log.info(`Board: ${board.name} (local, ${taskCount} tasks)`);
   }
+
+  // Generate startup token for zero-friction local auth
+  const { randomBytes: rng } = await import("node:crypto");
+  startupToken = rng(32).toString("hex");
 
   if (code) {
     log.info(`First launch detected. Pairing code: ${code}`);
