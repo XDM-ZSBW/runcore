@@ -29,7 +29,7 @@ https://runcore.sh
 
 Usage:
   runcore                     Start your agent (auto-inits if needed)
-  runcore --port <n>          Start on a specific port (default: 3577)
+  runcore --port <n>          Start on a specific port (default: random available)
   runcore --dir <path>        Use a specific directory
   runcore status              Check if running
   runcore update              Update to latest version
@@ -182,11 +182,12 @@ async function findPort(preferred: number): Promise<number> {
 // ── Start ──────────────────────────────────────────────────────────
 
 async function startServer() {
-  const preferredPort = parseInt(getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.CORE_PORT ?? "3577", 10);
+  const preferredPort = parseInt(getFlag(args, "--port") ?? process.env.CORE_PORT ?? "0", 10);
   const dirArg = getFlag(args, "--dir") ?? process.env.CORE_HOME;
 
-  const port = await findPort(preferredPort);
-  if (port !== preferredPort) {
+  // Port 0 = let the OS assign; skip findPort probing
+  const port = preferredPort === 0 ? 0 : await findPort(preferredPort);
+  if (preferredPort !== 0 && port !== preferredPort) {
     console.log(`  Port ${preferredPort} in use, using ${port}`);
   }
 
@@ -210,16 +211,19 @@ async function startServer() {
     process.stdout.write(`\r  ${frames[i++ % frames.length]} Starting Core...`);
   }, 80);
 
-  const { start, getStartupToken } = await import("./server.js");
+  const { start, getStartupToken, getActualPort } = await import("./server.js");
   await start();
 
   clearInterval(spinner);
   process.stdout.write("\r" + " ".repeat(40) + "\r");
 
+  // Resolve the actual port (handles port 0 → OS-assigned)
+  const resolvedPort = getActualPort();
+
   // Auto-open browser with startup token for zero-friction onboarding
   const token = getStartupToken();
   if (token) {
-    const url = `http://localhost:${port}?token=${token}`;
+    const url = `http://localhost:${resolvedPort}?token=${token}`;
 
     // Open browser FIRST, then print — so browser gets focus
     const openCmd =
@@ -228,14 +232,14 @@ async function startServer() {
       : `xdg-open "${url}"`;
     exec(openCmd, () => {});
 
-    console.log(`\n  Core is ready on port ${port}\n`);
+    console.log(`\n  Core is ready on port ${resolvedPort}\n`);
   }
 }
 
 // ── Status ─────────────────────────────────────────────────────────
 
 async function status() {
-  const port = getFlag(args, "--port") ?? process.env.CORE_PORT ?? process.env.CORE_PORT ?? "3577";
+  const port = getFlag(args, "--port") ?? process.env.CORE_PORT ?? "3577";
   const url = `http://localhost:${port}/api/health`;
 
   try {

@@ -104,6 +104,66 @@ export function verifySlackV0(
 }
 
 /**
+ * Verify a Svix-style signature (used by Resend).
+ * Secret is base64-encoded (with optional "whsec_" prefix).
+ * Sign string: "{svix-id}.{svix-timestamp}.{rawBody}"
+ * HMAC-SHA256, base64-encoded result. Multiple comma-separated sigs in header (v1,... prefix).
+ * Any match = valid. Also checks timestamp freshness.
+ */
+export function verifySvix(
+  ctx: VerifyContext,
+  maxAgeSeconds = 300,
+): boolean {
+  const svixId = ctx.headers?.["svix-id"] ?? "";
+  const svixTimestamp = ctx.headers?.["svix-timestamp"] ?? "";
+  const svixSignature = ctx.signature; // svix-signature header value
+
+  if (!svixId || !svixTimestamp || !svixSignature) return false;
+
+  // Check timestamp freshness
+  const ts = parseInt(svixTimestamp, 10);
+  if (!isTimestampFresh(ts, maxAgeSeconds)) return false;
+
+  // Decode secret: strip "whsec_" prefix if present, then base64-decode
+  let secretKey: Buffer;
+  try {
+    const rawSecret = ctx.secret.startsWith("whsec_")
+      ? ctx.secret.slice(6)
+      : ctx.secret;
+    secretKey = Buffer.from(rawSecret, "base64");
+  } catch {
+    return false;
+  }
+
+  // Compute expected signature
+  const signPayload = `${svixId}.${svixTimestamp}.${ctx.rawBody}`;
+  const expected = crypto
+    .createHmac("sha256", secretKey)
+    .update(signPayload)
+    .digest("base64");
+
+  // Compare against each comma-separated signature (strip "v1," prefix)
+  const signatures = svixSignature.split(" ");
+  for (const sig of signatures) {
+    const parts = sig.split(",");
+    // Format: "v1,<base64>" — we only support v1
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed.startsWith("v1,")) {
+        const candidate = trimmed.slice(3);
+        if (timingSafeCompare(candidate, expected)) return true;
+      } else if (parts.length === 2 && parts[0] === "v1") {
+        // "v1,<base64>" split by comma gives ["v1", "<base64>"]
+        if (timingSafeCompare(parts[1], expected)) return true;
+        break;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Verify a Twilio signature.
  * HMAC-SHA1 of URL + sorted POST params, base64 encoded.
  */

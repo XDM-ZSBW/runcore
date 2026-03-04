@@ -29,7 +29,7 @@ export type ActionLabel = "PROMPTED" | "AUTONOMOUS" | "REFLECTIVE";
 export interface ActivityEntry {
   id: number;
   timestamp: string;
-  source: "goal-loop" | "ingest" | "learn" | "search" | "browse" | "system" | "agent" | "avatar" | "board" | "google" | "calendar" | "gmail" | "tasks" | "slack" | "whatsapp" | "autonomous" | "open-loop" | "scheduling";
+  source: "goal-loop" | "ingest" | "learn" | "search" | "browse" | "system" | "agent" | "avatar" | "board" | "google" | "calendar" | "gmail" | "tasks" | "slack" | "whatsapp" | "resend" | "autonomous" | "open-loop" | "scheduling";
   summary: string;
   detail?: string;
   traceId: string;

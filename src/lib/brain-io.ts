@@ -23,6 +23,7 @@ import {
 import { dirname } from "node:path";
 import { createLogger } from "../utils/logger.js";
 import { getEncryptionKey, getWriteEncryptionKey } from "./key-store.js";
+import { logAccess, logAccessSync } from "./audit.js";
 
 const log = createLogger("brain-io");
 import { shouldEncryptFile } from "./encryption-config.js";
@@ -57,6 +58,7 @@ function writeKey(filePath: string): Buffer | null {
  * Empty/whitespace lines are filtered out.
  */
 export async function readBrainLines(filePath: string): Promise<string[]> {
+  logAccess(filePath, "readBrainLines");
   let raw: string;
   try {
     raw = await readFile(filePath, "utf-8");
@@ -110,6 +112,7 @@ export async function writeBrainLines(filePath: string, jsonLines: string[]): Pr
  * Returns the plaintext content. Falls back to raw content if not encrypted.
  */
 export async function readBrainFile(filePath: string): Promise<string> {
+  logAccess(filePath, "readBrainFile");
   const raw = await readFile(filePath, "utf-8");
   const key = readKey(filePath);
   if (key && isEncryptedFile(raw)) {
@@ -135,6 +138,7 @@ export async function writeBrainFile(filePath: string, content: string): Promise
  * Synchronously read a JSONL file, decrypting each line if needed.
  */
 export function readBrainLinesSync(filePath: string): string[] {
+  logAccessSync(filePath, "readBrainLinesSync");
   let raw: string;
   try {
     raw = readFileSync(filePath, "utf-8");

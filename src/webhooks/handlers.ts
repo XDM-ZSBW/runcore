@@ -4,6 +4,7 @@
  * and reusable building blocks for processing webhook events.
  */
 
+import * as crypto from "node:crypto";
 import { logActivity } from "../activity/log.js";
 import type {
   WebhookResult,
@@ -234,6 +235,68 @@ export function registerTwilioStyleProvider(opts: {
   const provider = createTwilioStyleProvider(opts);
   registerProvider(provider);
   return provider;
+}
+
+/**
+ * Create a provider that uses Svix-style signature verification (without registering).
+ * Used by Resend and other Svix-powered webhook services.
+ * HMAC-SHA256 of "{svix-id}.{svix-timestamp}.{rawBody}" with base64-decoded secret.
+ */
+export function createSvixStyleProvider(opts: {
+  name: string;
+  process: (
+    payload: unknown,
+    ctx?: Record<string, unknown>,
+  ) => Promise<WebhookResult>;
+  maxAgeSeconds?: number;
+}): WebhookProvider {
+  return {
+    name: opts.name,
+    verify(ctx: VerifyContext): boolean {
+      const svixId = ctx.headers?.["svix-id"] ?? "";
+      const svixTimestamp = ctx.headers?.["svix-timestamp"] ?? "";
+      const svixSignature = ctx.signature; // svix-signature header value
+
+      if (!svixId || !svixTimestamp || !svixSignature) return false;
+
+      // Check timestamp freshness
+      const ts = parseInt(svixTimestamp, 10);
+      if (!isTimestampFresh(ts, opts.maxAgeSeconds ?? 300)) return false;
+
+      // Decode secret: strip "whsec_" prefix if present, then base64-decode
+      let secretKey: Buffer;
+      try {
+        const rawSecret = ctx.secret.startsWith("whsec_")
+          ? ctx.secret.slice(6)
+          : ctx.secret;
+        secretKey = Buffer.from(rawSecret, "base64");
+      } catch {
+        return false;
+      }
+
+      // Compute expected signature
+      const signPayload = `${svixId}.${svixTimestamp}.${ctx.rawBody}`;
+      const computed = crypto
+        .createHmac("sha256", secretKey)
+        .update(signPayload)
+        .digest("base64");
+
+      // Compare against each space-separated signature group ("v1,<base64>")
+      const sigGroups = svixSignature.split(" ");
+      for (const group of sigGroups) {
+        const commaIdx = group.indexOf(",");
+        if (commaIdx === -1) continue;
+        const version = group.slice(0, commaIdx);
+        const candidate = group.slice(commaIdx + 1);
+        if (version === "v1" && timingSafeCompare(candidate, computed)) {
+          return true;
+        }
+      }
+
+      return false;
+    },
+    process: opts.process,
+  };
 }
 
 // ── Re-export from retry.ts for backward compatibility ───────────────────────

@@ -12,6 +12,8 @@
 - [ ] Audit git history for PII — run `git log -p` scan on both `core` and `dash-brain` repos for personal data, credentials, env vars that may have been committed. Squash or filter-branch before anything goes public.
 - [ ] Add access audit logging — when any brain file is read via MCP or direct access, log it (who, what, when). Currently no trail of who accessed what.
 - [ ] Make `.locked` enforcement consistent — MCP server respects it, but Dash reads files directly and bypasses the lock check entirely. Centralize the guard.
+- [ ] Minimal HTTP server — random available port on startup, announce via mDNS. Serves `brain/operations/` read-only so Dash (or any instance) can discover and render Core's system board. Port `0` default in `brain/settings.json`. Prerequisite for orchestration and mesh discovery.
+- [ ] Claude Code as orchestrated agent — Dash spawns `claude --dangerously-skip-permissions -p "<task>"` as a child process via the existing orchestrator. Governance replaces the permission prompt: voucher token passed in the task prompt, locked paths enforce boundaries, append-only JSONL is the action-based heartbeat (no timer polling — Dash watches the log for activity). Dash terminates the process if the agent goes silent or drifts from the declared goal. Full audit trail in plain text files on disk — every action traceable, every token accountable.
 
 ## P2 — This month
 

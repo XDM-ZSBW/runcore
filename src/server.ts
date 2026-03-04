@@ -19,6 +19,7 @@ import { writeFileSync } from "node:fs";
 import { initInstanceName, getInstanceName, getInstanceNameLower, resolveEnv, getAlertEmailFrom } from "./instance.js";
 
 import { readBrainFile, writeBrainFile, appendBrainLine } from "./lib/brain-io.js";
+import { runWithAuditContext } from "./lib/audit.js";
 import { Brain } from "./brain.js";
 import { FileSystemLongTermMemory } from "./memory/file-backed.js";
 import { createLogger } from "./utils/logger.js";
@@ -219,6 +220,7 @@ import { listChannels, getChannelInfo, joinChannel, postMessage as slackPostMess
 // Slack types no longer needed — providers handle their own type mapping
 import { getClient as getWhatsAppClient, isWhatsAppConfigured } from "./channels/whatsapp.js";
 import { parseFormBody, processIncomingMessage, emptyTwimlResponse, replyTwiml, twilioProvider } from "./webhooks/twilio.js";
+import { resendProvider } from "./resend/webhooks.js";
 import type { TwilioWhatsAppPayload } from "./webhooks/twilio.js";
 import { handleWhatsAppMessage } from "./services/whatsapp.js";
 import { initLLMCache, shutdownLLMCache, getCacheDiagnostics } from "./cache/llm-cache.js";
@@ -250,7 +252,8 @@ function pickStreamFn(): (options: StreamOptions) => Promise<void> {
 
 // --- Config ---
 
-const PORT = parseInt(process.env.CORE_PORT ?? resolveEnv("PORT") ?? "3577", 10);
+const PORT = parseInt(process.env.CORE_PORT ?? resolveEnv("PORT") ?? "0", 10);
+let actualPort = PORT;
 const SIDECAR_PORT = resolveEnv("SEARCH_PORT") ?? "3578";
 const BRAIN_DIR = join(process.cwd(), "brain");
 const SKILLS_DIR = join(process.cwd(), "skills");
@@ -333,7 +336,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
   // Read custom personality instructions (empty string if file doesn't exist)
   let personality = "";
   try {
-    personality = (await readBrainFile(PERSONALITY_PATH)).trim();
+    personality = (await runWithAuditContext({ caller: "http:init:personality", channel: "http" }, () => readBrainFile(PERSONALITY_PATH))).trim();
   } catch {}
 
   // Fetch current projects for system prompt injection
@@ -527,6 +530,13 @@ app.get("/", async (c) => {
   return c.html(html);
 });
 
+// --- Audit context middleware ---
+// Tags all brain file reads within HTTP handlers with the route info.
+app.use("/api/*", async (c, next) => {
+  const caller = `http:${c.req.method} ${c.req.path}`;
+  return runWithAuditContext({ caller, channel: "http" }, () => next());
+});
+
 // --- Tracing middleware ---
 
 app.use("/api/*", tracingMiddleware());
@@ -564,7 +574,7 @@ const webhookInitStart = performance.now();
 // Phase 1: Batch-register all webhook providers (deferred from module imports to avoid
 // 5 individual logActivity calls during startup — now a single batch call).
 const registerStart = performance.now();
-registerProviders([githubProvider, slackEventsProvider, slackCommandsProvider, slackInteractionsProvider, twilioProvider]);
+registerProviders([githubProvider, slackEventsProvider, slackCommandsProvider, slackInteractionsProvider, twilioProvider, resendProvider]);
 const registerMs = performance.now() - registerStart;
 
 // Phase 2: Configure webhook providers (secrets resolved from env vars)
@@ -575,6 +585,7 @@ setProviderConfigs([
   { name: "slack-interactions", secret: "SLACK_SIGNING_SECRET", signatureHeader: "x-slack-signature", algorithm: "slack-v0", path: "/api/slack/interactions" },
   { name: "twilio", secret: "TWILIO_AUTH_TOKEN", signatureHeader: "x-twilio-signature", algorithm: "twilio", path: "/api/twilio/whatsapp" },
   { name: "github", secret: "GITHUB_WEBHOOK_SECRET", signatureHeader: "x-hub-signature-256", algorithm: "hmac-sha256-hex", path: "/api/github/webhooks" },
+  { name: "resend", secret: "RESEND_WEBHOOK_SECRET", signatureHeader: "svix-signature", algorithm: "custom" as const, path: "/api/resend/webhooks" },
 ]);
 const configMs = performance.now() - configStart;
 
@@ -2375,6 +2386,24 @@ app.post("/api/slack/commands", createWebhookRoute({ provider: "slack-commands" 
 // The slack-interactions provider handles extracting JSON from the form "payload" field.
 app.post("/api/slack/interactions", createWebhookRoute({ provider: "slack-interactions" }));
 
+// --- Resend inbound email ---
+
+// Resend webhook: receive inbound emails via Svix-signed webhooks (direct path).
+// Uses generic webhook route with Svix signature verification.
+app.post("/api/resend/webhooks", createWebhookRoute({ provider: "resend" }));
+
+// Resend inbox: manually trigger inbox check (pulls from Worker KV).
+app.post("/api/resend/check-inbox", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+
+  const { forceCheckResendInbox } = await import("./resend/inbox.js");
+  const count = await forceCheckResendInbox();
+  return c.json({ ok: true, processed: count });
+});
+
 // --- WhatsApp routes (Twilio-backed) ---
 
 // WhatsApp status: check if configured
@@ -2462,6 +2491,79 @@ app.post("/api/relay/whatsapp", async (c) => {
   // Process through chat pipeline — reply sent via Twilio API
   const result = await handleWhatsAppMessage(from, body, payload.ProfileName);
   return c.json({ ok: result.ok, reply: result.reply, error: result.error });
+});
+
+// Resend relay: receive pre-verified inbound emails from the Cloudflare Worker.
+// The Worker has already verified Resend's Svix signature and fetched the full
+// email body — this endpoint verifies the relay's own HMAC-SHA256 signature.
+app.post("/api/relay/resend", async (c) => {
+  const rawBody = await c.req.text();
+  const headers: Record<string, string> = {};
+  c.req.raw.headers.forEach((value, key) => {
+    headers[key.toLowerCase()] = value;
+  });
+
+  const relaySecret = process.env.RELAY_SECRET ?? "";
+  const verification = verifyRelaySignature(rawBody, headers, relaySecret);
+  if (!verification.valid) {
+    return c.json({ error: verification.error ?? "Invalid relay signature" }, 401);
+  }
+
+  let payload: {
+    type: string;
+    email_id: string;
+    from: string;
+    to: string[];
+    subject: string;
+    message_id: string;
+    created_at: string;
+    body: string;
+    html: string;
+  };
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return c.json({ error: "Invalid JSON" }, 400);
+  }
+
+  if (payload.type !== "email.received" || !payload.body?.trim()) {
+    return c.json({ ok: true, message: "No actionable content" });
+  }
+
+  logActivity({
+    source: "resend",
+    summary: `Inbound email relayed from ${payload.from}: "${payload.subject}"`,
+  });
+
+  // Import processInboundEmail dynamically to avoid circular deps at module level
+  const { processInboundEmail, sendResendReply } = await import("./resend/webhooks.js");
+
+  const reply = await processInboundEmail({
+    from: payload.from,
+    subject: payload.subject,
+    body: payload.body,
+    date: payload.created_at || new Date().toISOString(),
+  });
+
+  if (!reply) {
+    return c.json({ ok: true, message: "No reply generated" });
+  }
+
+  const sent = await sendResendReply({
+    to: payload.from,
+    subject: payload.subject,
+    body: reply,
+    inReplyTo: payload.message_id,
+  });
+
+  logActivity({
+    source: "resend",
+    summary: sent
+      ? `Replied to ${payload.from}: "${payload.subject}" (${reply.length} chars)`
+      : `Failed to reply to ${payload.from}: "${payload.subject}"`,
+  });
+
+  return c.json({ ok: true, sent, replyLength: reply.length });
 });
 
 // WhatsApp send: send a message (requires sessionId)
@@ -5275,9 +5377,21 @@ async function start() {
   });
   log.info(`${getInstanceName()} email handler registered — emails with '${getInstanceName()}' in subject will be auto-replied`);
 
-  serve({ fetch: app.fetch, port: PORT }, () => {
-    log.info(`Listening on http://localhost:${PORT}`);
+  await new Promise<void>((resolve) => {
+    const server = serve({ fetch: app.fetch, port: PORT }, () => {
+      const addr = server.address();
+      if (typeof addr === "object" && addr) {
+        actualPort = addr.port;
+      }
+      log.info(`Listening on http://localhost:${actualPort}`);
+      resolve();
+    });
   });
+}
+
+/** Returns the port the server is actually listening on (resolves port 0). */
+export function getActualPort(): number {
+  return actualPort;
 }
 
 export { start };

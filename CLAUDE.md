@@ -41,10 +41,14 @@ The brain has five modules, each with an instruction file and data files:
 | Module | Instruction file | Data files |
 |--------|-----------------|------------|
 | **memory** | `brain/memory/README.md` | `*.jsonl` (experiences, decisions, failures, semantic, procedural) |
-| **identity** | — | `tone-of-voice.md`, `brand.md` |
+| **identity** | — | `tone-of-voice.md`, `brand.md`, `principles.md` |
 | **content** | `brain/content/CONTENT.md` | `templates/blog.md`, drafts |
 | **operations** | `brain/operations/OPERATIONS.md` | `goals.yaml`, `todos.md` |
 | **knowledge** | `brain/knowledge/README.md` | `research/`, `bookmarks/`, `notes/` |
+
+## Principles
+
+Read `brain/identity/principles.md` for product, architecture, and business principles. These inform decision-making across all Core-based brains. Load at Level 2 (alongside module instructions) when a task involves design choices, architecture decisions, or content that represents the brand.
 
 ## Critical rules
 

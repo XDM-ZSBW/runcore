@@ -18,6 +18,7 @@ import { isAgentsBusy, activeAgentCount, generateBridgeReport } from "./spawn.js
 import { commitAgentBatch } from "./commit.js";
 import { listTasks as listAgentTasks } from "./store.js";
 import { logActivity } from "../activity/log.js";
+import { checkResendInbox } from "../resend/inbox.js";
 import { pushNotification } from "../goals/notifications.js";
 import { completeChat } from "../llm/complete.js";
 import { LLMError } from "../llm/errors.js";
@@ -339,6 +340,10 @@ export function resetContinuation(sessionId: string): void {
  * Exported so PressureIntegrator can call it directly on pulse.
  */
 export async function checkForWork(): Promise<void> {
+  // Piggyback: check Resend inbox while we're already awake.
+  // Debounced internally — cheap no-op if checked recently or not configured.
+  checkResendInbox().catch(() => {});
+
   // Circuit breaker: skip if credits are exhausted (avoid hammering a dead API)
   if (Date.now() < creditCircuitBreakerUntil) {
     const remainMin = Math.ceil((creditCircuitBreakerUntil - Date.now()) / 60_000);

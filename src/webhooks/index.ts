@@ -59,6 +59,7 @@ export {
   verifyHmacSha256Hex,
   verifyHmacSha256Base64,
   verifySlackV0,
+  verifySvix,
   verifyTwilio,
 } from "./verify.js";
 
@@ -116,6 +117,7 @@ export {
   createHmacSha256Base64Provider,
   createSlackStyleProvider,
   createTwilioStyleProvider,
+  createSvixStyleProvider,
   registerHmacSha256HexProvider,
   registerHmacSha256Base64Provider,
   registerSlackStyleProvider,

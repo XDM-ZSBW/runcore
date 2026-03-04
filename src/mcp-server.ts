@@ -18,6 +18,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Brain } from "./brain.js";
 import { FileSystemLongTermMemory } from "./memory/file-backed.js";
 import { readBrainFile, readBrainLines } from "./lib/brain-io.js";
+import { runWithAuditContext } from "./lib/audit.js";
 import { setEncryptionKey, setWriteEncryptionEnabled } from "./lib/key-store.js";
 import { loadSettings, getSettings } from "./settings.js";
 import type { LongTermMemoryType, MemoryEntry } from "./types.js";
@@ -205,7 +206,7 @@ async function main(): Promise<void> {
       type: z.enum(["episodic", "semantic", "procedural"]).optional().describe("Filter by memory type"),
       max: z.number().int().min(1).max(50).optional().describe("Max results (default 10)"),
     },
-    async ({ query, type, max }) => {
+    async ({ query, type, max }) => runWithAuditContext({ caller: "mcp:memory_retrieve", channel: "mcp" }, async () => {
       const maxResults = max ?? 10;
 
       // If type-filtered, use Brain's existing LTM (3-file) retrieval
@@ -232,7 +233,7 @@ async function main(): Promise<void> {
       return {
         content: [{ type: "text" as const, text: formatEntries(results.slice(0, maxResults)) }],
       };
-    }
+    })
   );
 
   mcp.tool(
@@ -264,7 +265,7 @@ async function main(): Promise<void> {
       type: z.enum(["episodic", "semantic", "procedural"]).optional().describe("Filter by type (omit for all)"),
       limit: z.number().int().min(1).max(100).optional().describe("Max entries (default 20)"),
     },
-    async ({ type, limit }) => {
+    async ({ type, limit }) => runWithAuditContext({ caller: "mcp:memory_list", channel: "mcp" }, async () => {
       // If type-filtered, use LTM's 3-file scope
       if (type) {
         const entries = await ltm.list(type as LongTermMemoryType);
@@ -275,7 +276,7 @@ async function main(): Promise<void> {
       const entries = await hallwayScanMemory();
       const sliced = entries.slice(0, limit ?? 20);
       return { content: [{ type: "text" as const, text: formatEntries(sliced) }] };
-    }
+    })
   );
 
   mcp.tool(
@@ -284,7 +285,7 @@ async function main(): Promise<void> {
     {
       path: z.string().max(500).describe("Relative path under brain/, e.g. 'operations/goals.yaml'"),
     },
-    async ({ path }) => {
+    async ({ path }) => runWithAuditContext({ caller: "mcp:read_brain_file", channel: "mcp" }, async () => {
       try {
         const fullPath = resolveBrainPath(path);
         const content = await readBrainFile(fullPath);
@@ -296,7 +297,7 @@ async function main(): Promise<void> {
           isError: true,
         };
       }
-    }
+    })
   );
 
   mcp.tool(
@@ -441,7 +442,7 @@ async function main(): Promise<void> {
       `memory-${memType}`,
       `brain://memory/${memType}`,
       { description: `All ${memType} memories` },
-      async () => {
+      async () => runWithAuditContext({ caller: `mcp:resource:memory/${memType}`, channel: "mcp" }, async () => {
         const entries = await ltm.list(memType);
         return {
           contents: [
@@ -452,7 +453,7 @@ async function main(): Promise<void> {
             },
           ],
         };
-      }
+      })
     );
   }
 
@@ -460,7 +461,7 @@ async function main(): Promise<void> {
     "identity",
     "brain://identity",
     { description: "Tone of voice, brand, personality" },
-    async () => {
+    async () => runWithAuditContext({ caller: "mcp:resource:identity", channel: "mcp" }, async () => {
       const identityDir = join(BRAIN_DIR, "identity");
       let text = "";
       try {
@@ -480,14 +481,14 @@ async function main(): Promise<void> {
           { uri: "brain://identity", text: text || "No identity files found.", mimeType: "text/plain" },
         ],
       };
-    }
+    })
   );
 
   mcp.resource(
     "operations",
     "brain://operations",
     { description: "Goals, todos, operational state" },
-    async () => {
+    async () => runWithAuditContext({ caller: "mcp:resource:operations", channel: "mcp" }, async () => {
       const opsDir = join(BRAIN_DIR, "operations");
       let text = "";
       try {
@@ -507,7 +508,7 @@ async function main(): Promise<void> {
           { uri: "brain://operations", text: text || "No operations files found.", mimeType: "text/plain" },
         ],
       };
-    }
+    })
   );
 
   // ── Connect ──────────────────────────────────────────────────────────────
