@@ -172,6 +172,9 @@ export async function loadSettings(): Promise<CoreSettings> {
           lanAnnounce: typeof parsed.mesh?.lanAnnounce === "boolean" ? parsed.mesh.lanAnnounce : DEFAULTS.mesh.lanAnnounce,
           allowIncoming: typeof parsed.mesh?.allowIncoming === "boolean" ? parsed.mesh.allowIncoming : DEFAULTS.mesh.allowIncoming,
         },
+        instanceName: typeof parsed.instanceName === "string" ? parsed.instanceName
+          : typeof parsed.agentName === "string" ? parsed.agentName  // compat with Dash
+          : undefined,
       };
     } catch {
       cached = { ...DEFAULTS, models: { ...DEFAULTS.models }, pulse: { ...DEFAULTS.pulse } };
