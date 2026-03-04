@@ -1,20 +1,34 @@
 # Goals
 
-# Key results and targets. Update progress as needed.
-# Keep 8-10 essential fields; avoid sparse schemas.
+# Key results and targets for v2 launch readiness.
 
 goals:
   - id: kr1
-    name: ""
-    target: ""
-    current: ""
-    status: on_track  # on_track | behind | at_risk
-  # Add more key results as needed
+    name: "Brain-to-brain trust layer operational"
+    target: "Vouchers working across all brains (Dash, Claude Code, Wendy)"
+    current: "Core MCP tools done. Dash integration pending."
+    status: on_track
+
+  - id: kr2
+    name: "No PII leaves machine without consent"
+    target: "Private mode blocks all outbound LLM calls. Sensitive fields never sent."
+    current: "airplaneMode is a provider swap only. No real enforcement."
+    status: at_risk
+
+  - id: kr3
+    name: "Clean public release posture"
+    target: "Git history audited. No secrets, PII, or credentials in any commit."
+    current: "All repos private. No audit done yet."
+    status: behind
+
+  - id: kr4
+    name: "Multi-instance orchestration"
+    target: "Spawn, manage, and enforce policy across N brain instances from one place."
+    current: "E:\\cores\\Wendy exists. No tooling. Manual setup only."
+    status: behind
 
 priorities:
-  - ""
-  - ""
-
-# Optional: learning, values, or rhythm blocks
-# learning: []
-# values: []
+  - "Ship voucher integration to Dash (unblocks cross-brain trust)"
+  - "Harden private mode (unblocks safe client demos)"
+  - "Audit git history (unblocks public release)"
+  - "Orchestration layer (unblocks multi-agent scaling)"
