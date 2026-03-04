@@ -99,6 +99,7 @@ export async function sendResendReply(opts: {
   subject: string;
   body: string;
   inReplyTo?: string;
+  from?: string;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -106,7 +107,7 @@ export async function sendResendReply(opts: {
     return false;
   }
 
-  const from = `${getInstanceName()} <agent@pqrsystems.com>`;
+  const from = opts.from ?? `${getInstanceName()} <agent@pqrsystems.com>`;
 
   const payload: Record<string, unknown> = {
     from,
@@ -163,9 +164,11 @@ export async function processInboundEmail(opts: {
   subject: string;
   body: string;
   date: string;
+  agentName?: string;
 }): Promise<string | null> {
   const human = await readHuman();
   const name = human?.name ?? "Human";
+  const agentLabel = opts.agentName ?? getInstanceName();
 
   if (!opts.body.trim()) return null;
 
@@ -175,8 +178,8 @@ export async function processInboundEmail(opts: {
   const emailBrain = new Brain(
     {
       systemPrompt: [
-        `You are ${getInstanceName()}, a personal AI agent paired with ${name}. You run locally on ${name}'s machine.`,
-        `You are responding to an email that was sent to you at agent@pqrsystems.com. This is a working email channel — you received this email and your reply will be sent back automatically.`,
+        `You are ${agentLabel}, a personal AI agent paired with ${name}. You run locally on ${name}'s machine.`,
+        `You are responding to an email that was sent to you at ${agentLabel.toLowerCase()}@pqrsystems.com. This is a working email channel — you received this email and your reply will be sent back automatically.`,
         ``,
         `Your capabilities — USE THEM when the email requests action:`,
         `- Google Calendar: CREATE, UPDATE, DELETE events using [CALENDAR_ACTION] blocks.`,
@@ -195,7 +198,7 @@ export async function processInboundEmail(opts: {
         `- NEVER claim you can't do something you clearly just did (you ARE sending this email).`,
         `- When someone asks you to DO something (schedule, create, send), DO IT with the appropriate action block — don't just acknowledge it.`,
         `- Action blocks will be stripped from the email reply automatically. The recipient only sees your text.`,
-        `- Sign off as "— ${getInstanceName()}"`,
+        `- Sign off as "— ${agentLabel}"`,
       ].join("\n"),
     },
     ltm,

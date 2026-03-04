@@ -8,6 +8,7 @@ import { openRouterProvider } from "./openrouter.js";
 import { anthropicProvider } from "./anthropic.js";
 import { openAIProvider } from "./openai.js";
 import { ollamaProvider } from "./ollama.js";
+import { assertProviderAllowed } from "../guard.js";
 import { createLogger } from "../../utils/logger.js";
 
 const log = createLogger("llm.providers");
@@ -21,8 +22,14 @@ const providers = new Map<ProviderName, LLMProvider>([
   ["ollama", ollamaProvider],
 ]);
 
-/** Get a provider by name. Throws if unknown. */
+/**
+ * Get a provider by name. Throws if unknown.
+ * Enforces privateMode — cloud providers are blocked when private mode is on.
+ */
 export function getProvider(name: ProviderName): LLMProvider {
+  // Guard: block cloud providers in private mode BEFORE returning the provider
+  assertProviderAllowed(name);
+
   const provider = providers.get(name);
   if (!provider) throw new Error(`Unknown LLM provider: ${name}`);
   return provider;
@@ -58,3 +65,4 @@ export { anthropicProvider } from "./anthropic.js";
 export { openAIProvider } from "./openai.js";
 export { ollamaProvider } from "./ollama.js";
 export { LLMError, classifyApiError } from "../errors.js";
+export { PrivateModeError, isPrivateMode } from "../guard.js";

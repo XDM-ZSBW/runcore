@@ -38,5 +38,19 @@
     "threshold": 60,
     "mode": "hybrid"
   },
-  "agentName": "Me"
+  "agentName": "Me",
+  "integrations": {
+    "enabled": true,
+    "services": {
+      "google": false,
+      "github": true,
+      "slack": false,
+      "twilio": false,
+      "resend": true,
+      "openai": true,
+      "anthropic": true,
+      "openrouter": true,
+      "perplexity": false
+    }
+  }
 }

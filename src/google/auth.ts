@@ -41,6 +41,8 @@ export function isGoogleConfigured(): boolean {
 
 /**
  * Check if Google OAuth is authenticated (refresh token exists).
+ * When google integration is disabled via the integration gate,
+ * GOOGLE_* env vars are never hydrated so this naturally returns false.
  */
 export function isGoogleAuthenticated(): boolean {
   return isGoogleConfigured() && !!process.env.GOOGLE_REFRESH_TOKEN;

@@ -9,8 +9,8 @@
  */
 
 import { resolve, normalize, join } from "node:path";
-import { readFile, readdir, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
+
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -19,6 +19,12 @@ import { Brain } from "./brain.js";
 import { FileSystemLongTermMemory } from "./memory/file-backed.js";
 import { readBrainFile, readBrainLines } from "./lib/brain-io.js";
 import { runWithAuditContext } from "./lib/audit.js";
+import {
+  loadLockedPaths as loadLockedPathsCentral,
+  reloadLockedPaths,
+  isLocked,
+  getLockedPaths,
+} from "./lib/locked.js";
 import { setEncryptionKey, setWriteEncryptionEnabled } from "./lib/key-store.js";
 import { loadSettings, getSettings } from "./settings.js";
 import type { LongTermMemoryType, MemoryEntry } from "./types.js";
@@ -37,62 +43,16 @@ function log(msg: string): void {
   process.stderr.write(`[core-brain-mcp] ${msg}\n`);
 }
 
-/** Hardcoded minimum locked paths (always locked even without .locked file). */
-const HARDCODED_LOCKED = [".session-key", "human.json"];
-
-const LOCKED_FILE = join(BRAIN_DIR, ".locked");
-
-/** Cached locked paths (relative to brain/, forward slashes). */
-let lockedPaths: string[] = [];
-
-/** Read brain/.locked and merge with hardcoded minimums. Cache result. */
-async function loadLockedPaths(): Promise<string[]> {
-  const paths = new Set<string>(HARDCODED_LOCKED);
-  try {
-    const raw = await readFile(LOCKED_FILE, "utf-8");
-    for (const line of raw.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      paths.add(trimmed.replace(/\\/g, "/"));
-    }
-  } catch {
-    // .locked file doesn't exist — use hardcoded only
-  }
-  lockedPaths = Array.from(paths);
-  return lockedPaths;
-}
-
-/**
- * Check if a relative path (forward slashes) is locked.
- * Matches exact paths and directory prefixes.
- */
-function isLocked(relPath: string): boolean {
-  const normalized = relPath.replace(/\\/g, "/");
-  for (const locked of lockedPaths) {
-    // Exact match
-    if (normalized === locked) return true;
-    // Filename-only match (e.g. ".session-key" matches "identity/.session-key")
-    const filename = normalized.split("/").pop() ?? "";
-    if (filename === locked) return true;
-    // Directory prefix match (e.g. locked="identity/" matches "identity/foo.md")
-    if (locked.endsWith("/") && normalized.startsWith(locked)) return true;
-  }
-  return false;
-}
-
 /**
  * Resolve a relative path under brain/, guarding against traversal.
- * Returns the absolute path or throws if it escapes brain/ or is locked.
+ * Returns the absolute path or throws if it escapes brain/.
+ * Lock checking is now handled by brain-io functions via the centralized guard.
  */
 function resolveBrainPath(relativePath: string): string {
   const cleaned = normalize(relativePath).replace(/^[/\\]+/, "");
   const full = resolve(BRAIN_DIR, cleaned);
   if (!full.startsWith(BRAIN_DIR)) {
     throw new Error("Path traversal blocked");
-  }
-  const relForward = cleaned.replace(/\\/g, "/");
-  if (isLocked(relForward)) {
-    throw new Error(`🔒 Locked: ${relForward} — ask Dash to unlock if needed`);
   }
   return full;
 }
@@ -118,8 +78,8 @@ async function main(): Promise<void> {
   const settings = await loadSettings();
   log(`Instance: ${settings.instanceName ?? "Core"}`);
 
-  // 2. Load locked paths
-  await loadLockedPaths();
+  // 2. Load locked paths (centralized guard)
+  const lockedPaths = await loadLockedPathsCentral();
   log(`Locked paths: ${lockedPaths.length}`);
 
   // 3. Read session key (DPAPI-protected if available, plaintext fallback)
@@ -309,6 +269,7 @@ async function main(): Promise<void> {
       const safe = {
         instanceName: s.instanceName,
         airplaneMode: s.airplaneMode,
+        privateMode: s.privateMode,
         encryptBrainFiles: s.encryptBrainFiles,
         models: s.models,
         pulse: s.pulse,
@@ -325,9 +286,9 @@ async function main(): Promise<void> {
     {},
     async () => {
       // Re-read in case it changed
-      await loadLockedPaths();
-      const lines = lockedPaths.length > 0
-        ? lockedPaths.map((p) => `🔒 ${p}`).join("\n")
+      const paths = await reloadLockedPaths();
+      const lines = paths.length > 0
+        ? paths.map((p) => `🔒 ${p}`).join("\n")
         : "No locked paths.";
       return { content: [{ type: "text" as const, text: lines }] };
     }
@@ -339,7 +300,7 @@ async function main(): Promise<void> {
     {},
     async () => {
       // Re-read locked paths fresh
-      await loadLockedPaths();
+      await reloadLockedPaths();
 
       async function walk(dir: string, prefix: string): Promise<string[]> {
         const items: string[] = [];

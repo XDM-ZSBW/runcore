@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { stat } from "node:fs/promises";
 import { createLogger } from "../utils/logger.js";
 import { readBrainLines, appendBrainLine, ensureBrainJsonl } from "../lib/brain-io.js";
+import { shouldHydrateKey } from "../integrations/gate.js";
 
 const log = createLogger("credentials.store");
 
@@ -206,17 +207,25 @@ export class CredentialStore {
 
   // ── Hydrate ─────────────────────────────────────────────────────────────
 
-  /** Inject credentials with envVar into process.env. Called on startup. */
+  /** Inject credentials with envVar into process.env, filtered by integration gate. */
   async hydrate(): Promise<number> {
     const map = await this.load();
     let count = 0;
+    let skipped = 0;
     for (const cred of map.values()) {
       if (cred.status === "active" && cred.envVar && cred.value) {
-        process.env[cred.envVar] = cred.value;
-        count++;
+        if (shouldHydrateKey(cred.envVar)) {
+          process.env[cred.envVar] = cred.value;
+          count++;
+        } else {
+          // Actively remove blocked keys from process.env
+          delete process.env[cred.envVar];
+          skipped++;
+        }
       }
     }
     if (count > 0) log.info(`Hydrated ${count} credential(s) into process.env`);
+    if (skipped > 0) log.info(`Skipped ${skipped} credential(s) — integration disabled`);
     return count;
   }
 }

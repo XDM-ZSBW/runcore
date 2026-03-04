@@ -66,10 +66,22 @@ export interface MeshConfig {
   allowIncoming: boolean;
 }
 
+export interface IntegrationSettings {
+  /** Master kill switch. false = no secrets hydrated, full air-gap. */
+  enabled: boolean;
+  /** Per-service toggles. Unlisted services default to enabled. */
+  services?: Record<string, boolean>;
+}
+
 export interface CoreSettings {
   /** Display name for this instance. Default: "Core". */
   instanceName?: string;
   airplaneMode: boolean;
+  /** Hard network isolation. When true, ALL outbound LLM API calls are blocked
+   *  at the request layer — only local providers (Ollama) are allowed.
+   *  Unlike airplaneMode (which just swaps the provider), this enforces the block
+   *  even if code explicitly requests a cloud provider. */
+  privateMode: boolean;
   /** Explicit provider override. When set, takes precedence over airplaneMode. */
   provider?: ProviderName;
   models: { chat: string; utility: string };
@@ -86,6 +98,8 @@ export interface CoreSettings {
   pulse: PulseSettings;
   mesh: MeshConfig;
   visualMemory?: VisualMemoryConfig;
+  /** Integration gate — master switch + per-service toggles. */
+  integrations?: IntegrationSettings;
 }
 
 /** @deprecated Use CoreSettings instead. */
@@ -94,6 +108,7 @@ export type DashSettings = CoreSettings;
 const DEFAULTS: CoreSettings = {
   instanceName: "Core",
   airplaneMode: false,
+  privateMode: false,
   models: { chat: "auto", utility: "auto" },
   encryptBrainFiles: true,
   safeWordMode: "always",
@@ -130,6 +145,7 @@ export async function loadSettings(): Promise<CoreSettings> {
       const validProviders: ProviderName[] = ["openrouter", "anthropic", "openai", "ollama"];
       cached = {
         airplaneMode: typeof parsed.airplaneMode === "boolean" ? parsed.airplaneMode : DEFAULTS.airplaneMode,
+        privateMode: typeof parsed.privateMode === "boolean" ? parsed.privateMode : DEFAULTS.privateMode,
         provider: validProviders.includes(parsed.provider) ? parsed.provider : undefined,
         models: {
           chat: typeof parsed.models?.chat === "string" ? parsed.models.chat : DEFAULTS.models.chat,
@@ -175,6 +191,12 @@ export async function loadSettings(): Promise<CoreSettings> {
         instanceName: typeof parsed.instanceName === "string" ? parsed.instanceName
           : typeof parsed.agentName === "string" ? parsed.agentName  // compat with Dash
           : undefined,
+        integrations: parsed.integrations && typeof parsed.integrations === "object" ? {
+          enabled: typeof parsed.integrations.enabled === "boolean" ? parsed.integrations.enabled : true,
+          services: parsed.integrations.services && typeof parsed.integrations.services === "object"
+            ? parsed.integrations.services
+            : undefined,
+        } : undefined,
       };
     } catch {
       cached = { ...DEFAULTS, models: { ...DEFAULTS.models }, pulse: { ...DEFAULTS.pulse } };
@@ -185,6 +207,7 @@ export async function loadSettings(): Promise<CoreSettings> {
     const useLocal = ollama.available;
     cached = {
       airplaneMode: useLocal,
+      privateMode: DEFAULTS.privateMode,
       models: { ...DEFAULTS.models },
       encryptBrainFiles: DEFAULTS.encryptBrainFiles,
       safeWordMode: DEFAULTS.safeWordMode,
@@ -221,6 +244,9 @@ export function getSettings(): CoreSettings {
 export async function updateSettings(partial: Partial<CoreSettings>): Promise<CoreSettings> {
   if (typeof partial.airplaneMode === "boolean") {
     cached.airplaneMode = partial.airplaneMode;
+  }
+  if (typeof partial.privateMode === "boolean") {
+    cached.privateMode = partial.privateMode;
   }
   if (partial.provider !== undefined) {
     cached.provider = partial.provider;
@@ -269,14 +295,30 @@ export async function updateSettings(partial: Partial<CoreSettings>): Promise<Co
     if (typeof partial.mesh.lanAnnounce === "boolean") cached.mesh.lanAnnounce = partial.mesh.lanAnnounce;
     if (typeof partial.mesh.allowIncoming === "boolean") cached.mesh.allowIncoming = partial.mesh.allowIncoming;
   }
+  if (partial.integrations) {
+    if (!cached.integrations) cached.integrations = { enabled: true };
+    if (typeof partial.integrations.enabled === "boolean") {
+      cached.integrations.enabled = partial.integrations.enabled;
+    }
+    if (partial.integrations.services && typeof partial.integrations.services === "object") {
+      cached.integrations.services = {
+        ...cached.integrations.services,
+        ...partial.integrations.services,
+      };
+    }
+  }
   await saveSettings(cached);
   return cached;
 }
 
 // --- Resolvers ---
 
-/** Returns the active provider. Explicit `provider` setting takes precedence over airplaneMode. */
+/** Returns the active provider. privateMode and master integration kill switch force Ollama. */
 export function resolveProvider(): ProviderName {
+  // Private mode → force local-only (hard enforcement happens in guard.ts)
+  if (cached.privateMode) return "ollama";
+  // Master integration gate off → force local-only
+  if (cached.integrations?.enabled === false) return "ollama";
   if (cached.provider) return cached.provider;
   return cached.airplaneMode ? "ollama" : "openrouter";
 }

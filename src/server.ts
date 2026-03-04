@@ -70,7 +70,8 @@ import { isSttAvailable, transcribe } from "./stt/client.js";
 import { startAvatarSidecar, stopAvatarSidecar, isAvatarAvailable } from "./avatar/sidecar.js";
 import { preparePhoto, generateVideo, getCachedVideo, cacheVideo, clearVideoCache } from "./avatar/client.js";
 import { getTtsConfig, getSttConfig, getAvatarConfig } from "./settings.js";
-import { loadVault, listVaultKeys, setVaultKey, deleteVaultKey, getDashReadableVault, getVaultEntries } from "./vault/store.js";
+import { loadVault, listVaultKeys, setVaultKey, deleteVaultKey, getDashReadableVault, getVaultEntries, hydrateEnv as rehydrateVaultEnv } from "./vault/store.js";
+import { getIntegrationStatus, isIntegrationEnabled } from "./integrations/gate.js";
 import { makeCall } from "./twilio/call.js";
 import {
   isGoogleConfigured,
@@ -616,6 +617,7 @@ app.get("/api/status", async (c) => {
     ...status,
     provider: resolveProvider(),
     airplaneMode: settings.airplaneMode,
+    privateMode: settings.privateMode,
     safeWordMode: settings.safeWordMode,
     search: isSearchAvailable(),
     tts: isTtsAvailable(),
@@ -1443,6 +1445,47 @@ app.put("/api/settings", async (c) => {
       chatModel: resolveChatModel() ?? "(provider default)",
       utilityModel: resolveUtilityModel() ?? "(provider default)",
     },
+  });
+});
+
+// --- Integration admin routes ---
+
+app.get("/api/admin/integrations", async (c) => {
+  const settings = getSettings();
+  const integrations = settings.integrations ?? { enabled: true };
+  const status = getIntegrationStatus();
+  return c.json({
+    enabled: integrations.enabled ?? true,
+    services: status,
+  });
+});
+
+app.post("/api/admin/integrations", async (c) => {
+  const body = await c.req.json();
+  const patch: { integrations: { enabled?: boolean; services?: Record<string, boolean> } } = {
+    integrations: {},
+  };
+  if (typeof body.enabled === "boolean") {
+    patch.integrations.enabled = body.enabled;
+  }
+  if (body.services && typeof body.services === "object") {
+    patch.integrations.services = body.services;
+  }
+  const updated = await updateSettings(patch as any);
+
+  // Re-hydrate env with new gates — clear integration vars first, then re-hydrate
+  const status = getIntegrationStatus();
+  rehydrateVaultEnv();
+  const credStore = getCredentialStore();
+  if (credStore) await credStore.hydrate();
+
+  return c.json({
+    enabled: updated.integrations?.enabled ?? true,
+    services: status.map((s) => ({
+      ...s,
+      // Re-check after settings update
+      enabled: isIntegrationEnabled(s.service),
+    })),
   });
 });
 
@@ -3657,6 +3700,7 @@ app.get("/api/ops/health", async (c) => {
     },
     provider: resolveProvider(),
     airplaneMode: settings.airplaneMode,
+    privateMode: settings.privateMode,
     models: settings.models,
     sidecars: {
       search: isSidecarAvailable(),
@@ -5202,7 +5246,19 @@ async function start() {
 
   // Show LLM provider based on settings
   const provider = resolveProvider();
-  if (settings.airplaneMode) {
+  if (settings.privateMode) {
+    log.info("Mode: PRIVATE (network-isolated), LLM: Ollama only — cloud providers blocked");
+    // Fail loudly at startup if Ollama isn't available in private mode
+    try {
+      const { assertOllamaAvailable } = await import("./llm/guard.js");
+      await assertOllamaAvailable();
+      log.info("Ollama: reachable ✓");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error(msg);
+      throw new Error("Cannot start in privateMode without Ollama. " + msg);
+    }
+  } else if (settings.airplaneMode) {
     log.info("Mode: Airplane (local only), LLM: Ollama");
   } else {
     log.info("Mode: Cloud, LLM: OpenRouter");

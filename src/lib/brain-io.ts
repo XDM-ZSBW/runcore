@@ -24,6 +24,7 @@ import { dirname } from "node:path";
 import { createLogger } from "../utils/logger.js";
 import { getEncryptionKey, getWriteEncryptionKey } from "./key-store.js";
 import { logAccess, logAccessSync } from "./audit.js";
+import { assertNotLocked } from "./locked.js";
 
 const log = createLogger("brain-io");
 import { shouldEncryptFile } from "./encryption-config.js";
@@ -58,6 +59,7 @@ function writeKey(filePath: string): Buffer | null {
  * Empty/whitespace lines are filtered out.
  */
 export async function readBrainLines(filePath: string): Promise<string[]> {
+  assertNotLocked(filePath);
   logAccess(filePath, "readBrainLines");
   let raw: string;
   try {
@@ -88,6 +90,7 @@ export async function readBrainLines(filePath: string): Promise<string[]> {
  * The line should be a JSON string (not newline-terminated).
  */
 export async function appendBrainLine(filePath: string, jsonLine: string): Promise<void> {
+  assertNotLocked(filePath);
   const key = writeKey(filePath);
   const line = key ? encryptLine(jsonLine, key) : jsonLine;
   await appendFile(filePath, line + "\n", "utf-8");
@@ -98,6 +101,7 @@ export async function appendBrainLine(filePath: string, jsonLine: string): Promi
  * Used for compaction/rotation where the whole file is rewritten.
  */
 export async function writeBrainLines(filePath: string, jsonLines: string[]): Promise<void> {
+  assertNotLocked(filePath);
   const key = writeKey(filePath);
   const output = jsonLines
     .map((l) => (key ? encryptLine(l, key) : l))
@@ -112,6 +116,7 @@ export async function writeBrainLines(filePath: string, jsonLines: string[]): Pr
  * Returns the plaintext content. Falls back to raw content if not encrypted.
  */
 export async function readBrainFile(filePath: string): Promise<string> {
+  assertNotLocked(filePath);
   logAccess(filePath, "readBrainFile");
   const raw = await readFile(filePath, "utf-8");
   const key = readKey(filePath);
@@ -126,6 +131,7 @@ export async function readBrainFile(filePath: string): Promise<string> {
  * Creates parent directories if needed.
  */
 export async function writeBrainFile(filePath: string, content: string): Promise<void> {
+  assertNotLocked(filePath);
   await mkdir(dirname(filePath), { recursive: true });
   const key = writeKey(filePath);
   const output = key ? encryptFile(content, key) : content;
@@ -138,6 +144,7 @@ export async function writeBrainFile(filePath: string, content: string): Promise
  * Synchronously read a JSONL file, decrypting each line if needed.
  */
 export function readBrainLinesSync(filePath: string): string[] {
+  assertNotLocked(filePath);
   logAccessSync(filePath, "readBrainLinesSync");
   let raw: string;
   try {
@@ -167,6 +174,7 @@ export function readBrainLinesSync(filePath: string): string[] {
  * Synchronously append a single line to a JSONL file, encrypting if enabled.
  */
 export function appendBrainLineSync(filePath: string, jsonLine: string): void {
+  assertNotLocked(filePath);
   const key = writeKey(filePath);
   const line = key ? encryptLine(jsonLine, key) : jsonLine;
   appendFileSync(filePath, line + "\n", "utf-8");

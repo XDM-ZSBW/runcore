@@ -7,6 +7,7 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { encrypt, decrypt, type EncryptedPayload } from "../auth/crypto.js";
+import { shouldHydrateKey } from "../integrations/gate.js";
 
 const VAULT_DIR = join(process.cwd(), "brain", "vault");
 const VAULT_FILE = join(VAULT_DIR, "keys.json");
@@ -77,8 +78,10 @@ export async function setVaultKey(
 ): Promise<void> {
   vaultCache[name] = { value, label };
   await saveVault(key);
-  // Keep process.env in sync
-  process.env[name] = value;
+  // Keep process.env in sync — but respect the integration gate
+  if (shouldHydrateKey(name)) {
+    process.env[name] = value;
+  }
 }
 
 /**
@@ -130,11 +133,17 @@ export function getDashReadableVault(): Array<{ name: string; value: string; lab
 }
 
 /**
- * Push all vault values into process.env.
+ * Push vault values into process.env, filtered by the integration gate.
+ * Disabled integrations have their secrets actively removed from process.env.
  * Called after loadVault so consumer modules (LLM, search) pick them up.
  */
-function hydrateEnv(): void {
+export function hydrateEnv(): void {
   for (const [name, entry] of Object.entries(vaultCache)) {
-    process.env[name] = entry.value;
+    if (shouldHydrateKey(name)) {
+      process.env[name] = entry.value;
+    } else {
+      // Actively remove blocked keys — they may have been set by a prior hydration
+      delete process.env[name];
+    }
   }
 }

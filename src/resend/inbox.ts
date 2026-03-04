@@ -10,6 +10,8 @@
  * there's nothing to do (single GET, empty array).
  */
 
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { logActivity } from "../activity/log.js";
 import { createLogger } from "../utils/logger.js";
 import { processInboundEmail, sendResendReply } from "./webhooks.js";
@@ -45,6 +47,50 @@ interface InboxResponse {
   count: number;
 }
 
+interface AgentEntry {
+  address: string;
+  label: string;
+}
+
+interface AgentRegistry {
+  agents: Record<string, AgentEntry>;
+  catchAll: string;
+  humanNotifyEmail: string | null;
+}
+
+let agentRegistryCache: AgentRegistry | null = null;
+
+async function loadAgentRegistry(): Promise<AgentRegistry> {
+  if (agentRegistryCache) return agentRegistryCache;
+  try {
+    const raw = await readFile(
+      join(process.cwd(), "brain", "identity", "email-agents.json"),
+      "utf-8",
+    );
+    agentRegistryCache = JSON.parse(raw) as AgentRegistry;
+    return agentRegistryCache;
+  } catch {
+    // Fallback — single default agent
+    return {
+      agents: { agent: { address: "agent@pqrsystems.com", label: "Core" } },
+      catchAll: "agent",
+      humanNotifyEmail: null,
+    };
+  }
+}
+
+function resolveAgent(
+  registry: AgentRegistry,
+  toAddresses: string[],
+): AgentEntry {
+  for (const addr of toAddresses) {
+    const local = addr.toLowerCase().split("@")[0];
+    if (registry.agents[local]) return registry.agents[local];
+  }
+  // Catch-all
+  return registry.agents[registry.catchAll] ?? { address: "agent@pqrsystems.com", label: "Core" };
+}
+
 function getWorkerUrl(): string | null {
   if (workerUrl !== null) return workerUrl;
   const url = process.env.RESEND_WORKER_URL;
@@ -77,7 +123,7 @@ export async function checkResendInbox(): Promise<void> {
 
   try {
     // Pull pending emails
-    const res = await fetch(`${url}/inbox`, {
+    const res = await fetch(`${url}/api/resend/inbox`, {
       headers: { Authorization: `Bearer ${secret}` },
       signal: AbortSignal.timeout(10_000),
     });
@@ -123,9 +169,13 @@ async function processEmail(
     return;
   }
 
+  // Resolve which agent identity should handle this email
+  const registry = await loadAgentRegistry();
+  const agent = resolveAgent(registry, email.to);
+
   logActivity({
     source: "resend",
-    summary: `Processing inbound email from ${email.from}: "${email.subject}"`,
+    summary: `Processing inbound email from ${email.from} → ${agent.label}: "${email.subject}"`,
   });
 
   const reply = await processInboundEmail({
@@ -133,6 +183,7 @@ async function processEmail(
     subject: email.subject,
     body: email.body,
     date: email.created_at || email.received_at,
+    agentName: agent.label,
   });
 
   if (reply) {
@@ -141,13 +192,14 @@ async function processEmail(
       subject: email.subject,
       body: reply,
       inReplyTo: email.message_id,
+      from: `${agent.label} <${agent.address}>`,
     });
 
     logActivity({
       source: "resend",
       summary: sent
-        ? `Replied to ${email.from}: "${email.subject}" (${reply.length} chars)`
-        : `Failed to reply to ${email.from}: "${email.subject}"`,
+        ? `${agent.label} replied to ${email.from}: "${email.subject}" (${reply.length} chars)`
+        : `${agent.label} failed to reply to ${email.from}: "${email.subject}"`,
     });
   }
 
@@ -161,7 +213,7 @@ async function ackEmail(
   secret: string,
 ): Promise<void> {
   try {
-    await fetch(`${workerUrl}/inbox/${id}`, {
+    await fetch(`${workerUrl}/api/resend/inbox/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${secret}` },
       signal: AbortSignal.timeout(5_000),
@@ -185,7 +237,7 @@ export async function forceCheckResendInbox(): Promise<number> {
 
   // Quick count check before full processing
   try {
-    const res = await fetch(`${url}/inbox`, {
+    const res = await fetch(`${url}/api/resend/inbox`, {
       headers: { Authorization: `Bearer ${secret}` },
       signal: AbortSignal.timeout(10_000),
     });
