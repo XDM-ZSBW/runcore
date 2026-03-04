@@ -74,3 +74,4 @@ test-instance*/
 # Local storage
 storage/
 ingested/
+spawned/

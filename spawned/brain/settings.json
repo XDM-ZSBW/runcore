@@ -1,9 +1,0 @@
-{
-  "airplaneMode": false,
-  "models": {
-    "chat": "auto",
-    "agent": "auto"
-  },
-  "encryptBrainFiles": false,
-  "agentName": "Me"
-}
