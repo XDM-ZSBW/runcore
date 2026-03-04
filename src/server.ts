@@ -73,6 +73,7 @@ import { startAvatarSidecar, stopAvatarSidecar, isAvatarAvailable } from "./avat
 import { preparePhoto, generateVideo, getCachedVideo, cacheVideo, clearVideoCache } from "./avatar/client.js";
 import { getTtsConfig, getSttConfig, getAvatarConfig } from "./settings.js";
 import { loadVault, listVaultKeys, setVaultKey, deleteVaultKey, getDashReadableVault, getVaultEntries, hydrateEnv as rehydrateVaultEnv } from "./vault/store.js";
+import { exportVault, importVault, verifyExport } from "./vault/transfer.js";
 import { getIntegrationStatus, isIntegrationEnabled } from "./integrations/gate.js";
 import { makeCall } from "./twilio/call.js";
 import {
@@ -794,6 +795,70 @@ app.delete("/api/vault/:name", async (c) => {
   const name = c.req.param("name");
   await deleteVaultKey(name, key);
   return c.json({ ok: true });
+});
+
+// Export vault to portable passphrase-encrypted file
+app.post("/api/vault/export", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+
+  const body = await c.req.json<{ passphrase?: string }>();
+  if (!body.passphrase || body.passphrase.length < 8) {
+    return c.json({ error: "Passphrase required (min 8 characters)" }, 400);
+  }
+
+  try {
+    const result = await exportVault(body.passphrase);
+    return c.json({ ok: true, filePath: result.filePath, stats: result.stats });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
+
+// Import vault from portable passphrase-encrypted file
+app.post("/api/vault/import", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+
+  const key = sessionKeys.get(sessionId);
+  if (!key) return c.json({ error: "Session key not found" }, 401);
+
+  const body = await c.req.json<{ filePath?: string; passphrase?: string; strategy?: string }>();
+  if (!body.filePath || !body.passphrase) {
+    return c.json({ error: "filePath and passphrase required" }, 400);
+  }
+
+  const strategy = (body.strategy as "overwrite" | "skip" | "rename") ?? "skip";
+  try {
+    const result = await importVault(body.filePath, body.passphrase, strategy, key);
+    return c.json({ ok: true, stats: result.stats });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
+});
+
+// Verify a vault export file without importing
+app.post("/api/vault/verify-export", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+
+  const body = await c.req.json<{ filePath?: string; passphrase?: string }>();
+  if (!body.filePath || !body.passphrase) {
+    return c.json({ error: "filePath and passphrase required" }, 400);
+  }
+
+  try {
+    const result = await verifyExport(body.filePath, body.passphrase);
+    return c.json({ ok: true, message: result.message, stats: result.stats });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
 });
 
 // --- Google OAuth2 routes ---
