@@ -53,7 +53,9 @@ import {
   resolveChatModel,
   resolveUtilityModel,
   getPulseSettings,
+  getMeshConfig,
 } from "./settings.js";
+import { startMdns, stopMdns } from "./mdns.js";
 import { ingestDirectory } from "./files/ingest.js";
 import { processIngestFolder } from "./files/ingest-folder.js";
 import { saveSession, loadSession } from "./sessions/store.js";
@@ -3574,6 +3576,101 @@ app.get("/browser", async (c) => {
   return c.html(html);
 });
 
+// Serve registry.html (service & capability dashboard)
+app.get("/registry", async (c) => {
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "registry.html"));
+  return c.html(html);
+});
+
+// Serve roadmap.html (strategic roadmap & rearview)
+app.get("/roadmap", async (c) => {
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "roadmap.html"));
+  return c.html(html);
+});
+
+// Roadmap API — parse brain/operations/roadmap.yaml and return as JSON
+app.get("/api/roadmap", async (c) => {
+  try {
+    const raw = await readFile(join(process.cwd(), "brain", "operations", "roadmap.yaml"), "utf-8");
+    const parsed = parseRoadmapYaml(raw);
+    return c.json(parsed);
+  } catch (err) {
+    return c.json({ error: "Failed to load roadmap.yaml" }, 500);
+  }
+});
+
+// Roadmap rearview API — recent git commits grouped by hour
+app.get("/api/roadmap/recent", async (c) => {
+  const hours = parseInt(c.req.query("hours") || "24", 10);
+  if (isNaN(hours) || hours < 1 || hours > 168) {
+    return c.json({ error: "hours must be between 1 and 168" }, 400);
+  }
+
+  try {
+    const { execSync } = await import("child_process");
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const raw = execSync(
+      `git log --after="${since}" --format="%H||%an||%ai||%s" --no-merges`,
+      { cwd: process.cwd(), encoding: "utf-8", timeout: 10000 }
+    ).trim();
+
+    if (!raw) return c.json({ commits: [], groups: [], hours, total: 0 });
+
+    const commits = raw.split("\n").map((line) => {
+      const [hash, author, date, ...msgParts] = line.split("||");
+      const message = msgParts.join("||");
+      const isAuto = /^\[(?:dash|agent)\]/i.test(message);
+      return {
+        hash: hash.slice(0, 8),
+        fullHash: hash,
+        author,
+        date,
+        message,
+        autonomous: isAuto,
+        tag: isAuto ? "dash" : "human",
+      };
+    });
+
+    // Group by hour bucket
+    const groups: Record<string, typeof commits> = {};
+    for (const commit of commits) {
+      const d = new Date(commit.date);
+      const hourKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:00`;
+      if (!groups[hourKey]) groups[hourKey] = [];
+      groups[hourKey].push(commit);
+    }
+
+    const grouped = Object.entries(groups)
+      .map(([hour, items]) => ({ hour, commits: items, count: items.length }))
+      .sort((a, b) => b.hour.localeCompare(a.hour));
+
+    return c.json({ commits, groups: grouped, hours, total: commits.length });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: "Failed to read git log: " + msg }, 500);
+  }
+});
+
+// Serve personal.html (placeholder — instances populate this)
+app.get("/personal", async (c) => {
+  try {
+    const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "personal.html"));
+    return c.html(html);
+  } catch {
+    return c.text("Personal page not configured for this instance.", 404);
+  }
+});
+
+// Serve life.html (placeholder — instances populate this)
+app.get("/life", async (c) => {
+  try {
+    const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "life.html"));
+    return c.html(html);
+  } catch {
+    return c.text("Life page not configured for this instance.", 404);
+  }
+});
+
 // Browse API — fetch a URL and return what the agent sees (stripped text)
 app.get("/api/browse", async (c) => {
   const url = c.req.query("url");
@@ -5440,6 +5537,18 @@ async function start() {
         actualPort = addr.port;
       }
       log.info(`Listening on http://localhost:${actualPort}`);
+
+      // Announce on LAN if mesh.lanAnnounce is enabled
+      if (getMeshConfig().lanAnnounce) {
+        try {
+          startMdns(actualPort);
+        } catch (err) {
+          log.warn("mDNS announcement failed — discovery disabled", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       resolve();
     });
   });
@@ -5458,6 +5567,82 @@ if (isDirectRun) {
     log.error("Failed to start", { error: err instanceof Error ? err.message : String(err) });
     process.exit(1);
   });
+}
+
+// --- Roadmap YAML parser ---
+
+interface RoadmapPhase { id: string; label: string; start: string; end: string; }
+interface RoadmapStream { id: string; name: string; color: string; description: string; parent?: string; }
+interface RoadmapMilestone { id: string; stream: string; title: string; phase: string; status: string; target?: string; depends_on?: string[]; }
+interface Roadmap { phases: RoadmapPhase[]; streams: RoadmapStream[]; milestones: RoadmapMilestone[]; layout?: { mode: string }; }
+
+function parseRoadmapYaml(raw: string): Roadmap {
+  const result: Roadmap = { phases: [], streams: [], milestones: [] };
+  const lines = raw.split("\n");
+  let section: "phases" | "streams" | "milestones" | "layout" | null = null;
+  let currentObj: Record<string, unknown> | null = null;
+
+  function flush() {
+    if (currentObj && section && section !== "layout") {
+      (result[section] as unknown as Record<string, unknown>[]).push(currentObj);
+      currentObj = null;
+    }
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trimEnd();
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+
+    // Top-level section headers
+    if (/^layout:\s*$/.test(trimmed)) { flush(); section = "layout"; result.layout = {} as { mode: string }; continue; }
+    if (/^phases:\s*$/.test(trimmed)) { flush(); section = "phases"; continue; }
+    if (/^streams:\s*$/.test(trimmed)) { flush(); section = "streams"; continue; }
+    if (/^milestones:\s*$/.test(trimmed)) { flush(); section = "milestones"; continue; }
+
+    if (!section) continue;
+
+    // Layout is a flat object, not an array
+    if (section === "layout") {
+      const kvMatch = trimmed.match(/^\s+(\w+)\s*:\s*(.*)/);
+      if (kvMatch && result.layout) {
+        (result.layout as Record<string, string>)[kvMatch[1]] = kvMatch[2].replace(/^["']|["']$/g, "").trim();
+      }
+      continue;
+    }
+
+    // New list item: "  - key: value"
+    const newItemMatch = trimmed.match(/^\s+-\s+(\w+)\s*:\s*(.*)/);
+    if (newItemMatch) {
+      flush();
+      currentObj = {};
+      const key = newItemMatch[1];
+      const val = newItemMatch[2].replace(/^["']|["']$/g, "").trim();
+      if (val.startsWith("[")) {
+        // Inline array: [a, b, c]
+        currentObj[key] = val.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
+      } else {
+        currentObj[key] = val;
+      }
+      continue;
+    }
+
+    // Continuation key: "    key: value"
+    if (currentObj) {
+      const kvMatch = trimmed.match(/^\s+(\w+)\s*:\s*(.*)/);
+      if (kvMatch) {
+        const key = kvMatch[1];
+        const val = kvMatch[2].replace(/^["']|["']$/g, "").trim();
+        if (val.startsWith("[")) {
+          currentObj[key] = val.slice(1, -1).split(",").map(s => s.trim().replace(/^["']|["']$/g, ""));
+        } else {
+          currentObj[key] = val;
+        }
+      }
+    }
+  }
+  flush();
+
+  return result;
 }
 
 // Graceful shutdown: agent pool first (drains queue, terminates agents, cleans resources),
@@ -5492,6 +5677,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   stopInsightsTimer();
   stopOpenLoopScanner();
   stopCreditMonitor();
+  stopMdns();
   stopAvatarSidecar();
   stopTtsSidecar();
   stopSttSidecar();

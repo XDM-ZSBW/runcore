@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{INSTANCE_NAME}} — Registry</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --purple: #a78bfa;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* --- Header --- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  header h1 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  header h1 a:hover { opacity: 0.8; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .header-nav a:hover { color: var(--text); border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .header-nav .nav-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 4px;
+    align-self: center;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .settings-link {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 18px;
+    transition: color 0.15s;
+  }
+
+  .settings-link:hover { color: var(--text); }
+
+  /* --- Main layout --- */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  .panels {
+    display: flex;
+    gap: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .panel {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+  }
+
+  .panel-body {
+    padding: 12px 0;
+  }
+
+  /* --- Service rows --- */
+  .service-row {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .service-row:last-child { border-bottom: none; }
+
+  .service-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-dot.green { background: var(--green); }
+  .status-dot.gray { background: var(--text-dim); opacity: 0.4; }
+
+  .service-name {
+    font-size: 14px;
+    font-weight: 500;
+    flex: 1;
+  }
+
+  .service-provider {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .service-status {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    padding-left: 18px;
+  }
+
+  .service-status.connected { color: var(--green); }
+
+  /* --- Setup steps --- */
+  .setup-toggle {
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    margin-top: 6px;
+    padding-left: 18px;
+    user-select: none;
+  }
+
+  .setup-toggle:hover { text-decoration: underline; }
+
+  .setup-steps {
+    display: none;
+    margin-top: 8px;
+    padding-left: 18px;
+  }
+
+  .setup-steps.open { display: block; }
+
+  .setup-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .step-check {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 10px;
+  }
+
+  .step-check.done {
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .connect-btn {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .connect-btn:hover { opacity: 0.85; }
+  .connect-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* --- Capability rows --- */
+  .cap-group {
+    padding: 12px 20px 8px;
+  }
+
+  .cap-group-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .cap-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+
+  .cap-id {
+    font-size: 13px;
+    font-family: var(--mono);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cap-tag {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* --- Toggle switch --- */
+  .toggle {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  .toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    left: 2px;
+    top: 2px;
+    background: var(--text);
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+
+  .toggle input:checked + .toggle-slider {
+    background: var(--green);
+  }
+
+  .toggle input:checked + .toggle-slider::before {
+    transform: translateX(14px);
+  }
+
+  /* --- Loading / error --- */
+  .loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .error-msg {
+    text-align: center;
+    padding: 20px;
+    color: var(--red);
+    font-size: 13px;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    header { padding: 12px 16px; }
+    .header-nav { display: none; }
+    .panels { flex-direction: column; }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <h1><a href="/">{{INSTANCE_NAME}}</a> <span>· Registry</span></h1>
+    <nav class="header-nav">
+      <a href="/">Chat</a>
+      <a href="/library">Library</a>
+      <a href="/personal">Personal</a>
+      <a href="/life">Life</a>
+      <a href="/registry" class="active">Registry</a>
+      <span class="nav-divider"></span>
+      <a href="/observatory">Observatory</a>
+      <a href="/ops">Operations</a>
+      <a href="/board">Board</a>
+      <a href="/roadmap">Roadmap</a>
+    </nav>
+  </div>
+  <div class="header-actions">
+    <a href="/?settings=open" class="settings-link" title="Settings">&#9881;</a>
+  </div>
+</header>
+
+<div class="main">
+  <div class="panels">
+    <!-- Services panel -->
+    <div class="panel">
+      <div class="panel-header">Services</div>
+      <div class="panel-body" id="services-panel">
+        <div class="loading">Loading services…</div>
+      </div>
+    </div>
+
+    <!-- Capabilities panel -->
+    <div class="panel">
+      <div class="panel-header">Capabilities</div>
+      <div class="panel-body" id="caps-panel">
+        <div class="loading">Loading capabilities…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  let currentData = null;
+
+  async function fetchData() {
+    try {
+      const res = await fetch("/api/capabilities");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // Category labels and order
+  const CATEGORY_ORDER = ["platform", "channel", "sidecar"];
+  const CATEGORY_LABELS = { platform: "Platforms", channel: "Channels", sidecar: "Sidecars" };
+
+  // --- Render services panel (data-driven from IntegrationRegistry) ---
+  function renderServices(data) {
+    const panel = document.getElementById("services-panel");
+    if (!data) {
+      panel.innerHTML = '<div class="error-msg">Failed to load services</div>';
+      return;
+    }
+
+    const integrations = data.integrations || [];
+    const vaultKeyNames = (data.vaultKeys || []).map(k => typeof k === "string" ? k : k.name);
+
+    if (integrations.length === 0) {
+      panel.innerHTML = '<div class="loading">No integrations registered</div>';
+      return;
+    }
+
+    // Group by category
+    const groups = {};
+    for (const cat of CATEGORY_ORDER) groups[cat] = [];
+    for (const int of integrations) {
+      const cat = int.category || "platform";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(int);
+    }
+
+    let html = "";
+    for (const cat of CATEGORY_ORDER) {
+      const items = groups[cat];
+      if (!items || items.length === 0) continue;
+
+      html += '<div class="cap-group"><div class="cap-group-title">' + CATEGORY_LABELS[cat] + '</div></div>';
+
+      for (const int of items) {
+        const isAvailable = int.configured && int.authenticated;
+        const dotClass = isAvailable ? "green" : "gray";
+        const statusText = isAvailable ? "Connected" : (int.configured ? "Configured" : "Not configured");
+        const statusClass = isAvailable ? "connected" : "";
+
+        html += '<div class="service-row">';
+        html += '<div class="service-top">';
+        html += '<div class="status-dot ' + dotClass + '"></div>';
+        html += '<div class="service-name">' + int.displayName + '</div>';
+        html += '<div class="service-provider">' + int.id + '</div>';
+        html += '</div>';
+        html += '<div class="service-status ' + statusClass + '">' + statusText + '</div>';
+
+        // Setup steps for non-sidecar integrations that aren't fully connected
+        if (!isAvailable && cat !== "sidecar" && int.requiredKeys && int.requiredKeys.length > 0) {
+          html += '<div class="setup-toggle" data-svc="' + int.id + '">&#9660; Setup Steps</div>';
+          html += '<div class="setup-steps" id="setup-' + int.id + '">';
+
+          // Key requirements
+          for (const key of int.requiredKeys) {
+            const done = vaultKeyNames.includes(key);
+            html += '<div class="setup-step">';
+            html += '<div class="step-check ' + (done ? "done" : "") + '">' + (done ? "&#10003;" : "") + '</div>';
+            html += '<span>Add ' + key + ' to vault</span>';
+            html += '</div>';
+          }
+
+          // Setup instructions from the definition
+          if (int.setupSteps) {
+            for (const step of int.setupSteps) {
+              if (step.toLowerCase().includes("add ") && step.toLowerCase().includes(" to the vault")) continue;
+              html += '<div class="setup-step">';
+              html += '<div class="step-check"></div>';
+              html += '<span>' + step + '</span>';
+              html += '</div>';
+            }
+          }
+
+          // OAuth connect button
+          if (int.oauthRoute && int.configured && !int.authenticated) {
+            html += '<button class="connect-btn" data-oauth="' + int.oauthRoute + '">Connect</button>';
+          }
+
+          html += '</div>';
+        }
+
+        html += '</div>';
+      }
+    }
+
+    panel.innerHTML = html;
+
+    // Attach toggle handlers
+    panel.querySelectorAll(".setup-toggle").forEach(el => {
+      el.addEventListener("click", () => {
+        const target = document.getElementById("setup-" + el.dataset.svc);
+        if (target) target.classList.toggle("open");
+        el.textContent = target.classList.contains("open") ? "\u25B2 Setup Steps" : "\u25BC Setup Steps";
+      });
+    });
+
+    // Attach connect button handlers
+    panel.querySelectorAll(".connect-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        window.open(btn.dataset.oauth, "_blank");
+      });
+    });
+  }
+
+  // --- Render capabilities panel ---
+  function renderCapabilities(data) {
+    const panel = document.getElementById("caps-panel");
+    if (!data) {
+      panel.innerHTML = '<div class="error-msg">Failed to load capabilities</div>';
+      return;
+    }
+
+    const caps = data.capabilities || [];
+
+    // Group by pattern
+    const groups = {
+      action: { title: "Action Blocks", items: [] },
+      context: { title: "Context Providers", items: [] },
+      meta: { title: "Meta", items: [] }
+    };
+
+    for (const cap of caps) {
+      const pattern = (cap.pattern || cap.tag || "").toLowerCase();
+      if (pattern.includes("action") || cap.tag?.includes("ACTION")) {
+        groups.action.items.push(cap);
+      } else if (pattern.includes("context") || cap.id?.includes("context")) {
+        groups.context.items.push(cap);
+      } else {
+        groups.meta.items.push(cap);
+      }
+    }
+
+    // Toggleable capabilities (these can be switched on/off via settings)
+    const toggleable = new Set(["browser", "email", "docs", "calendar"]);
+
+    let html = "";
+    for (const [, group] of Object.entries(groups)) {
+      if (group.items.length === 0) continue;
+
+      html += '<div class="cap-group">';
+      html += '<div class="cap-group-title">' + group.title + '</div>';
+
+      for (const cap of group.items) {
+        const enabled = cap.enabled !== false;
+        const dotClass = enabled ? "green" : "gray";
+        const canToggle = toggleable.has(cap.id);
+
+        html += '<div class="cap-row">';
+        html += '<div class="status-dot ' + dotClass + '"></div>';
+        html += '<div class="cap-id">' + cap.id + '</div>';
+        if (cap.tag) {
+          html += '<div class="cap-tag">' + cap.tag + '</div>';
+        }
+        if (canToggle) {
+          html += '<label class="toggle">';
+          html += '<input type="checkbox" ' + (enabled ? "checked" : "") + ' data-cap-id="' + cap.id + '">';
+          html += '<span class="toggle-slider"></span>';
+          html += '</label>';
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+    }
+
+    if (!html) {
+      html = '<div class="loading">No capabilities registered</div>';
+    }
+
+    panel.innerHTML = html;
+
+    // Attach toggle handlers
+    panel.querySelectorAll('input[data-cap-id]').forEach(input => {
+      input.addEventListener("change", async () => {
+        const capId = input.dataset.capId;
+        const enabled = input.checked;
+        try {
+          await fetch("/api/settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ capabilities: { [capId]: enabled } })
+          });
+          await refresh();
+        } catch (err) {
+          // Revert on failure
+          input.checked = !enabled;
+        }
+      });
+    });
+  }
+
+  // --- OAuth callback listeners ---
+  window.addEventListener("message", async (e) => {
+    if (e.data === "google-connected" || e.data === "slack-connected") {
+      await refresh();
+    }
+  });
+
+  // --- Refresh everything ---
+  async function refresh() {
+    currentData = await fetchData();
+    renderServices(currentData);
+    renderCapabilities(currentData);
+  }
+
+  // Initial load
+  refresh();
+})();
+</script>
+</body>
+</html>

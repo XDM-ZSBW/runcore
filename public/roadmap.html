@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{INSTANCE_NAME}} — Roadmap</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  header h1 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  header h1 a:hover { opacity: 0.8; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+
+  .header-nav a:hover { color: var(--text); border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .header-nav .nav-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin: 0 4px;
+    align-self: center;
+  }
+
+  /* --- Toolbar --- */
+  .roadmap-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-wrap: wrap;
+  }
+
+  .toolbar-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+
+  .filter-chip {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .filter-chip:hover {
+    border-color: var(--text-dim);
+    color: var(--text);
+  }
+
+  .filter-chip.active {
+    background: var(--chip-color, var(--accent));
+    border-color: var(--chip-color, var(--accent));
+    color: #fff;
+  }
+
+  .filter-chip[data-stream="all"].active {
+    background: var(--surface2);
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .status-filter {
+    margin-left: auto;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .status-filter option { background: var(--surface); }
+
+  /* --- Graph area --- */
+  .roadmap-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 110px);
+  }
+
+  .stream-sidebar {
+    flex-shrink: 0;
+    width: 140px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    overflow-y: auto;
+    z-index: 2;
+  }
+
+  .stream-label {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    transition: opacity 0.2s;
+  }
+
+  .stream-label.hidden { opacity: 0.25; }
+
+  .stream-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .graph-scroll {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .graph-container {
+    position: relative;
+    min-width: 100%;
+    height: 100%;
+  }
+
+  /* Phase headers */
+  .phase-headers {
+    display: flex;
+    height: 48px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .phase-header {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    min-width: 200px;
+  }
+
+  .phase-header:last-child { border-right: none; }
+
+  .phase-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .phase-range {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* SVG graph */
+  .graph-svg {
+    position: absolute;
+    top: 48px;
+    left: 0;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+    max-width: 280px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  .tooltip.visible { opacity: 1; }
+
+  .tooltip-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .tooltip-meta {
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .tooltip-status {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  /* Loading */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  /* --- View tabs --- */
+  .view-tabs {
+    display: flex;
+    gap: 0;
+    margin-right: 12px;
+  }
+
+  .view-tab {
+    font-size: 12px;
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .view-tab:first-child { border-radius: 6px 0 0 6px; }
+  .view-tab:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+
+  .view-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .view-tab:hover:not(.active) {
+    border-color: var(--text-dim);
+    color: var(--text);
+  }
+
+  /* --- Rearview timeline --- */
+  .rearview-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: none;
+  }
+
+  .rearview-container.active { display: block; }
+
+  .rearview-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .rearview-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    min-width: 120px;
+  }
+
+  .rearview-stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+
+  .rearview-stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+
+  .hour-group {
+    margin-bottom: 24px;
+  }
+
+  .hour-label {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    padding: 4px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hour-count {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+  }
+
+  .commit-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.1s;
+  }
+
+  .commit-item:hover { background: var(--surface); }
+
+  .commit-hash {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    flex-shrink: 0;
+    min-width: 70px;
+  }
+
+  .commit-msg {
+    font-size: 13px;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .commit-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+  }
+
+  .commit-tag.dash {
+    background: rgba(109,93,252,0.2);
+    color: var(--accent);
+  }
+
+  .commit-tag.human {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+  }
+
+  .commit-time {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    flex-shrink: 0;
+    min-width: 50px;
+  }
+
+  .rearview-empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 48px;
+    font-size: 14px;
+  }
+
+  .hours-select {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
+  .hours-select option { background: var(--surface); }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <h1><a href="/">{{INSTANCE_NAME}}</a> <span>· Roadmap</span></h1>
+    <nav class="header-nav">
+      <a href="/">Chat</a>
+      <a href="/library">Library</a>
+      <a href="/personal">Personal</a>
+      <a href="/life">Life</a>
+      <a href="/registry">Registry</a>
+      <span class="nav-divider"></span>
+      <a href="/observatory">Observatory</a>
+      <a href="/ops">Operations</a>
+      <a href="/board">Board</a>
+      <a href="/roadmap" class="active">Roadmap</a>
+    </nav>
+  </div>
+</header>
+
+<div class="roadmap-toolbar" id="toolbar">
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="roadmap" onclick="switchView('roadmap')">Roadmap</button>
+    <button class="view-tab" data-view="rearview" onclick="switchView('rearview')">Rearview</button>
+  </div>
+</div>
+
+<div class="roadmap-wrapper" id="roadmapView">
+  <div class="stream-sidebar" id="sidebar"></div>
+  <div class="graph-scroll" id="graphScroll">
+    <div class="graph-container" id="graphContainer">
+      <div class="phase-headers" id="phaseHeaders"></div>
+      <svg class="graph-svg" id="graphSvg"></svg>
+    </div>
+    <div class="loading" id="loading">Loading roadmap...</div>
+  </div>
+</div>
+
+<div class="rearview-container" id="rearviewView"></div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-title" id="tooltipTitle"></div>
+  <div class="tooltip-meta" id="tooltipMeta"></div>
+</div>
+
+<script>
+// --- View switching (global scope for inline onclick) ---
+let currentView = 'roadmap';
+let rearviewLoaded = false;
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  document.getElementById('roadmapView').style.display = view === 'roadmap' ? 'flex' : 'none';
+  document.getElementById('rearviewView').classList.toggle('active', view === 'rearview');
+
+  // Show/hide roadmap toolbar items (stream filters, status filter)
+  document.querySelectorAll('#toolbar .toolbar-label, #toolbar .filter-chip, #toolbar .status-filter, #toolbar .hours-select').forEach(el => {
+    if (view === 'roadmap') {
+      el.style.display = el.classList.contains('hours-select') ? 'none' : '';
+    } else {
+      el.style.display = el.classList.contains('hours-select') ? '' : (el.classList.contains('toolbar-label') || el.classList.contains('filter-chip') || el.classList.contains('status-filter') ? 'none' : '');
+    }
+  });
+
+  if (view === 'rearview' && !rearviewLoaded) {
+    loadRearview();
+  }
+}
+
+async function loadRearview(hours) {
+  hours = hours || 24;
+  const container = document.getElementById('rearviewView');
+  container.innerHTML = '<div class="loading">Loading recent activity...</div>';
+
+  try {
+    const res = await fetch('/api/roadmap/recent?hours=' + hours);
+    if (!res.ok) throw new Error('Failed to load');
+    const data = await res.json();
+    rearviewLoaded = true;
+    renderRearview(data, container);
+  } catch (err) {
+    container.innerHTML = '<div class="rearview-empty">Failed to load recent activity</div>';
+  }
+}
+
+function renderRearview(data, container) {
+  if (!data.commits || data.commits.length === 0) {
+    container.innerHTML = '<div class="rearview-empty">No commits in the last ' + data.hours + ' hours</div>';
+    return;
+  }
+
+  const autoCount = data.commits.filter(c => c.autonomous).length;
+  const humanCount = data.commits.length - autoCount;
+
+  let html = '<div class="rearview-stats">';
+  html += '<div class="rearview-stat"><div class="rearview-stat-value">' + data.total + '</div><div class="rearview-stat-label">Commits</div></div>';
+  html += '<div class="rearview-stat"><div class="rearview-stat-value" style="color:var(--accent)">' + autoCount + '</div><div class="rearview-stat-label">Autonomous</div></div>';
+  html += '<div class="rearview-stat"><div class="rearview-stat-value" style="color:var(--green)">' + humanCount + '</div><div class="rearview-stat-label">Human / Other</div></div>';
+  html += '<div class="rearview-stat"><div class="rearview-stat-value">' + data.groups.length + '</div><div class="rearview-stat-label">Active Hours</div></div>';
+  html += '</div>';
+
+  for (const group of data.groups) {
+    html += '<div class="hour-group">';
+    html += '<div class="hour-label">' + group.hour + '<span class="hour-count">' + group.count + ' commit' + (group.count !== 1 ? 's' : '') + '</span></div>';
+
+    for (const c of group.commits) {
+      const time = new Date(c.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const escapedMsg = c.message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      html += '<div class="commit-item">';
+      html += '<span class="commit-time">' + time + '</span>';
+      html += '<span class="commit-hash">' + c.hash + '</span>';
+      html += '<span class="commit-msg">' + escapedMsg + '</span>';
+      html += '<span class="commit-tag ' + c.tag + '">' + c.tag + '</span>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+(function() {
+  const ROW_H = 72;
+  const NODE_R = 7;
+  const PHASE_MIN_W = 220;
+
+  let data = null;
+  let activeStreams = new Set();
+  let statusFilter = 'all';
+
+  // --- Fetch & parse ---
+  async function load() {
+    const res = await fetch('/api/roadmap');
+    if (!res.ok) { document.getElementById('loading').textContent = 'Failed to load roadmap'; return; }
+    data = await res.json();
+    activeStreams = new Set(data.streams.map(s => s.id));
+    document.getElementById('loading').style.display = 'none';
+    buildToolbar();
+    render();
+  }
+
+  // --- Toolbar ---
+  function buildToolbar() {
+    const tb = document.getElementById('toolbar');
+    tb.innerHTML = '';
+
+    // View tabs (re-add since we cleared)
+    const viewTabs = document.createElement('div');
+    viewTabs.className = 'view-tabs';
+    viewTabs.innerHTML = '<button class="view-tab active" data-view="roadmap" onclick="switchView(\'roadmap\')">Roadmap</button><button class="view-tab" data-view="rearview" onclick="switchView(\'rearview\')">Rearview</button>';
+    tb.appendChild(viewTabs);
+
+    const lbl = document.createElement('span');
+    lbl.className = 'toolbar-label';
+    lbl.textContent = 'Streams';
+    tb.appendChild(lbl);
+
+    // All chip
+    const allChip = makeChip('All', 'all', null, true);
+    allChip.addEventListener('click', () => {
+      if (activeStreams.size === data.streams.length) {
+        activeStreams.clear();
+      } else {
+        activeStreams = new Set(data.streams.map(s => s.id));
+      }
+      syncChips();
+      render();
+    });
+    tb.appendChild(allChip);
+
+    for (const s of data.streams) {
+      const chip = makeChip(s.name, s.id, s.color, true);
+      chip.addEventListener('click', () => {
+        if (activeStreams.has(s.id)) activeStreams.delete(s.id);
+        else activeStreams.add(s.id);
+        syncChips();
+        render();
+      });
+      tb.appendChild(chip);
+    }
+
+    // Status filter
+    const sel = document.createElement('select');
+    sel.className = 'status-filter';
+    sel.id = 'statusFilter';
+    [['all', 'All statuses'], ['active', 'Active (in_progress + planned)'], ['done', 'Done'], ['research', 'Research']].forEach(([v, l]) => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = l;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => { statusFilter = sel.value; render(); });
+    tb.appendChild(sel);
+
+    // Hours selector (for rearview, hidden by default)
+    const hoursSel = document.createElement('select');
+    hoursSel.className = 'hours-select';
+    hoursSel.style.display = 'none';
+    [['24', 'Last 24 hours'], ['48', 'Last 48 hours'], ['72', 'Last 3 days'], ['168', 'Last 7 days']].forEach(([v, l]) => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = l;
+      hoursSel.appendChild(o);
+    });
+    hoursSel.addEventListener('change', () => { rearviewLoaded = false; loadRearview(parseInt(hoursSel.value)); });
+    tb.appendChild(hoursSel);
+
+    syncChips();
+  }
+
+  function makeChip(label, stream, color) {
+    const btn = document.createElement('button');
+    btn.className = 'filter-chip';
+    btn.dataset.stream = stream;
+    btn.textContent = label;
+    if (color) btn.style.setProperty('--chip-color', color);
+    return btn;
+  }
+
+  function syncChips() {
+    const allActive = activeStreams.size === data.streams.length;
+    document.querySelectorAll('.filter-chip').forEach(c => {
+      if (c.dataset.stream === 'all') {
+        c.classList.toggle('active', allActive);
+      } else {
+        c.classList.toggle('active', activeStreams.has(c.dataset.stream));
+      }
+    });
+  }
+
+  // --- Rendering ---
+  function render() {
+    if (!data) return;
+
+    const phases = data.phases;
+    const streams = data.streams;
+    const milestones = data.milestones;
+
+    // Filter milestones by status
+    const filteredMs = milestones.filter(m => {
+      if (statusFilter === 'done') return m.status === 'done';
+      if (statusFilter === 'active') return m.status === 'in_progress' || m.status === 'planned';
+      if (statusFilter === 'research') return m.status === 'research';
+      return true;
+    });
+
+    // Phase index for x positioning
+    const phaseIdx = {};
+    phases.forEach((p, i) => { phaseIdx[p.id] = i; });
+    const phaseCount = phases.length;
+    const phaseW = Math.max(PHASE_MIN_W, (window.innerWidth - 140) / phaseCount);
+    const totalW = phaseW * phaseCount;
+
+    // Stream index for y positioning
+    const streamIdx = {};
+    streams.forEach((s, i) => { streamIdx[s.id] = i; });
+    const streamMap = {};
+    streams.forEach(s => { streamMap[s.id] = s; });
+
+    const totalH = streams.length * ROW_H;
+
+    // Phase headers
+    const phEl = document.getElementById('phaseHeaders');
+    phEl.innerHTML = '';
+    phEl.style.width = totalW + 'px';
+    for (const p of phases) {
+      const d = document.createElement('div');
+      d.className = 'phase-header';
+      d.style.minWidth = phaseW + 'px';
+      d.style.maxWidth = phaseW + 'px';
+      d.innerHTML = `<div class="phase-name">${p.label}</div><div class="phase-range">${p.start}${p.end !== p.start ? ' – ' + p.end : ''}</div>`;
+      phEl.appendChild(d);
+    }
+
+    // Sidebar
+    const sb = document.getElementById('sidebar');
+    sb.innerHTML = '<div style="height:48px;border-bottom:1px solid var(--border);"></div>';
+    for (const s of streams) {
+      const d = document.createElement('div');
+      d.className = 'stream-label' + (activeStreams.has(s.id) ? '' : ' hidden');
+      d.innerHTML = `<span class="stream-dot" style="background:${s.color}"></span>${s.name}`;
+      sb.appendChild(d);
+    }
+
+    // Graph container sizing
+    const gc = document.getElementById('graphContainer');
+    gc.style.width = totalW + 'px';
+    gc.style.height = (totalH + 48) + 'px';
+
+    // SVG
+    const svg = document.getElementById('graphSvg');
+    svg.setAttribute('width', totalW);
+    svg.setAttribute('height', totalH);
+    svg.innerHTML = '';
+
+    // Phase background bands
+    for (let i = 0; i < phaseCount; i++) {
+      const rect = svgEl('rect', {
+        x: i * phaseW, y: 0, width: phaseW, height: totalH,
+        fill: i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.025)',
+      });
+      svg.appendChild(rect);
+    }
+
+    // Row separator lines
+    for (let i = 0; i < streams.length; i++) {
+      const line = svgEl('line', {
+        x1: 0, y1: (i + 1) * ROW_H, x2: totalW, y2: (i + 1) * ROW_H,
+        stroke: '#2e2e33', 'stroke-width': 1
+      });
+      svg.appendChild(line);
+    }
+
+    // Compute milestone positions
+    const msPositions = {};
+    const phaseStreamGroups = {};
+    for (const m of filteredMs) {
+      const key = m.phase + ':' + m.stream;
+      if (!phaseStreamGroups[key]) phaseStreamGroups[key] = [];
+      phaseStreamGroups[key].push(m.id);
+    }
+
+    for (const m of filteredMs) {
+      const px = phaseIdx[m.phase];
+      const sy = streamIdx[m.stream];
+      if (px === undefined || sy === undefined) continue;
+      const key = m.phase + ':' + m.stream;
+      const group = phaseStreamGroups[key];
+      const posInGroup = group.indexOf(m.id);
+      const groupSpread = phaseW / (group.length + 1);
+
+      msPositions[m.id] = {
+        x: px * phaseW + groupSpread * (posInGroup + 1),
+        y: sy * ROW_H + ROW_H / 2,
+        milestone: m
+      };
+    }
+
+    // Draw stream lines (connecting milestones within same stream)
+    for (const s of streams) {
+      if (!activeStreams.has(s.id)) continue;
+      const streamMs = filteredMs
+        .filter(m => m.stream === s.id && msPositions[m.id])
+        .sort((a, b) => msPositions[a.id].x - msPositions[b.id].x);
+
+      if (streamMs.length < 2) continue;
+
+      let pathD = `M ${msPositions[streamMs[0].id].x} ${msPositions[streamMs[0].id].y}`;
+      for (let i = 1; i < streamMs.length; i++) {
+        pathD += ` L ${msPositions[streamMs[i].id].x} ${msPositions[streamMs[i].id].y}`;
+      }
+
+      const path = svgEl('path', {
+        d: pathD,
+        stroke: s.color,
+        'stroke-width': 2,
+        fill: 'none',
+        opacity: 0.5,
+      });
+      svg.appendChild(path);
+    }
+
+    // Draw dependency arrows
+    const defs = svgEl('defs', {});
+    for (const s of streams) {
+      const marker = svgEl('marker', {
+        id: 'arrow-' + s.id,
+        viewBox: '0 0 10 6',
+        refX: 10, refY: 3,
+        markerWidth: 8, markerHeight: 6,
+        orient: 'auto-start-reverse'
+      });
+      const markerPath = svgEl('path', { d: 'M 0 0 L 10 3 L 0 6 z', fill: s.color, opacity: 0.6 });
+      marker.appendChild(markerPath);
+      defs.appendChild(marker);
+    }
+    svg.appendChild(defs);
+
+    for (const m of filteredMs) {
+      if (!m.depends_on || !msPositions[m.id]) continue;
+      if (!activeStreams.has(m.stream)) continue;
+
+      for (const depId of m.depends_on) {
+        const from = msPositions[depId];
+        const to = msPositions[m.id];
+        if (!from || !to) continue;
+        if (!activeStreams.has(from.milestone.stream)) continue;
+
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const cx1 = from.x + dx * 0.4;
+        const cy1 = from.y;
+        const cx2 = to.x - dx * 0.4;
+        const cy2 = to.y;
+
+        const depPath = svgEl('path', {
+          d: `M ${from.x + NODE_R + 2} ${from.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${to.x - NODE_R - 2} ${to.y}`,
+          stroke: streamMap[m.stream].color,
+          'stroke-width': 1.5,
+          'stroke-dasharray': '6 3',
+          fill: 'none',
+          opacity: 0.45,
+          'marker-end': `url(#arrow-${m.stream})`
+        });
+        svg.appendChild(depPath);
+      }
+    }
+
+    // Draw milestone nodes
+    for (const m of filteredMs) {
+      const pos = msPositions[m.id];
+      if (!pos) continue;
+      const stream = streamMap[m.stream];
+      const visible = activeStreams.has(m.stream);
+
+      const g = svgEl('g', {
+        opacity: visible ? 1 : 0.15,
+        cursor: 'pointer',
+        'data-id': m.id
+      });
+
+      // Node circle
+      if (m.status === 'done') {
+        g.appendChild(svgEl('circle', {
+          cx: pos.x, cy: pos.y, r: NODE_R,
+          fill: stream.color, stroke: stream.color, 'stroke-width': 2
+        }));
+      } else if (m.status === 'in_progress') {
+        const clipId = 'clip-' + m.id;
+        const clip = svgEl('clipPath', { id: clipId });
+        clip.appendChild(svgEl('rect', { x: pos.x - NODE_R, y: pos.y, width: NODE_R * 2, height: NODE_R }));
+        defs.appendChild(clip);
+
+        g.appendChild(svgEl('circle', {
+          cx: pos.x, cy: pos.y, r: NODE_R,
+          fill: 'none', stroke: stream.color, 'stroke-width': 2
+        }));
+        g.appendChild(svgEl('circle', {
+          cx: pos.x, cy: pos.y, r: NODE_R - 1,
+          fill: stream.color, 'clip-path': `url(#${clipId})`
+        }));
+      } else if (m.status === 'research') {
+        g.appendChild(svgEl('circle', {
+          cx: pos.x, cy: pos.y, r: NODE_R,
+          fill: 'none', stroke: stream.color, 'stroke-width': 2,
+          'stroke-dasharray': '3 2'
+        }));
+      } else {
+        g.appendChild(svgEl('circle', {
+          cx: pos.x, cy: pos.y, r: NODE_R,
+          fill: 'none', stroke: stream.color, 'stroke-width': 2
+        }));
+      }
+
+      // Label below node
+      const label = svgEl('text', {
+        x: pos.x, y: pos.y + NODE_R + 14,
+        'text-anchor': 'middle',
+        fill: visible ? '#8b8b94' : '#555',
+        'font-size': 11,
+        'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+      });
+      const titleText = m.title.length > 28 ? m.title.slice(0, 26) + '...' : m.title;
+      label.textContent = titleText;
+      g.appendChild(label);
+
+      // Hover events
+      g.addEventListener('mouseenter', (e) => showTooltip(e, m, stream));
+      g.addEventListener('mousemove', (e) => moveTooltip(e));
+      g.addEventListener('mouseleave', hideTooltip);
+
+      svg.appendChild(g);
+    }
+  }
+
+  // --- SVG helper ---
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+    return el;
+  }
+
+  // --- Tooltip ---
+  const statusColors = {
+    done: { bg: 'rgba(34,197,94,0.15)', color: '#22c55e' },
+    in_progress: { bg: 'rgba(234,179,8,0.15)', color: '#eab308' },
+    planned: { bg: 'rgba(139,139,148,0.15)', color: '#8b8b94' },
+    research: { bg: 'rgba(168,139,250,0.15)', color: '#a78bfa' },
+    blocked: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
+  };
+
+  function showTooltip(e, m, stream) {
+    const tt = document.getElementById('tooltip');
+    const sc = statusColors[m.status] || statusColors.planned;
+    document.getElementById('tooltipTitle').textContent = m.title;
+    let meta = `<span class="tooltip-status" style="background:${sc.bg};color:${sc.color}">${m.status.replace('_', ' ')}</span>`;
+    meta += `<br>Stream: ${stream.name}`;
+    if (m.target) meta += `<br>Target: ${m.target}`;
+    if (m.depends_on && m.depends_on.length) meta += `<br>Depends on: ${m.depends_on.join(', ')}`;
+    document.getElementById('tooltipMeta').innerHTML = meta;
+    tt.classList.add('visible');
+    moveTooltip(e);
+  }
+
+  function moveTooltip(e) {
+    const tt = document.getElementById('tooltip');
+    tt.style.left = (e.clientX + 12) + 'px';
+    tt.style.top = (e.clientY - 10) + 'px';
+  }
+
+  function hideTooltip() {
+    document.getElementById('tooltip').classList.remove('visible');
+  }
+
+  // --- Resize handler ---
+  window.addEventListener('resize', () => { if (data) render(); });
+
+  // --- Init ---
+  load();
+})();
+</script>
+</body>
+</html>
