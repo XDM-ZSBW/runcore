@@ -99,6 +99,41 @@ const labelToBoardTaskId = new Map<string, string>();
 let creditCircuitBreakerUntil: number = 0;
 const CREDIT_CIRCUIT_BREAKER_MS = 30 * 60_000; // 30 minutes
 
+// ─── Backlog Promotion ───────────────────────────────────────────────────────
+
+/**
+ * Auto-promote "backlog" items to "todo" so the planner can pick them up.
+ *
+ * Promotion criteria:
+ * - Has a description (spec exists, not just a title)
+ * - Not on cooldown (don't promote items that keep failing)
+ *
+ * This closes the gap where items seeded into "backlog" state would sit
+ * forever because the planner only picks up "todo" items.
+ */
+async function promoteBacklogItems(store: any, tasks: QueueTask[]): Promise<void> {
+  const backlog = tasks.filter((t) =>
+    t.state === "backlog" &&
+    t.description && t.description.length > 0 &&
+    !cooldownManager.shouldSkip(t.id)
+  );
+
+  for (const task of backlog) {
+    await store.update(task.id, { state: "todo" });
+    task.state = "todo"; // Update in-place so the filter below sees it
+    log.info(`Promoted ${task.identifier} from backlog → todo`, {
+      identifier: task.identifier,
+      title: task.title,
+    });
+    logActivity({
+      source: "autonomous",
+      summary: `Promoted ${task.identifier} from backlog → todo: "${task.title}"`,
+      actionLabel: "AUTONOMOUS",
+      reason: "backlog auto-promotion",
+    });
+  }
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -377,6 +412,9 @@ export async function checkForWork(): Promise<void> {
   const allTasks: QueueTask[] = await store.list();
   const atCapacity = currentAgents >= MAX_CONCURRENT_AGENTS;
 
+  // Auto-promote backlog items to todo so they become actionable
+  await promoteBacklogItems(store, allTasks);
+
   // Filter to tasks the planner can assign.
   // "todo" tasks assigned to the agent are reclaimed if no agent is actively running —
   // they're leftovers from a previous session that failed or was interrupted.
@@ -459,6 +497,9 @@ async function planAndSpawnInner(
 
     const allTasks: QueueTask[] = await store.list();
     const atCap = activeAgentCount() >= MAX_CONCURRENT_AGENTS;
+
+    // Auto-promote backlog items to todo so they become actionable
+    await promoteBacklogItems(store, allTasks);
 
     const agentAssigneeInner = `${getInstanceNameLower()}-agent`;
     actionable = allTasks.filter((t: QueueTask) => {
