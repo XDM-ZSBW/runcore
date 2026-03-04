@@ -21,6 +21,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
+    "postinstall": "echo \"\n  ✓ Run 'runcore' to start your agent.\n\"",
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:ui": "vitest --ui",
