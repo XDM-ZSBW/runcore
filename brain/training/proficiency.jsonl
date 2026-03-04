@@ -191,3 +191,21 @@
 {"type":"observation","skillId":"bc.priority","timestamp":"2026-03-04T23:41:32.307Z","positive":true,"context":"CORE-9: priority=2"}
 {"type":"observation","skillId":"bc.file_paths","timestamp":"2026-03-04T23:41:32.307Z","positive":false,"context":"CORE-9: no file refs"}
 {"type":"observation","skillId":"bc.exchanges","timestamp":"2026-03-04T23:41:32.307Z","positive":false,"context":"CORE-9: 0 chat exchange(s)"}
+{"type":"observation","skillId":"bc.title","timestamp":"2026-03-04T23:44:06.031Z","positive":false,"context":"CORE-9: 5 words, no verb"}
+{"type":"observation","skillId":"bc.description","timestamp":"2026-03-04T23:44:06.031Z","positive":true,"context":"CORE-9: 212 chars"}
+{"type":"observation","skillId":"bc.acceptance","timestamp":"2026-03-04T23:44:06.031Z","positive":false,"context":"CORE-9: no acceptance keywords"}
+{"type":"observation","skillId":"bc.priority","timestamp":"2026-03-04T23:44:06.031Z","positive":true,"context":"CORE-9: priority=2"}
+{"type":"observation","skillId":"bc.file_paths","timestamp":"2026-03-04T23:44:06.031Z","positive":false,"context":"CORE-9: no file refs"}
+{"type":"observation","skillId":"bc.exchanges","timestamp":"2026-03-04T23:44:06.031Z","positive":false,"context":"CORE-9: 0 chat exchange(s)"}
+{"type":"observation","skillId":"bc.title","timestamp":"2026-03-04T23:44:15.718Z","positive":false,"context":"CORE-9: 5 words, no verb"}
+{"type":"observation","skillId":"bc.description","timestamp":"2026-03-04T23:44:15.718Z","positive":true,"context":"CORE-9: 212 chars"}
+{"type":"observation","skillId":"bc.acceptance","timestamp":"2026-03-04T23:44:15.718Z","positive":false,"context":"CORE-9: no acceptance keywords"}
+{"type":"observation","skillId":"bc.priority","timestamp":"2026-03-04T23:44:15.718Z","positive":true,"context":"CORE-9: priority=2"}
+{"type":"observation","skillId":"bc.file_paths","timestamp":"2026-03-04T23:44:15.718Z","positive":false,"context":"CORE-9: no file refs"}
+{"type":"observation","skillId":"bc.exchanges","timestamp":"2026-03-04T23:44:15.718Z","positive":false,"context":"CORE-9: 0 chat exchange(s)"}
+{"type":"observation","skillId":"bc.title","timestamp":"2026-03-04T23:46:32.315Z","positive":false,"context":"CORE-9: 5 words, no verb"}
+{"type":"observation","skillId":"bc.description","timestamp":"2026-03-04T23:46:32.315Z","positive":true,"context":"CORE-9: 212 chars"}
+{"type":"observation","skillId":"bc.acceptance","timestamp":"2026-03-04T23:46:32.315Z","positive":false,"context":"CORE-9: no acceptance keywords"}
+{"type":"observation","skillId":"bc.priority","timestamp":"2026-03-04T23:46:32.315Z","positive":true,"context":"CORE-9: priority=2"}
+{"type":"observation","skillId":"bc.file_paths","timestamp":"2026-03-04T23:46:32.315Z","positive":false,"context":"CORE-9: no file refs"}
+{"type":"observation","skillId":"bc.exchanges","timestamp":"2026-03-04T23:46:32.315Z","positive":false,"context":"CORE-9: 0 chat exchange(s)"}

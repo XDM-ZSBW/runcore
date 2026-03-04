@@ -55,11 +55,39 @@ export {
   type StepResult,
   type StepStatus,
 } from "./workflow.js";
+export {
+  governanceGate,
+  revokeGovernanceVoucher,
+  validateGovernanceVoucher,
+  type GovernanceDecision,
+  type GovernanceAuditEntry,
+  type GovernanceOptions,
+} from "./governance.js";
+export {
+  HeartbeatTracker,
+  createHeartbeatTracker,
+  getHeartbeatTracker,
+  removeHeartbeatTracker,
+  getAllHeartbeatStatuses,
+  shutdownHeartbeats,
+  extractTaskKeywords,
+  type HeartbeatPulse,
+  type HeartbeatConfig,
+  type HeartbeatStatus,
+  type TerminateCallback,
+} from "./heartbeat.js";
+export {
+  governedSpawn,
+  type GovernedSpawnRequest,
+  type GovernedSpawnResult,
+  type GovernedSpawnDeps,
+} from "./governed-spawn.js";
 
 import type { CreateTaskInput, AgentTask } from "./types.js";
 import { ensureDirs, createTask, readTask, listTasks as listAllTasks, readTaskOutput } from "./store.js";
 import { spawnAgent, cancelAgent, setAgentPool } from "./spawn.js";
 import { recoverTasks, startAgentMonitor, stopAgentMonitor } from "./monitor.js";
+import { shutdownHeartbeats } from "./heartbeat.js";
 
 /** Create a task and immediately spawn it. */
 export async function submitTask(input: CreateTaskInput): Promise<AgentTask> {
@@ -103,7 +131,8 @@ export async function recoverAndStartMonitor(): Promise<void> {
   startAgentMonitor();
 }
 
-/** Shutdown: stop the monitor. Does NOT kill detached processes. */
+/** Shutdown: stop the monitor and heartbeat trackers. Does NOT kill detached processes. */
 export function shutdownAgents(): void {
   stopAgentMonitor();
+  shutdownHeartbeats();
 }

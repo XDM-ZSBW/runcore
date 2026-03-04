@@ -147,3 +147,14 @@
 {"timestamp":"2026-03-04T23:43:04.329Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
 {"timestamp":"2026-03-04T23:43:05.780Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
 {"timestamp":"2026-03-04T23:43:16.105Z","file":"vault/vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:43:39.333Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:44:05.783Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/ops/queue","channel":"http"}
+{"timestamp":"2026-03-04T23:44:06.030Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:06.032Z","file":"scheduling/blocks.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:06.108Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:06.108Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:15.718Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:15.718Z","file":"scheduling/blocks.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:15.782Z","file":"vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:15.793Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-04T23:44:15.795Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
