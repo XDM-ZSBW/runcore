@@ -9,12 +9,19 @@
  *   core --help                    Show help
  */
 
-import { mkdir, writeFile, access } from "node:fs/promises";
+import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { exec } from "node:child_process";
 import { createServer } from "node:net";
 
-const VERSION = "0.1.0";
+const PKG_NAME = "@runcore-sh/runcore";
+let VERSION = "0.1.0";
+
+// Read version from package.json at runtime so it stays in sync
+try {
+  const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf-8"));
+  VERSION = pkg.version ?? VERSION;
+} catch {}
 
 const HELP = `
 runcore v${VERSION} — local-first AI agent runtime
@@ -25,6 +32,7 @@ Usage:
   runcore --port <n>          Start on a specific port (default: 3577)
   runcore --dir <path>        Use a specific directory
   runcore status              Check if running
+  runcore update              Update to latest version
   runcore --version           Print version
 
 Environment:
@@ -246,6 +254,38 @@ async function status() {
   }
 }
 
+// ── Update check ──────────────────────────────────────────────────
+
+async function checkForUpdate(): Promise<string | null> {
+  try {
+    const res = await fetch(`https://registry.npmjs.org/${PKG_NAME}/latest`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { version: string };
+    if (data.version && data.version !== VERSION) return data.version;
+  } catch {}
+  return null;
+}
+
+async function selfUpdate() {
+  const latest = await checkForUpdate();
+  if (!latest) {
+    console.log(`  Already up to date (v${VERSION})`);
+    return;
+  }
+  console.log(`  Updating ${VERSION} → ${latest}...`);
+  const child = exec(`npm i -g ${PKG_NAME}@${latest}`, (err, stdout, stderr) => {
+    if (err) {
+      console.error(`  Update failed: ${err.message}`);
+      process.exit(1);
+    }
+    console.log(`  ✓ Updated to v${latest}. Run 'runcore' to start.`);
+  });
+  child.stdout?.pipe(process.stdout);
+  child.stderr?.pipe(process.stderr);
+}
+
 // ── Dispatch ────────────────────────────────────────────────────────
 
 async function main() {
@@ -259,15 +299,26 @@ async function main() {
     return;
   }
 
-  // `core status` is the only subcommand
   if (command === "status") {
     await status();
     return;
   }
 
+  if (command === "update") {
+    await selfUpdate();
+    return;
+  }
+
   // Everything else: just start (with auto-init)
-  // Handles: `core`, `core start`, `core --port 4000`, `core --dir ./foo`
   await startServer();
+
+  // Non-blocking update check after server is running
+  checkForUpdate().then((latest) => {
+    if (latest) {
+      console.log(`  Update available: v${latest} (current: v${VERSION})`);
+      console.log(`  Run 'runcore update' to upgrade.\n`);
+    }
+  });
 }
 
 main().catch((err) => {
