@@ -134,7 +134,7 @@ async function ensureBrain(root: string): Promise<boolean> {
       settingsPath,
       JSON.stringify(
         {
-          airplaneMode: false,
+          airplaneMode: true,
           models: { chat: "auto", agent: "auto" },
           encryptBrainFiles: false,
           safeWordMode: "restart",
