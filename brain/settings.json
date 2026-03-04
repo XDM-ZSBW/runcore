@@ -37,5 +37,6 @@
   "pulse": {
     "threshold": 60,
     "mode": "hybrid"
-  }
+  },
+  "agentName": "Me"
 }
