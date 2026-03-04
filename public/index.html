@@ -1898,6 +1898,16 @@
       <div style="text-align:center;margin-bottom:12px;">
         <a href="/registry" style="color:var(--accent);font-size:13px;text-decoration:none;">Manage Services &amp; Capabilities &rarr;</a>
       </div>
+      <!-- Identity section -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">Identity</h3>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <label for="settings-agent-name" style="font-size:13px;color:var(--text-muted);white-space:nowrap;">Agent Name</label>
+          <input type="text" id="settings-agent-name" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;" placeholder="Core">
+          <button class="btn" id="save-agent-name-btn" style="padding:8px 14px;font-size:13px;">Save</button>
+        </div>
+      </div>
+
       <!-- Personality section -->
       <div class="settings-section">
         <h3 class="settings-section-title">Personality</h3>
@@ -3646,6 +3656,7 @@
 
   function openSettings() {
     vaultOverlay.classList.add("open");
+    document.getElementById("settings-agent-name").value = agentName || "Core";
     loadPersonality();
     loadSecuritySettings();
     loadMeshSettings();
@@ -3950,6 +3961,23 @@
 
   document.getElementById("vault-open-btn").addEventListener("click", openSettings);
   document.getElementById("vault-close-btn").addEventListener("click", closeVault);
+
+  document.getElementById("save-agent-name-btn").addEventListener("click", async () => {
+    const nameInput = document.getElementById("settings-agent-name");
+    const newName = nameInput.value.trim();
+    if (!newName) return;
+    try {
+      await api("/api/settings", { method: "PUT", body: { agentName: newName } });
+      agentName = newName;
+      document.getElementById("agent-name-header").textContent = newName;
+      document.title = newName;
+      const btn = document.getElementById("save-agent-name-btn");
+      btn.textContent = "Saved";
+      setTimeout(() => { btn.textContent = "Save"; }, 1500);
+    } catch (err) {
+      showVaultError(err.message);
+    }
+  });
 
   // Close on overlay click (outside panel)
   vaultOverlay.addEventListener("click", (e) => {
