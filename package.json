@@ -1,14 +1,12 @@
 {
-  "name": "@runcore-sh/cli",
+  "name": "@runcore-sh/runcore",
   "version": "0.1.2",
   "description": "Local-first AI agent runtime. One command, your machine, your data.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "cli": "dist/cli.js",
-    "runcore": "dist/cli.js",
-    "core": "dist/cli.js"
+    "runcore": "dist/cli.js"
   },
   "files": [
     "dist",
