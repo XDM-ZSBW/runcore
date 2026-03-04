@@ -22,6 +22,9 @@ import { setEncryptionKey, setWriteEncryptionEnabled } from "./lib/key-store.js"
 import { loadSettings, getSettings } from "./settings.js";
 import type { LongTermMemoryType, MemoryEntry } from "./types.js";
 import { issueVoucher, checkVoucher } from "./voucher.js";
+import { sendAlert } from "./alert.js";
+import { createCredentialStore } from "./credentials/store.js";
+import { readSessionKey, isDpapiAvailable } from "./lib/dpapi.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +107,7 @@ function formatEntries(entries: MemoryEntry[]): string {
     .join("\n\n---\n\n");
 }
 
+
 // ── Startup ──────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -117,24 +121,27 @@ async function main(): Promise<void> {
   await loadLockedPaths();
   log(`Locked paths: ${lockedPaths.length}`);
 
-  // 3. Read session key if available
+  // 3. Read session key (DPAPI-protected if available, plaintext fallback)
   const keyPath = join(BRAIN_DIR, "identity", ".session-key");
   let encryptionKey: Buffer | undefined;
-  if (existsSync(keyPath)) {
-    try {
-      const hex = (await readFile(keyPath, "utf-8")).trim();
-      if (/^[0-9a-f]{64}$/i.test(hex)) {
-        encryptionKey = Buffer.from(hex, "hex");
-        setEncryptionKey(encryptionKey);
-        log("Encryption key loaded");
-      }
-    } catch {
-      log("Could not read session key — running without encryption");
+  try {
+    const key = await readSessionKey(keyPath);
+    if (key) {
+      encryptionKey = key;
+      setEncryptionKey(encryptionKey);
+      log(`Encryption key loaded (DPAPI: ${isDpapiAvailable() ? "yes" : "no"})`);
     }
+  } catch {
+    log("Could not read session key — running without encryption");
   }
 
   // 4. Honor encryptBrainFiles setting
   setWriteEncryptionEnabled(settings.encryptBrainFiles);
+
+  // 4b. Hydrate credentials into process.env (encrypted at rest)
+  const credStore = createCredentialStore(BRAIN_DIR);
+  const hydrated = await credStore.hydrate();
+  log(`Credentials hydrated: ${hydrated}`);
 
   // 5. Construct LTM + Brain
   const ltm = new FileSystemLongTermMemory(MEMORY_DIR, encryptionKey);
@@ -403,6 +410,26 @@ async function main(): Promise<void> {
       }
       return {
         content: [{ type: "text" as const, text: "Invalid or expired voucher. Request denied." }],
+      };
+    }
+  );
+
+  // ── Alert tool ──────────────────────────────────────────────────────────
+
+  mcp.tool(
+    "send_alert",
+    "Send an alert to the human via email and/or SMS. Use when something needs attention (failed voucher, suspicious access, system issue).",
+    {
+      subject: z.string().max(200).describe("Alert subject line"),
+      body: z.string().max(2000).describe("Alert body with details"),
+    },
+    async ({ subject, body }) => {
+      const results = await sendAlert(subject, body);
+      const summary = results
+        .map((r) => `${r.channel}: ${r.sent ? "sent" : `failed (${r.error})`}`)
+        .join(", ");
+      return {
+        content: [{ type: "text" as const, text: summary }],
       };
     }
   );
