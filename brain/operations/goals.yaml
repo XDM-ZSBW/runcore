@@ -12,23 +12,23 @@ goals:
   - id: kr2
     name: "No PII leaves machine without consent"
     target: "Private mode blocks all outbound LLM calls. Sensitive fields never sent."
-    current: "airplaneMode is a provider swap only. No real enforcement."
-    status: at_risk
+    current: "privateMode hardened (88f9332): fetch guard blocks cloud LLM hosts, integration gate disables all services, PrivateModeError returns clean 503s. Defense-in-depth layered (20a2126). Sensitive field redaction still TODO."
+    status: on_track
 
   - id: kr3
     name: "Clean public release posture"
     target: "Git history audited. No secrets, PII, or credentials in any commit."
-    current: "All repos private. No audit done yet."
-    status: behind
+    current: "Git history audit completed (f500e1f). Report in git-audit-report.md. Repos still private."
+    status: on_track
 
   - id: kr4
     name: "Multi-instance orchestration"
     target: "Spawn, manage, and enforce policy across N brain instances from one place."
-    current: "E:\\cores\\Wendy exists. No tooling. Manual setup only."
-    status: behind
+    current: "Claude Code orchestration system implemented (a240d1f): governance, governed-spawn, heartbeat. Mesh networking tabled until core is stable."
+    status: on_track
 
 priorities:
   - "Ship voucher integration to Dash (unblocks cross-brain trust)"
-  - "Harden private mode (unblocks safe client demos)"
-  - "Audit git history (unblocks public release)"
-  - "Orchestration layer (unblocks multi-agent scaling)"
+  - "Sensitive field redaction (completes KR2)"
+  - "Clean working tree + accurate tracking (stability before features)"
+  - "Orchestration polish — governance + heartbeat battle-tested before mesh"

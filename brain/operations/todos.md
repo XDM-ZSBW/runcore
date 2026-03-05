@@ -4,24 +4,24 @@
 
 - [ ] Wire voucher_check into Dash as a capability (`src/capabilities/definitions/voucher.ts`), register in `server.ts`. Import `checkVoucher`/`issueVoucher` directly from core-brain or copy the functions. Dash already has its own `FileSystemLongTermMemory` instance.
 - [ ] Fix Dash greeting — "running locally" is misleading. LLM inference hits OpenRouter/Anthropic. Rewrite to be accurate about what's local (data) vs cloud (inference).
-- [ ] Fix Dash model label — model name tag (e.g. "claude-sonnet-4") missing next to agent name in UI. Was showing before, now gone. UI regression.
+- [x] Fix Dash model label — fixed in 88f9332.
 
 ## P1 — This week
 
-- [ ] Harden `airplaneMode` into real `privateMode` — currently just swaps provider to Ollama. Needs to actually block all outbound LLM API calls at the request layer, not just change the provider name. Fail loud if Ollama isn't available.
-- [ ] Audit git history for PII — run `git log -p` scan on both `core` and `dash-brain` repos for personal data, credentials, env vars that may have been committed. Squash or filter-branch before anything goes public.
+- [x] Harden `airplaneMode` into real `privateMode` — fetch guard blocks cloud LLM hosts, integration gate, PrivateModeError. Done in 88f9332, defense-in-depth in 20a2126.
+- [x] Audit git history for PII — completed in f500e1f. Report: `git-audit-report.md`.
+- [x] Make `.locked` enforcement consistent — centralized in 88f9332.
+- [x] Minimal HTTP server — Hono server with mDNS announcement. Done in d3932d2.
+- [x] Claude Code as orchestrated agent — governance, governed-spawn, heartbeat implemented in a240d1f.
 - [ ] Add access audit logging — when any brain file is read via MCP or direct access, log it (who, what, when). Currently no trail of who accessed what.
-- [ ] Make `.locked` enforcement consistent — MCP server respects it, but Dash reads files directly and bypasses the lock check entirely. Centralize the guard.
-- [ ] Minimal HTTP server — random available port on startup, announce via mDNS. Serves `brain/operations/` read-only so Dash (or any instance) can discover and render Core's system board. Port `0` default in `brain/settings.json`. Prerequisite for orchestration and mesh discovery.
-- [ ] Claude Code as orchestrated agent — Dash spawns `claude --dangerously-skip-permissions -p "<task>"` as a child process via the existing orchestrator. Governance replaces the permission prompt: voucher token passed in the task prompt, locked paths enforce boundaries, append-only JSONL is the action-based heartbeat (no timer polling — Dash watches the log for activity). Dash terminates the process if the agent goes silent or drifts from the declared goal. Full audit trail in plain text files on disk — every action traceable, every token accountable.
 
 ## P2 — This month
 
-- [ ] Orchestration layer — single security policy enforced across all brains (Dash, Claude Code, Wendy, future instances). One config, applied everywhere. Not per-brain opt-in.
-- [ ] Voucher revocation via alert — when a voucher check fails, optionally notify human via Twilio/Resend/Gmail. "Someone just tried token X, it was invalid."
 - [ ] Sensitive field redaction — before any API call, strip fields tagged as sensitive from context. Even in non-private mode, some things should never leave the machine.
-- [ ] Multi-instance brain management — `E:\cores\*` pattern (Wendy, future Cora, others). Need tooling to spawn, configure, and manage multiple brain instances from one place.
+- [ ] Voucher revocation via alert — when a voucher check fails, optionally notify human via Twilio/Resend/Gmail. "Someone just tried token X, it was invalid."
 - [ ] Core-brain as proper shared dependency — Dash currently copies memory code. Should import from core-brain as a local npm dependency so vouchers, encryption, and lock enforcement stay in sync.
+- [ ] Multi-instance brain management — `E:\cores\*` pattern (Wendy, future Cora, others). Need tooling to spawn, configure, and manage multiple brain instances from one place.
+- [ ] Hub-spoke mesh networking — spokes proxy LLM/brain through hub, data never leaves the hub. Tabled until core is stable. Design notes exist from 2026-03-05 session.
 
 ## P3 — Backlog
 

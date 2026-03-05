@@ -65,6 +65,9 @@ coverage/
 .vitest/
 test-instance*/
 
+# Wrangler local state (Cloudflare Workers dev)
+workers/**/.wrangler/
+
 # Runtime cache & backups
 .core/
 .core-backups/

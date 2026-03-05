@@ -1,0 +1,22 @@
+name = "resend-inbound"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets (set via `wrangler secret put <NAME>`):
+#   RESEND_API_KEY         — Resend API key to fetch full email content
+#   RESEND_WEBHOOK_SECRET  — Svix signing secret from Resend dashboard
+#   RELAY_SECRET           — Shared secret for Core ↔ Worker inbox auth (Bearer token)
+
+# Route: point pqrsystems.com/api/resend/* to this Worker
+routes = [{ pattern = "pqrsystems.com/api/resend/*", zone_name = "pqrsystems.com" }]
+
+# KV namespace for inbound email inbox.
+# Create with: wrangler kv namespace create INBOX
+# Then paste the id below.
+[[kv_namespaces]]
+binding = "INBOX"
+id = "874af0eb6392495084177e500ef87571"
+
+[observability]
+enabled = true
