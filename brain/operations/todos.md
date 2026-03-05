@@ -2,8 +2,8 @@
 
 ## P0 — Do today
 
-- [ ] Wire voucher_check into Dash as a capability (`src/capabilities/definitions/voucher.ts`), register in `server.ts`. Import `checkVoucher`/`issueVoucher` directly from core-brain or copy the functions. Dash already has its own `FileSystemLongTermMemory` instance.
-- [ ] Fix Dash greeting — "running locally" is misleading. LLM inference hits OpenRouter/Anthropic. Rewrite to be accurate about what's local (data) vs cloud (inference).
+- [x] Wire voucher_check into Dash — already implemented. `createVoucherCapability` registered at Dash `server.ts:4698`.
+- [x] Fix Dash greeting — rewritten to be honest: data local, inference cloud, switchable in Settings.
 - [x] Fix Dash model label — fixed in 88f9332.
 
 ## P1 — This week
@@ -13,7 +13,7 @@
 - [x] Make `.locked` enforcement consistent — centralized in 88f9332.
 - [x] Minimal HTTP server — Hono server with mDNS announcement. Done in d3932d2.
 - [x] Claude Code as orchestrated agent — governance, governed-spawn, heartbeat implemented in a240d1f.
-- [ ] Add access audit logging — when any brain file is read via MCP or direct access, log it (who, what, when). Currently no trail of who accessed what.
+- [x] Add access audit logging — audit infrastructure was already in place (brain-io.ts + audit.ts + HTTP middleware + MCP wrappers). Fixed one bypass: roadmap endpoint using raw readFile instead of readBrainFile.
 
 ## P2 — This month
 

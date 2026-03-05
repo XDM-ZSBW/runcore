@@ -3670,7 +3670,7 @@ app.get("/roadmap", async (c) => {
 // Roadmap API — parse brain/operations/roadmap.yaml and return as JSON
 app.get("/api/roadmap", async (c) => {
   try {
-    const raw = await readFile(join(process.cwd(), "brain", "operations", "roadmap.yaml"), "utf-8");
+    const raw = await readBrainFile(join(process.cwd(), "brain", "operations", "roadmap.yaml"));
     const parsed = parseRoadmapYaml(raw);
     return c.json(parsed);
   } catch (err) {
