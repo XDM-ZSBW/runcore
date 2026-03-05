@@ -12,8 +12,8 @@ goals:
   - id: kr2
     name: "No PII leaves machine without consent"
     target: "Private mode blocks all outbound LLM calls. Sensitive fields never sent."
-    current: "privateMode hardened (88f9332): fetch guard blocks cloud LLM hosts, integration gate disables all services, PrivateModeError returns clean 503s. Defense-in-depth layered (20a2126). Sensitive field redaction still TODO."
-    status: on_track
+    current: "Defense-in-depth complete: privateMode (88f9332), fetch guard, integration gate, sensitive field redaction (pattern-based at network boundary). SSN, cards, API keys, PEM keys, bearer tokens, AWS keys, hex secrets all redacted before cloud egress."
+    status: complete
 
   - id: kr3
     name: "Clean public release posture"

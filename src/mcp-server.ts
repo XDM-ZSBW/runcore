@@ -28,7 +28,7 @@ import {
 import { setEncryptionKey, setWriteEncryptionEnabled } from "./lib/key-store.js";
 import { loadSettings, getSettings } from "./settings.js";
 import type { LongTermMemoryType, MemoryEntry } from "./types.js";
-import { issueVoucher, checkVoucher } from "./voucher.js";
+import { issueVoucher, checkVoucherWithAlert, setVoucherAlertFn } from "./voucher.js";
 import { sendAlert } from "./alert.js";
 import { createCredentialStore } from "./credentials/store.js";
 import { readSessionKey, isDpapiAvailable } from "./lib/dpapi.js";
@@ -108,6 +108,9 @@ async function main(): Promise<void> {
   const ltm = new FileSystemLongTermMemory(MEMORY_DIR, encryptionKey);
   await ltm.init();
   log("LTM initialized");
+
+  // Wire voucher failure alerts to the alert system
+  setVoucherAlertFn((subject, body) => sendAlert(subject, body));
 
   const brain = new Brain(
     { systemPrompt: "Core Brain MCP", maxRetrieved: 20 },
@@ -364,7 +367,7 @@ async function main(): Promise<void> {
       token: z.string().describe("The voucher token to verify (e.g. 'vch_a8f3x9b2')"),
     },
     async ({ token }) => {
-      const result = await checkVoucher(ltm, token);
+      const result = await checkVoucherWithAlert(ltm, token, "mcp:voucher_check");
       if (result.valid) {
         return {
           content: [{ type: "text" as const, text: `Valid voucher.${result.scope ? ` Scope: ${result.scope}` : " No scope restriction."}` }],

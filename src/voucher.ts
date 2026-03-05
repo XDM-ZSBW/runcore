@@ -6,6 +6,9 @@
 
 import { randomBytes } from "node:crypto";
 import type { LongTermMemoryStore } from "./memory/long-term.js";
+import { createLogger } from "./utils/logger.js";
+
+const log = createLogger("voucher");
 
 export interface VoucherResult {
   valid: boolean;
@@ -101,4 +104,47 @@ export async function revokeVoucher(
   });
 
   return true;
+}
+
+// ── Alert callback for failed voucher checks ──────────────────────────────
+
+type AlertFn = (subject: string, body: string) => Promise<unknown>;
+let _alertFn: AlertFn | null = null;
+
+/**
+ * Register an alert function to be called on failed voucher checks.
+ * Keeps voucher.ts decoupled from the alert system — caller wires the dependency.
+ */
+export function setVoucherAlertFn(fn: AlertFn): void {
+  _alertFn = fn;
+}
+
+/**
+ * Check a voucher with alerting on failure.
+ * Wraps checkVoucher() — if the token is invalid/expired, fires an alert.
+ * Use this at trust boundaries (MCP tools, mesh auth) instead of raw checkVoucher().
+ */
+export async function checkVoucherWithAlert(
+  ltm: LongTermMemoryStore,
+  token: string,
+  context?: string,
+): Promise<VoucherResult> {
+  const result = await checkVoucher(ltm, token);
+
+  if (!result.valid) {
+    const masked = token.length > 8 ? token.slice(0, 8) + "..." : token;
+    const where = context ? ` (${context})` : "";
+    log.warn("Voucher check failed", { token: masked, context });
+
+    if (_alertFn) {
+      _alertFn(
+        `Voucher check failed${where}`,
+        `Someone tried token "${masked}"${where} at ${new Date().toISOString()}. The voucher was invalid or expired.`,
+      ).catch((err) => {
+        log.debug("Alert dispatch failed", { error: err instanceof Error ? err.message : String(err) });
+      });
+    }
+  }
+
+  return result;
 }

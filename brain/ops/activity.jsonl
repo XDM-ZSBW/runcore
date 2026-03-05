@@ -590,3 +590,6 @@
 {"id":329,"timestamp":"2026-03-05T14:41:18.528Z","source":"system","summary":"Metrics rotated: 15762 → 10000 points","traceId":"ts_5cd04f0eb7c2"}
 {"id":400,"timestamp":"2026-03-05T14:51:06.853Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d08bc3884d46"}
 {"id":410,"timestamp":"2026-03-05T14:51:16.536Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5f1516d72220"}
+{"id":401,"timestamp":"2026-03-05T15:01:06.860Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b7ea190bee70"}
+{"id":411,"timestamp":"2026-03-05T15:01:16.550Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b30569929bb8"}
+{"id":330,"timestamp":"2026-03-05T15:06:34.213Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_f47428b8748a"}

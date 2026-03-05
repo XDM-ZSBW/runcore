@@ -17,8 +17,8 @@
 
 ## P2 — This month
 
-- [ ] Sensitive field redaction — before any API call, strip fields tagged as sensitive from context. Even in non-private mode, some things should never leave the machine.
-- [ ] Voucher revocation via alert — when a voucher check fails, optionally notify human via Twilio/Resend/Gmail. "Someone just tried token X, it was invalid."
+- [x] Sensitive field redaction — `src/llm/redact.ts` pattern-based detection (SSN, credit cards, API keys, PEM keys, bearer tokens, AWS keys, hex secrets). Hooked into fetch-guard.ts at network boundary — redacts LLM request bodies before they hit cloud APIs. Works in all modes, not just privateMode.
+- [x] Voucher failure alerts — `checkVoucherWithAlert()` in voucher.ts fires alerts on invalid/expired tokens. Decoupled via `setVoucherAlertFn()` callback, wired to `sendAlert()` (email + SMS) in mcp-server.ts.
 - [ ] Core-brain as proper shared dependency — Dash currently copies memory code. Should import from core-brain as a local npm dependency so vouchers, encryption, and lock enforcement stay in sync.
 - [ ] Multi-instance brain management — `E:\cores\*` pattern (Wendy, future Cora, others). Need tooling to spawn, configure, and manage multiple brain instances from one place.
 - [ ] Hub-spoke mesh networking — spokes proxy LLM/brain through hub, data never leaves the hub. Tabled until core is stable. Design notes exist from 2026-03-05 session.

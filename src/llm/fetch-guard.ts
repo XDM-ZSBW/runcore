@@ -1,15 +1,16 @@
 /**
- * Global fetch interceptor — defense-in-depth for privateMode.
+ * Global fetch interceptor — defense-in-depth for privateMode + sensitive data redaction.
  *
- * When privateMode is enabled, blocks outbound requests to known cloud LLM API
- * hosts before they leave the machine. This catches any code path that bypasses
- * the provider-level guard (e.g. raw fetch() calls).
+ * Two layers:
+ * 1. privateMode enforcement — blocks outbound requests to known cloud LLM API hosts.
+ * 2. Sensitive data redaction — strips secrets/PII from LLM request bodies before network egress.
  *
  * The function-level guard in guard.ts → assertProviderAllowed() remains the
  * primary enforcement. This is the safety net.
  */
 
 import { isPrivateMode, PrivateModeError } from "./guard.js";
+import { redactRequestBody } from "./redact.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("llm.fetch-guard");
@@ -19,6 +20,12 @@ const BLOCKED_HOSTS = new Set([
   "api.anthropic.com",
   "openrouter.ai",
   "api.perplexity.ai",
+]);
+
+/** Hosts where outbound request bodies should be redacted (LLM API endpoints). */
+const LLM_HOSTS = new Set([
+  ...BLOCKED_HOSTS,
+  "generativelanguage.googleapis.com",
 ]);
 
 let installed = false;
@@ -34,21 +41,30 @@ export function installFetchGuard(): void {
   const originalFetch = globalThis.fetch;
 
   globalThis.fetch = function guardedFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-    if (isPrivateMode()) {
-      try {
-        const raw = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
-        const url = new URL(raw);
-        if (BLOCKED_HOSTS.has(url.hostname)) {
-          log.error("Fetch guard blocked outbound request", { host: url.hostname });
-          throw new PrivateModeError("cloud-api" as any);
-        }
-      } catch (err) {
-        if (err instanceof PrivateModeError) throw err;
-        // URL parse failure — let it through, original fetch will handle it
+    let hostname: string | undefined;
+    try {
+      const raw = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+      hostname = new URL(raw).hostname;
+    } catch {
+      // URL parse failure — skip host-based logic
+    }
+
+    // Layer 1: privateMode enforcement
+    if (isPrivateMode() && hostname && BLOCKED_HOSTS.has(hostname)) {
+      log.error("Fetch guard blocked outbound request", { host: hostname });
+      throw new PrivateModeError("cloud-api" as any);
+    }
+
+    // Layer 2: redact sensitive data from LLM request bodies
+    if (hostname && LLM_HOSTS.has(hostname) && init?.body && typeof init.body === "string") {
+      const redacted = redactRequestBody(init.body);
+      if (redacted !== init.body) {
+        init = { ...init, body: redacted };
       }
     }
+
     return originalFetch.call(globalThis, input, init);
   };
 
-  log.info("Fetch guard installed — cloud LLM hosts blocked in privateMode");
+  log.info("Fetch guard installed — privateMode enforcement + sensitive data redaction");
 }
