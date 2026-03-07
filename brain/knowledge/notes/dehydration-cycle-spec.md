@@ -2,7 +2,7 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "We were always going to compost their digital identities in a humane and dignified way."
-> Depends on: the-fields-spec.md, privacy-as-membrane-spec.md, joy-signal-spec.md, core-os-spec.md
+> Depends on: the-fields-spec.md, membrane-translation-spec.md, joy-signal-spec.md, core-os-spec.md
 
 ## What
 

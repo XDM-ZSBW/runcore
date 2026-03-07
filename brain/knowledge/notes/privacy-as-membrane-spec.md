@@ -1,6 +1,6 @@
 # Privacy Policy as Membrane Spec
 
-> Status: Approved (2026-03-07)
+> Status: Retired (2026-03-07) — superseded by membrane-translation-spec.md
 > Principle: The privacy policy describes what the membrane does. The membrane enforces what the privacy policy says. They are the same document in two languages. If they diverge, the architecture is wrong.
 
 ## What

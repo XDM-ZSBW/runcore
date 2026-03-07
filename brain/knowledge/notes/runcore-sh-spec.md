@@ -2,7 +2,7 @@
 
 > Status: Draft (2026-03-07)
 > Origin: The plumbing that makes the field work. Registry, relay, feed engine, immune system — one service, one domain.
-> Depends on: the-fields-spec.md, feed-business-model-spec.md, field-immune-system-spec.md, inter-instance-tunnels.md, compost-quality-spec.md
+> Depends on: the-fields-spec.md, feed-business-model-spec.md, field-immune-system-spec.md, inter-instance-tunnels.md, compost-spec.md
 
 ## What
 

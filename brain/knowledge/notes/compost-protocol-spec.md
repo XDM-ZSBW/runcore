@@ -1,6 +1,6 @@
 # Compost Protocol — Spec
 
-> Status: Draft (2026-03-07)
+> Status: Retired (2026-03-07) — merged into compost-spec.md
 > Origin: "Compost is lessons, not data."
 > Depends on: compost-quality-spec.md, the-fields-spec.md, field-immune-system-spec.md, membrane-translation-spec.md, runcore-sh-spec.md
 

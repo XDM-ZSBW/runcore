@@ -2,7 +2,7 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "How does someone interact with a brain they're not bonded with?"
-> Depends on: bond-handshake-spec.md, privacy-as-membrane-spec.md, vault-ledger-spec.md, nerve-spawn-spec.md
+> Depends on: bond-handshake-spec.md, membrane-translation-spec.md, vault-ledger-spec.md, nerve-spawn-spec.md
 
 ## What
 

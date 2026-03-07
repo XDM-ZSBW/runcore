@@ -1,8 +1,9 @@
 # Tick Cycle — Spec
 
-> Status: Draft (2026-03-07)
+> Status: **Approved** (2026-03-07)
 > Origin: "Sense → Work → Joy. Strict order. Every tick."
 > Depends on: core-os-spec.md, stream-spec.md, joy-signal-spec.md, the-fields-spec.md, dehydration-cycle-spec.md
+> Implementation: `src/tick/` (types.ts, runner.ts, integration.ts, index.ts)
 
 ## What
 
@@ -278,10 +279,67 @@ The tick cycle is not a feature. It's the brain's metabolism. Sense is eating. W
 
 A brain that acts without sensing is reckless. A brain that senses without acting is paralyzed. A brain that never measures joy is a machine. The tick cycle makes Core a living system, not a software product.
 
-## Open questions
+## Open questions (resolved)
 
-1. **Tick concurrency** — Can the next tick's Sense begin while the current tick's Work is still running long agents? Or strictly serial?
-2. **Tick priority** — When multiple events queue, does Sense prioritize? (Human message > agent completion > field signal?)
-3. **Tick budget** — Should Work have a token/time budget per tick? Prevent one tick from consuming all resources.
-4. **Nested ticks** — Agents run between ticks. Should agents have their own mini tick cycle? Or is the brain-level tick sufficient?
-5. **Tick visualization** — In the stream, should tick boundaries be visible? "── Tick 47 ──" separator lines? Or just phase labels?
+1. **Tick concurrency** — **Strictly serial.** The `draining` flag and `state === "idle"` guard prevent concurrent ticks. Events arriving during a tick queue for the next drain cycle. This is the simplest correct model.
+2. **Tick priority** — **FIFO, no prioritization.** All events are equal in the queue. Sense receives them in arrival order. If prioritization proves necessary (e.g., human messages first), it can be added in `sense()` when sorting the event batch — but premature to add now.
+3. **Tick budget** — **Deferred.** No token/time budget in the current implementation. Work phase is a pass-through today; when the planner moves into Work, budget constraints should be added. Tracked as a future concern.
+4. **Nested ticks** — **No.** Brain-level tick is sufficient. Agents are concurrent processes spawned in Work and sensed in Sense. They don't have their own tick cycle. The brain breathes; agents do.
+5. **Tick visualization** — **Phase labels in stream entries.** Format: `[sense] ...`, `[work] ...`, `[joy] ...`. No separator lines — the phase labels are sufficient and less noisy.
+
+## Implementation notes
+
+### What's built (`src/tick/`)
+
+| File | Purpose |
+|---|---|
+| `types.ts` | All type definitions: TickPhase, TickState, TickEvent, SenseSnapshot, WorkOutput, JoyMeasurement, TickRecord, TickStatus |
+| `runner.ts` | TickRunner class — singleton state machine with event queue, drain loop, three-phase execution, stream integration, lifecycle events |
+| `integration.ts` | Bidirectional wiring: agent lifecycle → tick events, tick lifecycle → agent feed entries |
+| `index.ts` | Public API re-exports |
+
+### Criteria verification
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| Strict sense → work → joy order | ✅ Met | `runTick()` uses three sequential `await` calls — no branching, no reordering |
+| Event-driven, not timer-driven | ✅ Met | `push()` queues events, `drain()` processes via `setImmediate` — no `setInterval` anywhere |
+| Phase-specific reads/writes | ✅ Met | Sense reads agents/activities/joy state; Work evaluates snapshot; Joy calculates delta/friction |
+| Stream shows each phase | ✅ Met | `emitStream()` called in sense, work, and joy with phase-labeled summaries |
+| Pulse dots reflect phase health | ✅ Met | `phaseDots` (sense/work/joy → green/blue/amber) updated at end of each phase |
+| Skipping impossible | ✅ Met | Three sequential awaits in `runTick()` — no conditional bypass, no early return |
+| Dehydration graceful degradation | ⏳ Blocked | Requires `dehydration-cycle-spec.md` implementation — see Dependencies below |
+
+### Gaps between spec and implementation
+
+1. **Sense reads** — Spec describes ledger, tunnels, nerves, field reads. Implementation reads agents (`listTasks`), activities (`getActivities`), joy state (`getJoyDotState`, `analyzeTrend`). The spec's data sources don't exist yet. As each subsystem is built, its reads should be added to `sense()`.
+
+2. **Work phase** — Currently a pass-through that evaluates the snapshot but doesn't spawn agents or run the planner. The autonomous agent system handles execution outside the tick cycle. When the planner moves into Work, it should: read specs, evaluate goals, spawn agents, and enforce voucher/access scoping.
+
+3. **Joy persistence** — Joy measurement is returned and used for dot state, but not persisted to `joy.jsonl` from the tick runner. The joy store (`src/joy/`) handles its own persistence separately. Consider adding a `joy.appendMeasurement()` call in the joy phase.
+
+4. **Joy field contribution** — Spec calls for anonymous joy number emission to the field aggregate. Requires the Fields system (`the-fields-spec.md`). Deferred.
+
+5. **Error handling** — Spec says "If Work fails mid-phase, Joy records the failure." Implementation catches in `drain()` and sets joy dot to amber, but doesn't run the full joy phase on error. Consider running a minimal joy measurement even on error to maintain the invariant.
+
+6. **Integration layer** — `integration.ts` provides bidirectional wiring between tick lifecycle and agent runtime that isn't described in the spec. This is additive (not contradictory) and should be considered part of the canonical architecture.
+
+## Dependencies
+
+| Dependency | Status | Impact on tick cycle |
+|---|---|---|
+| `stream-spec.md` | ✅ Built | Stream integration works — tick phases emit to stream |
+| `joy-signal-spec.md` | ✅ Built | Joy store/storage used by sense phase for trend analysis |
+| `core-os-spec.md` | ✅ Built | Parent architecture — tick runner is a core subsystem |
+| `the-fields-spec.md` | ❌ Not built | Blocks: field signal reads in Sense, anonymous joy contribution in Joy |
+| `dehydration-cycle-spec.md` | ❌ Not built | Blocks: "Done when" criterion #7 (graceful degradation). When built, each phase needs dehydration-aware gating per the stage table in this spec |
+
+### Pre-implementation checklist (for remaining work)
+
+- [ ] Add dehydration state reads to sense phase (when dehydration system exists)
+- [ ] Move planner into work phase (currently external)
+- [ ] Add voucher/access manifest checks to work phase
+- [ ] Persist joy measurements to `joy.jsonl` from tick runner
+- [ ] Add field signal reads to sense (when Fields system exists)
+- [ ] Add field contribution to joy phase (when Fields system exists)
+- [ ] Run minimal joy phase on tick error (maintain invariant)

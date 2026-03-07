@@ -1,8 +1,9 @@
 # The Stream — Spec
 
-> Status: Draft (2026-03-07)
+> Status: Approved (2026-03-07)
 > Origin: "Fiddler for agentic networks."
 > Principle: The UI is the chat and the stream. Everything else was scaffolding.
+> Merges: agent-runtime-feed-spec.md (2026-03-07)
 
 ## What
 
@@ -73,7 +74,7 @@ Every row gets an emoji. Scannable at scroll speed — like a YouTube live chat 
 | 🔧 | state | Transitioning — idle→working, posture change, tick boundary |
 | 💚 | joy | Measuring — delta calculated, dot updated, adaptation emitted |
 | ⚠️ | error | Something broke — voucher failed, LLM timeout, parse error |
-| ⏸️ | pause | Breakpoint hit — waiting for human judgment |
+| ⏸️ | pause | Breakpoint hit — waiting for human judgment (control state, not an action type) |
 
 **Nudge colors:**
 
@@ -253,6 +254,75 @@ Chat is the relationship. Stream is the transparency. Together they answer the o
 2. "What are you doing?" → Stream
 
 Everything else is scaffolding. Tear it down.
+
+## Two UI layers
+
+Two layers. Agent level: chat + stream. Host level: spec tracker, ops, field. The agent doesn't need a dashboard about itself. The host needs a dashboard about its agents.
+
+**Agent layer:** Chat (left) + Stream (right). That's it. No board, no roadmap, no ops. Those are host concerns.
+
+**Host layer:** Appears automatically when a second agent spawns. Spec tracker, Ops, Roadmap, Field — tabbed dashboard. Agent cards at bottom, tap to drill into chat + stream. Pulse dots aggregate across all agents.
+
+**Single-agent experience:** One agent = chat + stream only. No host layer visible. Board items surface through chat conversation. When multi-agent starts, host layer assembles itself.
+
+**On different nerves:** PC gets both panes side by side. Tablet gets swipe or split. Phone gets chat primary, stream swipe-right. Watch gets pulse dots only — no stream, no chat. The dots ARE the UI at glance level.
+
+See ui-layers-spec.md for full implementation status and server routes.
+
+## Agent drill-down feed
+
+The stream is the aggregate view. When you need to see a single agent's raw activity — like watching a terminal window — drill into that agent's feed from the stream or from the host Ops view.
+
+**Entry point:** Hover or tap an agent's name tag in the stream, or tap an agent card in the host layer.
+
+**What the drill-down shows:**
+
+Each line is a timestamped activity entry:
+
+| Type | Example |
+|------|---------|
+| `llm` | `14:32:07 -> LLM call: "summarize quarterly board items" (sonnet, 1.2k tokens)` |
+| `tool` | `14:32:09 -> Tool: read_brain_file brain/operations/goals.yaml` |
+| `memory` | `14:32:11 -> Memory: learned semantic "Q1 board review pattern"` |
+| `decision` | `14:32:12 -> Decision: skip stale items older than 14 days` |
+| `error` | `14:32:13 -> Error: voucher expired for board write` |
+| `state` | `14:32:14 -> State: idle -> working (goal: "process morning signals")` |
+
+**What the drill-down does NOT show:**
+- Decrypted content from other instances (membrane applies)
+- Vault access details (key operations are opaque)
+- Raw LLM prompts/responses (too noisy — show the intent, not the payload)
+- Anything the agent's access manifest excludes from your view
+
+**UI:** Slide-up panel (like pulse strip but from bottom), monospace font, dark terminal aesthetic. Auto-scroll pinned to bottom. Scroll up to pause. Filter by type. Multiple agents can be open simultaneously (tabbed or tiled). Read-only — this is the glance nerve applied to agent internals.
+
+**For remote agents** (behind membrane): Feed is a tunnel content type. Remote agent streams to its local relay endpoint. Your instance pulls from relay, decrypts, displays. Same SSE interface — origin is transparent.
+
+This is the "see" in "see vs interact." The feed is not a debugger. It's a window. You look through it. You see the agent working. You close it. The agent never knew you were watching.
+
+## Implementation mapping
+
+> Runtime implementation: `src/stream/` (types.ts, emitter.ts, controller.ts, index.ts)
+
+| Done-when criterion | Implementation | Status |
+|---------------------|---------------|--------|
+| Agent activity streams in real time | `StreamEmitter.emit()` + `subscribe()` broadcast to SSE listeners | Done |
+| Human can watch without affecting (Monitor) | `subscribe()` is read-only; ring buffer for late joiners | Done |
+| Human can change priorities (Shape) | `ShapeState` (focus/depth/autonomy/noise) + `handleCommand({ cmd: "shape" })` | Done |
+| Human can intercept/modify actions (Twist) | `StreamController.twist()` + `gate()` holds actions while paused | Done |
+| Human can pause/resume (Pause) | `pause`/`resume` commands + breakpoint rule engine + pending action queue with 5min timeout | Done |
+| Works for one agent and many | `agentId` on every `StreamAction` + `StreamFilter` (by agent, type, severity) | Done |
+| Stream is optional | Subscription-based — no subscription, no effect on agent runtime | Done |
+
+**Action type mapping note:** The emoji table above lists 10 visual categories. The runtime `StreamActionType` union has 8 values: `sense`, `work`, `memory`, `decision`, `tunnel`, `nerve`, `state`, `error`. The two visual-only categories map as follows:
+- **joy** (delta/measurement) — Emitted as `state` actions with Pulse-related summaries. The nudge system assigns `sparkle` color to milestone completions.
+- **pause** (breakpoint hit) — Not an action type. Modeled as `StreamEvent.type: "paused"` with reason string. This is a control state, not agent activity.
+
+**Architectural boundaries:** The following spec elements live outside `src/stream/`:
+- `activity.jsonl` append-only persistence — handled by the activity log layer
+- SSE/WebSocket transport — `handleCommand()` is transport-agnostic; server routes wire it to HTTP
+- Membrane/governance — access manifest checks and encryption belong to the membrane layer
+- `RuntimeBus` bridge — `bridgeRuntimeToStream()` connects agent lifecycle events to the stream
 
 ## Open questions
 

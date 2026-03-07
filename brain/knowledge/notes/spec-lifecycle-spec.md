@@ -2,7 +2,8 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "You dump → I spec → you approve → anyone builds."
-> Depends on: stream-spec.md, tick-cycle-spec.md, agent-archetypes-spec.md, board-retirement-spec.md
+> Depends on: stream-spec.md, tick-cycle-spec.md, agent-archetypes-spec.md
+> Merges: board-retirement-spec.md (2026-03-07)
 
 ## What
 
@@ -218,6 +219,62 @@ Circular dependencies are a spec bug, not a system feature. The planner flags th
 A spec is a promise with criteria. "I will build this, and here's how you'll know it's done." The lifecycle makes that promise visible, trackable, and accountable. No more vague cards on a board that nobody reads. No more half-finished features that nobody remembers starting.
 
 The board was a junk drawer. Specs are blueprints. The lifecycle is the construction schedule. Together they replace ad-hoc planning with structured intention.
+
+## Board retirement — the migration
+
+Specs replace the board as the organizing principle. The board is retired as a UI surface. The internal task queue survives as plumbing — the planner still needs a queue to assign agent work — but it's invisible infrastructure, not a view.
+
+**Why the board is retired:**
+- Stale items nobody clears (publish posts sitting for days)
+- Duplicate entries from multiple sync writes
+- Planner can't see specs because they're not board items
+- Personal board items that belong in chat
+- Status information that belongs in the stream
+- Roadmap items that belong in specs
+
+The board was a general-purpose surface in a system that now has specific-purpose surfaces. General purpose means no purpose.
+
+### What the board was doing → what replaces it
+
+| Board function | Replacement | How |
+|---|---|---|
+| Todo tracking | Spec → planner → agent tasks | Specs have "Done when." Planner reads specs, creates tasks automatically. No manual todo entry. |
+| Status display | Stream + pulse dots | Watch the stream for real-time. Glance at dots for aggregate. No board to check. |
+| Async questions for human | Chat thread | Agent asks in chat. Human answers in chat. The conversation IS the board. |
+| Cross-agent handoffs | Sync protocol | `notifications.jsonl` + `sync.jsonl`. Agents talk to agents through the protocol, not board items. |
+| Roadmap / milestones | Spec "Done when" criteria | Each spec defines completion. Progress is visible in the stream. The specs ARE the roadmap. |
+| Personal items | Chat with agent | "Remind me to call Dad" → chat. Not a board pin. The agent holds it in memory. |
+| Host-level overview | Spec tracker at host level | Which specs are Draft, Approved, Building, Done. That's the host's roadmap. |
+
+### Migration of existing board items
+
+**`queue.jsonl` (operational board):**
+- Items with clear "Done when" → become specs if big enough, or planner tasks if small
+- Stale items (untouched 7+ days) → archived
+- Items that are really questions → moved to chat
+- Items that are really status → they'll appear in the stream naturally
+
+**`queue-personal.jsonl` (personal board):**
+- Archived entirely
+- Personal items belong in chat: "Hey Dash, remind me about X"
+- If the human wants persistent personal items, that's memory — `brain/memory/experiences.jsonl`
+
+### Board views in Dash UI
+
+- `board.html` → removed
+- `personal-board.html` → removed
+- `/api/board/*` routes → deprecated, then removed
+- Board provider (`src/board/`) → stays as internal task queue infrastructure, loses UI
+
+### The internal task queue (what survives)
+
+The planner still needs a mechanism to:
+1. Read available work (now from specs, not board)
+2. Create agent tasks with IDs
+3. Track task state (pending, in_progress, done, failed)
+4. Manage cooldowns and dedup
+
+`queue.jsonl` stays as this mechanism. But it's internal — no human ever sees it. The human sees specs (what to build) and the stream (what's happening). The queue is the conveyor belt inside the factory. You don't put a window on the conveyor belt.
 
 ## Open questions
 

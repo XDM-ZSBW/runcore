@@ -1,6 +1,6 @@
 # Agent Runtime Feed — Spec
 
-> Status: Draft (2026-03-07)
+> Status: Retired (2026-03-07) — merged into stream-spec.md
 > Origin: "I wish I could hover and see what's going on in that agent's world right now as terminal console output."
 
 ## What

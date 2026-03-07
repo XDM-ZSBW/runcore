@@ -59,7 +59,7 @@ No individual brain's pulse is visible. The aggregate is. Your brain reads the f
 
 ### 3. Compost
 
-Anonymized lessons from all participating brains (see compost-quality-spec.md). The field's soil.
+Anonymized lessons from all participating brains (see compost-spec.md). The field's soil.
 
 - Retrieval strategies that worked
 - Prompt patterns that failed

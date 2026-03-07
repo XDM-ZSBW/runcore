@@ -1,6 +1,6 @@
 # Board Retirement — Spec
 
-> Status: Draft (2026-03-07)
+> Status: Retired (2026-03-07) — merged into spec-lifecycle-spec.md
 > Origin: "We have outgrown the board."
 > Depends on: stream-spec.md, ui-layers-spec.md, core-os-spec.md
 

@@ -2,7 +2,7 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "Two instances bond (Ed25519 exchange) — that's the trust."
-> Depends on: inter-instance-tunnels.md, privacy-as-membrane-spec.md, runcore-sh-spec.md, dehydration-cycle-spec.md
+> Depends on: inter-instance-tunnels.md, membrane-translation-spec.md, runcore-sh-spec.md, dehydration-cycle-spec.md
 
 ## What
 

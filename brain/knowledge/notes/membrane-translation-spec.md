@@ -2,7 +2,8 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "The membrane is translation, not redaction."
-> Depends on: privacy-as-membrane-spec.md, nerve-vocabulary-spec.md, vault-ledger-spec.md, the-fields-spec.md, agent-archetypes-spec.md
+> Depends on: nerve-vocabulary-spec.md, vault-ledger-spec.md, the-fields-spec.md, agent-archetypes-spec.md
+> Supersedes: privacy-as-membrane-spec.md (2026-03-07)
 
 ## What
 
@@ -201,6 +202,26 @@ The membrane is not a wall. It's a lens. A wall blocks. A lens focuses. The same
 The brain holds high-resolution truth. The membrane emits the right resolution for every consumer. A watch gets thumbnail resolution. A bonded brain gets summary resolution. The field gets pattern resolution. The human at their PC gets full resolution. Nobody gets the wrong resolution for their context.
 
 Privacy isn't about hiding. It's about showing the right thing to the right entity in the right shape. The membrane makes that automatic.
+
+## Privacy policy mapping
+
+The privacy policy is the membrane spec written in plain language. Every claim maps to a behavior:
+
+| Privacy Policy (for humans) | Membrane behavior |
+|---|---|
+| "We cannot see your data" | E2E encryption, relay sees only sealed envelopes |
+| "Your data stays on your device" | Brain is local, host has no read access |
+| "You control what is shared" | Tunnel policy: explicit send/accept lists per bond |
+| "We will never sell your data" | No data exfiltration path exists in architecture |
+| "You can leave at any time" | Brain is local files, no server dependency |
+| "Your identity will be treated with dignity" | Composting cycle, dehydration, custodian will |
+| "Designated people inherit access" | Delegation tokens, scoped and time-limited |
+
+**The test:** If someone reads the privacy policy and then reads the codebase, they should find the same system described twice. If they find a gap — a policy claim without architectural enforcement, or a capability without policy disclosure — that's a bug. Not a legal risk. A bug.
+
+**Enforcement:** Every claim is auditable against source files: `src/auth/crypto.ts` (E2E), `src/llm/membrane.ts` (redaction), `brain/bonds/*/tunnel.yaml` (scoping), dehydration model (composting cycle).
+
+**Front and center:** The composting commitment, the dignity guarantee, the "we will never viking ship you" promise — these go on the homepage. Above the fold. Before features. Before pricing.
 
 ## Open questions
 

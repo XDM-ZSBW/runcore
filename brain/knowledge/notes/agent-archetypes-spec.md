@@ -2,7 +2,7 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "Two travel, three root. Each has calm/crisis gear."
-> Depends on: core-os-spec.md, tick-cycle-spec.md, privacy-as-membrane-spec.md, inter-instance-tunnels.md, the-fields-spec.md
+> Depends on: core-os-spec.md, tick-cycle-spec.md, membrane-translation-spec.md, inter-instance-tunnels.md, the-fields-spec.md
 
 ## What
 

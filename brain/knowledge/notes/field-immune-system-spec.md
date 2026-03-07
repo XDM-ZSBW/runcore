@@ -2,7 +2,7 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "The membrane is nearly perfect and can trace any leakage to the point of retrieval from the field. The immune system is stellar, how?"
-> Depends on: the-fields-spec.md, compost-quality-spec.md, privacy-as-membrane-spec.md
+> Depends on: the-fields-spec.md, compost-spec.md, membrane-translation-spec.md
 
 ## What
 

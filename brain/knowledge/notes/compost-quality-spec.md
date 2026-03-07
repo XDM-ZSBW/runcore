@@ -1,6 +1,6 @@
 # Compost Quality — Spec
 
-> Status: Draft (2026-03-07)
+> Status: Retired (2026-03-07) — merged into compost-spec.md
 > Origin: "What gives the compost quality stamp of approval? The fields. The venn diagrams."
 > Depends on: feed-business-model-spec.md, core-os-spec.md
 

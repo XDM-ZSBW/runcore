@@ -232,6 +232,68 @@ An agent works and talks. A host watches and steers. A nerve connects and render
 
 The agent doesn't need to know how the cluster is doing. The host doesn't need to be in every conversation. The nerve doesn't need to understand the architecture. Each layer knows exactly what it needs and nothing more.
 
+## Implementation status (2026-03-07)
+
+### Agent layer — DONE
+
+- `index.html`: Chat (left) + Stream (right) only
+- Header nav contains only: pulse dots, agent name, Dashboard link (hidden in single-agent), thread toggle, stream toggle, share, settings
+- No board, roadmap, ops, observatory, registry, library, or life links at agent level
+- Mobile: Chat/Stream tabs for switching between panes
+- First-run mode: hides stream pane and nav until pairing is complete
+
+### Host layer — DONE
+
+- `host.html`: Tabbed dashboard with Specs, Board, Ops, Roadmap, Field
+- Specs tab: fetches `/api/specs`, parses `specs/*.md` for status and criteria progress
+- Board tab: fetches `/api/host/board`, shows active board items grouped by state (triage/backlog/in-progress)
+- Ops tab: iframe → `/ops?embed=1`
+- Roadmap tab: iframe → `/roadmap?embed=1`
+- Field tab: iframe → `/observatory?embed=1` (renamed from Observatory in UI)
+- Agent cards at bottom: primary agent + background agents from `/api/ops/agents`
+- Pulse dots: aggregate state refreshed every 30s
+
+### Drill-down — DONE
+
+- Agent cards link to `/` (agent chat+stream)
+- Host header has `← Chat` back link
+- Direct access to `/ops`, `/roadmap`, `/observatory`, `/registry` redirects to `/host` (unless `?embed=1`)
+- Retired views (`/library`, `/life`, `/browser`) redirect to `/`
+
+### Single-agent experience — DONE
+
+- `agentCount` returned by `/api/status` (currently hardcoded to 1)
+- When `agentCount <= 1`: Dashboard link hidden in agent header and settings
+- User sees only chat + stream. No host layer visible.
+- Board items surface through chat conversation in single-agent mode
+- When multi-agent is implemented: `agentCount` will query nerve registry, Dashboard link auto-appears
+
+### Server routes
+
+| Route | Behavior |
+|-------|----------|
+| `/` | Agent chat+stream (index.html) |
+| `/host` | Host dashboard (host.html) |
+| `/ops?embed=1` | Ops view (iframe-only) |
+| `/roadmap?embed=1` | Roadmap view (iframe-only) |
+| `/observatory?embed=1` | Field view (iframe-only) |
+| `/registry?embed=1` | Registry view (iframe-only, not linked) |
+| `/ops`, `/roadmap`, `/observatory`, `/registry` | Redirect → `/host` |
+| `/library`, `/life`, `/browser` | Redirect → `/` |
+| `/nerve` | Guest pairing + encrypted chat (separate entry) |
+| `/api/specs` | Spec file scanner for host Specs tab |
+| `/api/host/board` | Board items for host Board tab |
+| `/api/ops/*` | Health, agents, queue, projects, settings |
+| `/api/stream` | SSE stream for agent activity |
+
+### What's deferred
+
+- Multi-agent `agentCount` from nerve registry (currently hardcoded to 1)
+- Agent-specific drill-down with `?agent=<id>` routing
+- Host-level chat ("talk to the cluster")
+- Transition animations between layers
+- Watch-level UI (pulse dots only)
+
 ## Open questions
 
 1. **Host-level chat** — Should there be a "talk to the cluster" mode? Or always talk to one agent at a time?

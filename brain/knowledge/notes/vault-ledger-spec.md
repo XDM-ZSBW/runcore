@@ -2,7 +2,7 @@
 
 > Status: Draft (2026-03-07)
 > Origin: "Vault is a property, not a container. Ledger is addresses, not masks."
-> Depends on: privacy-as-membrane-spec.md, bond-handshake-spec.md, dehydration-cycle-spec.md, core-os-spec.md
+> Depends on: membrane-translation-spec.md, bond-handshake-spec.md, dehydration-cycle-spec.md, core-os-spec.md
 
 ## What
 
