@@ -172,3 +172,37 @@ export async function checkAndNotify(state: NerveState): Promise<void> {
     await pushToAll("Attention", body, { state: current });
   }
 }
+
+// ── Background push monitor ─────────────────────────────────────────────────
+// Runs server-side on a timer, independent of any client connection.
+// This is what makes push work when the phone is in your pocket.
+
+let monitorInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startPushMonitor(
+  getState: () => Promise<NerveState>,
+  intervalMs = 30_000
+): void {
+  if (monitorInterval) return;
+
+  monitorInterval = setInterval(async () => {
+    try {
+      const state = await getState();
+      await checkAndNotify(state);
+    } catch (err) {
+      log.warn("Push monitor tick failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }, intervalMs);
+
+  log.info(`Push monitor started: checking every ${intervalMs / 1000}s`);
+}
+
+export function stopPushMonitor(): void {
+  if (monitorInterval) {
+    clearInterval(monitorInterval);
+    monitorInterval = null;
+    log.info("Push monitor stopped");
+  }
+}

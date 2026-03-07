@@ -4148,7 +4148,7 @@ app.get("/api/pulse/history", (c) => {
 // --- Nerve API (three-dot goo) ---
 
 import { getNerveState } from "./nerve/state.js";
-import { initPush, getVapidPublicKey, addSubscription, checkAndNotify } from "./nerve/push.js";
+import { initPush, getVapidPublicKey, addSubscription, checkAndNotify, startPushMonitor, stopPushMonitor } from "./nerve/push.js";
 
 // State endpoint — three dots
 app.get("/api/nerve/state", async (c) => {
@@ -5428,7 +5428,8 @@ async function start() {
   // Initialize nerve push notifications (VAPID keys + subscriptions)
   try {
     await initPush();
-    log.info("Nerve push notifications ready");
+    startPushMonitor(getNerveState, 30_000);
+    log.info("Nerve push notifications ready (monitoring every 30s)");
   } catch (err) {
     log.warn("Nerve push init failed — push notifications disabled", {
       error: err instanceof Error ? err.message : String(err),
@@ -5911,6 +5912,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   stopInsightsTimer();
   stopOpenLoopScanner();
   stopCreditMonitor();
+  stopPushMonitor();
   stopMdns();
   stopAvatarSidecar();
   stopTtsSidecar();
