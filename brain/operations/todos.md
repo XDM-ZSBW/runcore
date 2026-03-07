@@ -8,6 +8,10 @@
 
 ## P1 — This week
 
+- [ ] Tap-to-record question capture — One-tap voice/text entry in Dash PWA that appends to journal queue (`brain/journal/questions.jsonl`). No categorization at capture. Sorted at next accumulation session. Phone + desktop. **Q: Fastest UX — FAB, swipe, or hardware button hook?**
+- [ ] 1:1 Whiteboard design — Shared async board between two people. Throw questions without expecting reply. Auto-displays on Teams call join. Right-click quick-pin from chat (lighter than todo). **Q: Minimum Teams surface — message action, tab, or bot?** Deadline: before Friday.
+- [ ] BOOM BOOM search shortcut — One gesture → top answer. Dash slash command hitting Perplexity, or browser extension. **Q: Fastest impl path?**
+
 - [ ] Nerve endpoints — the brain responds to whichever nerve is talking. Phone, PC, earbuds, tablet — customers swap/mirror/sync as they want. MVP: Android on home WiFi → PC relay. Priority: push notifications, voice chat (bluetooth earbuds), morning briefing (compiled overnight, ready before owner wakes), text chat. The nerve is not the brain. The brain stays put. Nerves plug in and out.
 
 - [x] Harden `airplaneMode` into real `privateMode` — fetch guard blocks cloud LLM hosts, integration gate, PrivateModeError. Done in 88f9332, defense-in-depth in 20a2126.
@@ -25,6 +29,7 @@
 
 - [x] Sensitive field redaction — upgraded to PrivacyMembrane (2026-03-05). See P1.
 - [x] Voucher failure alerts — `checkVoucherWithAlert()` in voucher.ts fires alerts on invalid/expired tokens. Decoupled via `setVoucherAlertFn()` callback, wired to `sendAlert()` (email + SMS) in mcp-server.ts.
+- [ ] Meeting accountability system (design) — Every Teams call displays a shared visual on join. Types: Decision, Sync, Inform, Consult, HR, Event. Daily Insights 1-3 ring proximity determines forced display. **Q: Can Teams meeting policy enforce a default tab on join?**
 - [ ] Core-brain as proper shared dependency — Compare what Dash copies vs what Core exports. `src/memory/file-backed.ts`
 - [ ] Instance access partitioning — Implement `.access/*.yaml` manifest enforcement in context assembler. [Access Manifest Spec](../knowledge/notes/access-manifest-spec.md)
 - [ ] Wendy instance setup — Spawn back-office instance from Core. Create access manifest, identity, brain partition. [Architecture Glossary](../knowledge/notes/architecture-glossary.md)
