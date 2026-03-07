@@ -1,0 +1,22 @@
+# Access Manifest — Marvin (loss-prevention)
+# Watches the doors. Vault enforcement, anomaly detection, access auditing.
+# Cannot open the doors it watches — separate from all other departments.
+
+role: loss-prevention
+
+deny:
+  - memory/experiences.jsonl
+  - content/**
+  - calendar/**
+  - identity/human.json
+
+read:
+  - ops/**
+  - ops/audit.jsonl
+  - vault/**
+  - operations/**
+  - identity/instances.yaml
+  - identity/principles.md
+
+write:
+  - ops/audit.jsonl

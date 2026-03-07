@@ -3,13 +3,40 @@
  * Pattern-based detection — if it looks like a secret, redact it before network egress.
  * Runs inside the fetch guard, after message assembly, before the wire.
  *
- * Design: no config needed. Patterns match common sensitive data formats.
- * False positives are acceptable — better to over-redact than leak.
+ * When a PrivacyMembrane is active, delegates to it for reversible typed-placeholder
+ * redaction. Falls back to one-way [REDACTED:category] replacement otherwise.
  */
 
+import type { PrivacyMembrane } from "./membrane.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("llm.redact");
+
+// --- Active membrane (singleton, set at startup) ---
+
+let activeMembrane: PrivacyMembrane | null = null;
+
+/** Set the active PrivacyMembrane for reversible redaction. */
+export function setActiveMembrane(membrane: PrivacyMembrane): void {
+  activeMembrane = membrane;
+  log.info("PrivacyMembrane activated");
+}
+
+/** Get the active membrane (or null if none). */
+export function getActiveMembrane(): PrivacyMembrane | null {
+  return activeMembrane;
+}
+
+/**
+ * Rehydrate placeholders in an LLM response back to original values.
+ * No-op if no membrane is active.
+ */
+export function rehydrateResponse(text: string): string {
+  if (!activeMembrane) return text;
+  return activeMembrane.rehydrate(text);
+}
+
+// --- One-way fallback (original behavior) ---
 
 /** Placeholder for redacted content. Includes the category so the LLM knows what was removed. */
 function placeholder(category: string): string {
@@ -50,7 +77,7 @@ interface RedactionStats {
 }
 
 /**
- * Redact sensitive patterns from a string.
+ * Redact sensitive patterns from a string (one-way fallback).
  * Returns the cleaned string and stats about what was redacted.
  */
 export function redactSensitive(text: string): { cleaned: string; stats: RedactionStats } {
@@ -83,8 +110,8 @@ export function redactSensitive(text: string): { cleaned: string; stats: Redacti
 
 /**
  * Redact sensitive data from an LLM request body (JSON string).
- * Parses the body, walks message content, redacts patterns, re-serializes.
- * Returns the original string unchanged if it's not a recognized LLM request format.
+ * When a membrane is active, delegates to it for reversible redaction.
+ * Otherwise falls back to one-way pattern replacement.
  */
 export function redactRequestBody(bodyStr: string): string {
   let parsed: Record<string, unknown>;
@@ -98,6 +125,24 @@ export function redactRequestBody(bodyStr: string): string {
   const messages = parsed.messages;
   if (!Array.isArray(messages)) return bodyStr;
 
+  // Delegate to membrane when active (reversible typed placeholders)
+  if (activeMembrane) {
+    for (const msg of messages) {
+      if (typeof msg.content === "string") {
+        msg.content = activeMembrane.apply(msg.content);
+      }
+      if (Array.isArray(msg.content)) {
+        for (const block of msg.content) {
+          if (block.type === "text" && typeof block.text === "string") {
+            block.text = activeMembrane.apply(block.text);
+          }
+        }
+      }
+    }
+    return JSON.stringify(parsed);
+  }
+
+  // Fallback: one-way redaction
   let totalRedactions = 0;
   const allCategories: Record<string, number> = {};
 

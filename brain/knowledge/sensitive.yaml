@@ -1,0 +1,24 @@
+# Sensitive terms and patterns for PrivacyMembrane redaction.
+# The membrane replaces these with typed placeholders (e.g. <<ORG_0>>)
+# and restores them in LLM responses.
+#
+# Built-in patterns (SSN, credit cards, API keys, PEM, AWS keys, hex secrets)
+# are always active — no need to list them here.
+#
+# Supported categories: ORG, PERSON, PROJECT, EMAIL, DOMAIN, INTERNAL_ID, CUSTOM
+#
+# Examples:
+#
+# - value: "Acme Corp"
+#   category: ORG
+#
+# - value: "alice@example.com"
+#   category: EMAIL
+#
+# - value: "Project Phoenix"
+#   category: PROJECT
+#
+# Custom regex patterns:
+#
+# - pattern: "PROJ-\\d{4}"
+#   category: INTERNAL_ID

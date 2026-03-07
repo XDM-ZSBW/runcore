@@ -1,0 +1,22 @@
+# Access Manifest — Robert (commercial)
+# Client-facing, sales, prospect interactions. No operations, memory, or drafts.
+
+role: commercial
+
+deny:
+  - operations/**
+  - memory/**
+  - vault/**
+  - ops/**
+  - content/drafts/**
+  - calendar/**
+  - identity/human.json
+
+read:
+  - knowledge/**
+  - knowledge/research/**
+  - content/published/**
+  - identity/brand.md
+  - identity/principles.md
+
+write: []

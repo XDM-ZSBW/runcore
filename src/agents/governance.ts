@@ -17,6 +17,7 @@ import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { issueVoucher, checkVoucher, revokeVoucher } from "../voucher.js";
 import { getLockedPaths, loadLockedPaths } from "../lib/locked.js";
+import { checkSpawnPolicy, loadSpawnPolicy } from "./spawn-policy.js";
 import type { LongTermMemoryStore } from "../memory/long-term.js";
 import { logActivity } from "../activity/log.js";
 import { createLogger } from "../utils/logger.js";
@@ -65,6 +66,12 @@ export interface GovernanceOptions {
   voucherTtlMinutes?: number;
   /** Skip voucher issuance (for system-originated tasks). */
   skipVoucher?: boolean;
+  /** Agent type for spawn policy checks (e.g. "administration", "brand"). */
+  agentType?: string;
+  /** Current total running agent count (for spawn policy max check). */
+  currentAgentCount?: number;
+  /** Current running count of this specific agent type. */
+  currentTypeCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,6 +149,45 @@ export async function governanceGate(
 
   // 1. Load locked paths
   const lockedPaths = await loadLockedPaths();
+
+  // 1b. Spawn policy check (if agentType provided)
+  if (opts.agentType) {
+    await loadSpawnPolicy();
+    const spawnCheck = checkSpawnPolicy(
+      opts.agentType,
+      opts.currentAgentCount ?? 0,
+      opts.currentTypeCount ?? 0,
+    );
+    if (!spawnCheck.allowed) {
+      const reason = `Spawn policy denied: ${spawnCheck.reason}`;
+      log.warn(reason, { taskId, agentType: opts.agentType });
+
+      const auditEntry: GovernanceAuditEntry = {
+        timestamp,
+        taskId,
+        label,
+        decision: "deny",
+        lockedPathCount: lockedPaths.length,
+        reason,
+      };
+
+      logActivity({
+        source: "agent",
+        summary: `Governance DENIED (spawn policy): ${label}`,
+        detail: reason,
+        actionLabel: origin === "ai" ? "AUTONOMOUS" : "PROMPTED",
+        reason: "governance-gate",
+      });
+
+      return {
+        allowed: false,
+        deniedReason: reason,
+        governedPrompt: prompt,
+        lockedPaths,
+        auditEntry,
+      };
+    }
+  }
 
   // 2. Issue voucher (unless skipped for system tasks)
   let voucherToken: string | undefined;

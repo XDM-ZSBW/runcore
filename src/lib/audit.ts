@@ -33,6 +33,8 @@ export interface AuditContext {
   caller: string;
   /** Access channel */
   channel: "mcp" | "http" | "direct";
+  /** Instance name for access manifest enforcement (e.g. "dash", "wendy"). */
+  instanceName?: string;
 }
 
 // ── Caller context via AsyncLocalStorage ─────────────────────────────────────

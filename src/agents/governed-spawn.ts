@@ -62,6 +62,12 @@ export interface GovernedSpawnRequest {
   voucherTtlMinutes?: number;
   /** Skip voucher for system-level tasks. */
   skipVoucher?: boolean;
+  /** Agent type for spawn policy checks (e.g. "administration", "brand"). */
+  agentType?: string;
+  /** Current total running agent count (for spawn policy max check). */
+  currentAgentCount?: number;
+  /** Current running count of this specific agent type. */
+  currentTypeCount?: number;
 }
 
 /** Result of a governed spawn — includes governance metadata. */
@@ -125,6 +131,9 @@ export async function governedSpawn(
     ltm,
     voucherTtlMinutes: request.voucherTtlMinutes,
     skipVoucher: request.skipVoucher,
+    agentType: request.agentType,
+    currentAgentCount: request.currentAgentCount,
+    currentTypeCount: request.currentTypeCount,
   };
 
   const governance = await governanceGate(govOpts);

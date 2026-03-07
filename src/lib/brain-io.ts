@@ -24,7 +24,9 @@ import { dirname } from "node:path";
 import { createLogger } from "../utils/logger.js";
 import { getEncryptionKey, getWriteEncryptionKey } from "./key-store.js";
 import { logAccess, logAccessSync } from "./audit.js";
-import { assertNotLocked } from "./locked.js";
+import { assertNotLocked, toBrainRelativePath } from "./locked.js";
+import { getAuditContext } from "./audit.js";
+import { getManifest, canRead, canWrite } from "../access/manifest.js";
 
 const log = createLogger("brain-io");
 import { shouldEncryptFile } from "./encryption-config.js";
@@ -51,6 +53,40 @@ function writeKey(filePath: string): Buffer | null {
   return getWriteEncryptionKey();
 }
 
+// ── Access enforcement ───────────────────────────────────────────────────────
+
+/**
+ * Assert that the current instance (from AuditContext) has access to the path.
+ * No-op when instanceName is undefined (backward compatible).
+ * Checks the instance's access manifest; logs denied access to audit.
+ *
+ * @param absolutePath - Absolute file path
+ * @param operation - "read" or "write"
+ */
+function assertAccess(absolutePath: string, operation: "read" | "write"): void {
+  const ctx = getAuditContext();
+  if (!ctx?.instanceName) return; // No instance context — skip check
+
+  const relPath = toBrainRelativePath(absolutePath);
+  if (relPath === null) return; // Not a brain path
+
+  const manifest = getManifest(ctx.instanceName);
+  if (!manifest) return; // No manifest loaded — skip (permissive for unknown instances)
+
+  const allowed = operation === "read"
+    ? canRead(manifest, relPath)
+    : canWrite(manifest, relPath);
+
+  if (!allowed) {
+    log.warn("Access denied by manifest", {
+      instance: ctx.instanceName,
+      path: relPath,
+      operation,
+    });
+    throw new Error(`Access denied: ${ctx.instanceName} cannot ${operation} ${relPath}`);
+  }
+}
+
 // ── Async JSONL (per-line) I/O ───────────────────────────────────────────────
 
 /**
@@ -60,6 +96,7 @@ function writeKey(filePath: string): Buffer | null {
  */
 export async function readBrainLines(filePath: string): Promise<string[]> {
   assertNotLocked(filePath);
+  assertAccess(filePath, "read");
   logAccess(filePath, "readBrainLines");
   let raw: string;
   try {
@@ -91,6 +128,7 @@ export async function readBrainLines(filePath: string): Promise<string[]> {
  */
 export async function appendBrainLine(filePath: string, jsonLine: string): Promise<void> {
   assertNotLocked(filePath);
+  assertAccess(filePath, "write");
   const key = writeKey(filePath);
   const line = key ? encryptLine(jsonLine, key) : jsonLine;
   await appendFile(filePath, line + "\n", "utf-8");
@@ -102,6 +140,7 @@ export async function appendBrainLine(filePath: string, jsonLine: string): Promi
  */
 export async function writeBrainLines(filePath: string, jsonLines: string[]): Promise<void> {
   assertNotLocked(filePath);
+  assertAccess(filePath, "write");
   const key = writeKey(filePath);
   const output = jsonLines
     .map((l) => (key ? encryptLine(l, key) : l))
@@ -117,6 +156,7 @@ export async function writeBrainLines(filePath: string, jsonLines: string[]): Pr
  */
 export async function readBrainFile(filePath: string): Promise<string> {
   assertNotLocked(filePath);
+  assertAccess(filePath, "read");
   logAccess(filePath, "readBrainFile");
   const raw = await readFile(filePath, "utf-8");
   const key = readKey(filePath);
@@ -132,6 +172,7 @@ export async function readBrainFile(filePath: string): Promise<string> {
  */
 export async function writeBrainFile(filePath: string, content: string): Promise<void> {
   assertNotLocked(filePath);
+  assertAccess(filePath, "write");
   await mkdir(dirname(filePath), { recursive: true });
   const key = writeKey(filePath);
   const output = key ? encryptFile(content, key) : content;
@@ -145,6 +186,7 @@ export async function writeBrainFile(filePath: string, content: string): Promise
  */
 export function readBrainLinesSync(filePath: string): string[] {
   assertNotLocked(filePath);
+  assertAccess(filePath, "read");
   logAccessSync(filePath, "readBrainLinesSync");
   let raw: string;
   try {
@@ -175,6 +217,7 @@ export function readBrainLinesSync(filePath: string): string[] {
  */
 export function appendBrainLineSync(filePath: string, jsonLine: string): void {
   assertNotLocked(filePath);
+  assertAccess(filePath, "write");
   const key = writeKey(filePath);
   const line = key ? encryptLine(jsonLine, key) : jsonLine;
   appendFileSync(filePath, line + "\n", "utf-8");

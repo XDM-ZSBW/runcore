@@ -1,0 +1,23 @@
+# Access Manifest — Wendy (administration)
+# Scheduling, financials, back-office. No personal memories, no audit logs.
+
+role: administration
+
+deny:
+  - memory/**
+  - ops/audit.jsonl
+  - vault/**
+  - identity/human.json
+
+read:
+  - operations/**
+  - knowledge/**
+  - calendar/**
+  - identity/principles.md
+  - identity/tone-of-voice.md
+  - identity/instances.yaml
+  - identity/brand.md
+
+write:
+  - operations/todos.md
+  - calendar/**

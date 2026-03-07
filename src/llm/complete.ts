@@ -11,6 +11,7 @@ import { getProvider } from "./providers/index.js";
 import { completeChatCached } from "./cache.js";
 import { LLMError } from "./errors.js";
 import { withRetry } from "./retry.js";
+import { rehydrateResponse } from "./redact.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("llm");
@@ -46,13 +47,14 @@ async function completeChatUncached(options: CompleteChatOptions): Promise<strin
   });
 
   try {
-    return await withRetry(
+    const raw = await withRetry(
       () => {
         const timeout = AbortSignal.timeout(60_000);
         return provider.completeChat(options.messages, options.model, timeout);
       },
       { maxRetries: 3, baseDelayMs: 1_000, maxDelayMs: 30_000 },
     );
+    return rehydrateResponse(raw);
   } catch (err) {
     // On credit/billing errors from cloud providers, try Ollama as a fallback
     if (err instanceof LLMError && err.isCreditsError && options.provider !== "ollama") {
@@ -63,13 +65,14 @@ async function completeChatUncached(options: CompleteChatOptions): Promise<strin
           provider: options.provider,
           status: err.statusCode,
         });
-        return withRetry(
+        const fallbackRaw = await withRetry(
           () => {
             const fallbackTimeout = AbortSignal.timeout(120_000);
             return ollama.completeChat(options.messages, undefined, fallbackTimeout);
           },
           { maxRetries: 3, baseDelayMs: 1_000, maxDelayMs: 30_000 },
         );
+        return rehydrateResponse(fallbackRaw);
       }
     }
     throw err;

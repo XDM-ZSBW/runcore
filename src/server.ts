@@ -47,6 +47,9 @@ import { withStreamRetry } from "./llm/retry.js";
 import { LLMError } from "./llm/errors.js";
 import { PrivateModeError, isPrivateMode, checkOllamaHealth } from "./llm/guard.js";
 import { installFetchGuard } from "./llm/fetch-guard.js";
+import { SensitiveRegistry } from "./llm/sensitive-registry.js";
+import { PrivacyMembrane } from "./llm/membrane.js";
+import { setActiveMembrane, rehydrateResponse } from "./llm/redact.js";
 import {
   loadSettings,
   getSettings,
@@ -1819,19 +1822,34 @@ app.post("/api/branch", async (c) => {
       const onAbort = () => resolve();
       reqSignal?.addEventListener("abort", onAbort, { once: true });
 
+      // Token buffer for split-placeholder rehydration
+      let tokenBuf = "";
+      const flushBuf = () => {
+        if (!tokenBuf) return;
+        const rehydrated = rehydrateResponse(tokenBuf);
+        tokenBuf = "";
+        stream.writeSSE({ data: JSON.stringify({ token: rehydrated }) }).catch(() => {});
+      };
+
       stream_fn({
         messages,
         model: activeChatModel,
         signal: reqSignal,
         onToken: (token) => {
-          stream.writeSSE({ data: JSON.stringify({ token }) }).catch(() => {});
+          tokenBuf += token;
+          // Hold if buffer ends with partial placeholder: << ... (no closing >>)
+          const lastOpen = tokenBuf.lastIndexOf("<<");
+          if (lastOpen !== -1 && tokenBuf.indexOf(">>", lastOpen) === -1) return;
+          flushBuf();
         },
         onDone: () => {
+          flushBuf(); // flush remainder
           reqSignal?.removeEventListener("abort", onAbort);
           stream.writeSSE({ data: JSON.stringify({ done: true }) }).catch(() => {});
           resolve();
         },
         onError: async (err) => {
+          flushBuf();
           reqSignal?.removeEventListener("abort", onAbort);
           let errorMsg = err instanceof LLMError ? err.userMessage : (err.message || "Stream error");
           if (isPrivateMode() && /ECONNREFUSED|fetch failed|network|socket/i.test(errorMsg)) {
@@ -4912,15 +4930,29 @@ app.post("/api/chat", async (c) => {
       };
       reqSignal?.addEventListener("abort", onAbort, { once: true });
 
+      // Token buffer for split-placeholder rehydration
+      let tokenBuf2 = "";
+      const flushBuf2 = () => {
+        if (!tokenBuf2) return;
+        const rehydrated = rehydrateResponse(tokenBuf2);
+        tokenBuf2 = "";
+        stream.writeSSE({ data: JSON.stringify({ token: rehydrated }) }).catch(() => {});
+      };
+
       stream_fn({
         messages: ctx.messages,
         model: activeChatModel,
         signal: reqSignal,
         onToken: (token) => {
           fullResponse += token;
-          stream.writeSSE({ data: JSON.stringify({ token }) }).catch(() => {});
+          tokenBuf2 += token;
+          // Hold if buffer ends with partial placeholder
+          const lastOpen = tokenBuf2.lastIndexOf("<<");
+          if (lastOpen !== -1 && tokenBuf2.indexOf(">>", lastOpen) === -1) return;
+          flushBuf2();
         },
         onDone: () => {
+          flushBuf2(); // flush remainder
           reqSignal?.removeEventListener("abort", onAbort);
 
           // Process action blocks BEFORE sending done — ensures SSE events reach client before stream closes.
@@ -5142,6 +5174,7 @@ app.post("/api/chat", async (c) => {
           }
         },
         onError: async (err) => {
+          flushBuf2();
           reqSignal?.removeEventListener("abort", onAbort);
           // If this error is from an abort, save partial and exit quietly
           if (reqSignal?.aborted) {
@@ -5179,6 +5212,12 @@ async function start() {
 
   // Install fetch guard before any routes or outbound calls
   installFetchGuard();
+
+  // Initialize PrivacyMembrane for reversible redaction
+  const sensitiveRegistry = new SensitiveRegistry();
+  await sensitiveRegistry.load(BRAIN_DIR);
+  const membrane = new PrivacyMembrane(sensitiveRegistry);
+  setActiveMembrane(membrane);
 
   // Run independent initialization in parallel: LLM cache, auth, and sidecars
   const [, pairingCode, sidecarResults] = await Promise.all([
