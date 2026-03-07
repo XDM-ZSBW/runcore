@@ -33,6 +33,8 @@ Usage:
   runcore --dir <path>        Use a specific directory
   runcore status              Check if running
   runcore update              Update to latest version
+  runcore import <folder...>  Import files into your brain
+  runcore import --dry-run    Preview what would be imported
   runcore register            Register for BYOK/Spawn tier
   runcore activate <token>    Activate with a signed token
   runcore tier                Show current tier and capabilities
@@ -385,6 +387,75 @@ async function register() {
   }
 }
 
+async function importFolders() {
+  const root = resolve(getFlag(args, "--dir") ?? process.env.CORE_HOME ?? process.cwd());
+  const dryRun = hasFlag(args, "--dry-run", "--preview");
+
+  // Collect folder paths (everything after "import" that isn't a flag)
+  const folders = args.slice(1).filter(a => !a.startsWith("--"));
+  if (folders.length === 0) {
+    console.log(`
+  Usage: runcore import <folder> [folder2] [folder3...]
+
+  Scans folders and copies files into your brain structure.
+  Source files are never moved or modified.
+
+  Options:
+    --dry-run    Preview what would be imported
+    --dir <path> Use a specific brain directory
+
+  Examples:
+    runcore import ~/Documents
+    runcore import ~/Obsidian ~/Projects --dry-run
+    runcore import "C:\\Users\\Dad\\Documents"
+`);
+    return;
+  }
+
+  // Resolve paths
+  const { resolve: resolvePath } = await import("node:path");
+  const sources = folders.map(f => resolvePath(f));
+
+  console.log(`\n  ${dryRun ? "Preview:" : "Importing from"} ${sources.length} folder${sources.length > 1 ? "s" : ""}...`);
+  for (const s of sources) console.log(`    ${s}`);
+  console.log();
+
+  const { importToBrain } = await import("./files/import.js");
+  const result = await importToBrain({
+    sources,
+    brainRoot: root,
+    dryRun,
+  });
+
+  if (result.imported === 0 && result.skipped === 0) {
+    console.log("  No importable files found.\n");
+    return;
+  }
+
+  // Summary by category
+  console.log(`  ${dryRun ? "Would import" : "Imported"}: ${result.imported} files`);
+  if (result.skipped > 0) console.log(`  Skipped (limit): ${result.skipped}`);
+  console.log();
+  for (const [cat, count] of Object.entries(result.categories)) {
+    const dest = {
+      note: "brain/knowledge/notes/",
+      daily: "brain/memory/imported/",
+      research: "brain/knowledge/research/",
+      asset: "brain/knowledge/assets/",
+      template: "brain/content/templates/",
+      bookmark: "brain/knowledge/bookmarks/",
+    }[cat] || "brain/";
+    console.log(`    ${count} ${cat}${count !== 1 ? "s" : ""} → ${dest}`);
+  }
+
+  if (dryRun) {
+    console.log(`\n  Run without --dry-run to import.\n`);
+  } else {
+    console.log(`\n  Manifest saved to brain/.core/import-manifest.json`);
+    console.log(`  Source files were not modified.\n`);
+  }
+}
+
 async function activate() {
   const jwt = args[1];
   if (!jwt) {
@@ -458,6 +529,11 @@ async function main() {
 
   if (command === "update") {
     await selfUpdate();
+    return;
+  }
+
+  if (command === "import") {
+    await importFolders();
     return;
   }
 
