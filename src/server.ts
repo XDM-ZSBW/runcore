@@ -5365,10 +5365,13 @@ app.post("/api/import/folder", async (c) => {
     dryRun: body.dryRun ?? false,
   });
 
-  // After import, kick off local indexing in background
+  // After import: fast pass → deep pass (both background, chained)
   if (!body.dryRun && result.imported > 0) {
     import("./files/index-local.js").then(({ indexImportedFiles }) => {
-      indexImportedFiles({ localOnly: true }).catch(() => {});
+      indexImportedFiles({ localOnly: true })
+        .then(() => import("./files/deep-index.js"))
+        .then(({ runDeepIndex }) => runDeepIndex())
+        .catch(() => {});
     });
   }
 
@@ -5378,7 +5381,35 @@ app.post("/api/import/folder", async (c) => {
 app.post("/api/import/index", async (c) => {
   const { indexImportedFiles } = await import("./files/index-local.js");
   const result = await indexImportedFiles({ localOnly: true });
+
+  // After fast pass, kick off deep index in background
+  import("./files/deep-index.js").then(({ runDeepIndex }) => {
+    runDeepIndex().catch(() => {});
+  });
+
   return c.json(result);
+});
+
+app.post("/api/import/deep-index", async (c) => {
+  const { runDeepIndex } = await import("./files/deep-index.js");
+  const result = await runDeepIndex();
+  return c.json(result);
+});
+
+app.get("/api/import/deep-index/progress", async (c) => {
+  const { getDeepIndexProgress } = await import("./files/deep-index.js");
+  return c.json(getDeepIndexProgress());
+});
+
+app.get("/api/import/deep-index/results", async (c) => {
+  const { readFile: rf } = await import("node:fs/promises");
+  const { join: jp } = await import("node:path");
+  try {
+    const raw = await rf(jp(process.cwd(), "brain", ".core", "deep-index.json"), "utf-8");
+    return c.json(JSON.parse(raw));
+  } catch {
+    return c.json({ entities: [], themes: [], crossRefs: [], flags: [], deepIndexed: [] });
+  }
 });
 
 app.post("/api/import/files", async (c) => {
