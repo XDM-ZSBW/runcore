@@ -108,8 +108,13 @@ async function revalidateToken(jwt: string): Promise<boolean> {
   }
 }
 
-export function startHeartbeat(jwt: string, tier: TierName): void {
+export function startHeartbeat(jwt: string, tier: TierName, root?: string): void {
   startedAt = Date.now();
+
+  // Retry bond if not yet confirmed
+  if (root) {
+    retryBondIfNeeded(root, jwt).catch(() => {});
+  }
 
   // Immediate first heartbeat
   sendHeartbeat(jwt, tier);
@@ -122,6 +127,22 @@ export function startHeartbeat(jwt: string, tier: TierName): void {
     if (!valid) onDowngrade?.("local");
   }, REVALIDATE_INTERVAL_MS);
   revalidateTimer.unref();
+}
+
+/** Retry bond announcement if keys exist locally but registry hasn't confirmed. */
+async function retryBondIfNeeded(root: string, jwt: string): Promise<void> {
+  try {
+    const { loadBondKeys, bond } = await import("./bond.js");
+    const keys = await loadBondKeys(root);
+    if (!keys) return; // No keys = not activated yet, nothing to retry
+
+    // Try to announce again — bond() handles the idempotency
+    const parts = jwt.split(".");
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
+    await bond(root, jwt, payload.jti);
+  } catch {
+    // Best effort
+  }
 }
 
 export function stopHeartbeat(): void {

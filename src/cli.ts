@@ -400,6 +400,17 @@ async function activate() {
     console.log(`\n  Activated! Tier: ${token.tier}`);
     console.log(`  Org: ${token.org}`);
     console.log(`  Expires: ${token.expires}`);
+
+    // Bond handshake — establish ongoing trust
+    console.log(`\n  Bonding...`);
+    const { bond } = await import("./tier/bond.js");
+    const result = await bond(root, jwt, token.jti);
+    if (result.bonded) {
+      console.log(`  Bonded (fingerprint: ${result.fingerprint})`);
+    } else {
+      console.log(`  Bond pending — will complete on next heartbeat.`);
+    }
+
     console.log(`\n  Restart runcore to apply.\n`);
   } catch (err) {
     console.log(`  Activation failed: ${err instanceof Error ? err.message : String(err)}`);
