@@ -181,20 +181,69 @@ async function main(): Promise<void> {
         return { content: [{ type: "text" as const, text: formatEntries(entries) }] };
       }
 
-      // Otherwise, search across ALL unlocked JSONL files
+      // Otherwise, search across ALL unlocked JSONL files with scored retrieval
       const all = await hallwayScanMemory();
-      const terms = query
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((t) => t.length > 2);
-      let results = all;
-      if (terms.length > 0) {
-        results = all.filter((e) =>
-          e.content && terms.some((term) => e.content.toLowerCase().includes(term))
-        );
+      const queryLower = query.toLowerCase();
+      const terms = queryLower.split(/\s+/).filter((t) => t.length > 1);
+      if (terms.length === 0) {
+        return { content: [{ type: "text" as const, text: formatEntries(all.slice(0, maxResults)) }] };
       }
+
+      // Score each entry: term matches + density + co-occurrence + recency + meta
+      const now = Date.now();
+      const scored = all
+        .map((e) => {
+          const text = [
+            e.content ?? "",
+            e.meta ? JSON.stringify(e.meta) : "",
+            (e as any).summary ?? "",
+            (e as any).title ?? "",
+            (e as any).description ?? "",
+          ].join(" ").toLowerCase();
+
+          if (!text) return { entry: e, score: 0 };
+
+          // Word boundary matching: avoid "red" matching "remembered"
+          const matched = terms.filter((t) => {
+            const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+            return re.test(text);
+          });
+          if (matched.length === 0) return { entry: e, score: 0 };
+          const termScore = matched.length / terms.length;
+
+          // Co-occurrence: all terms present = bonus
+          const allTerms = matched.length === terms.length ? 0.3 : 0;
+
+          // Phrase match: exact query substring = strong signal
+          const phraseBonus = text.includes(queryLower) ? 0.5 : 0;
+
+          // Concentration: short entries matching all terms are more relevant
+          const concentration = Math.min(1, 200 / Math.max(text.length, 1)) * 0.4;
+
+          // Proximity: terms near each other in text
+          let proximityBonus = 0;
+          if (matched.length >= 2) {
+            const positions = matched.map((t) => text.indexOf(t));
+            const span = Math.max(...positions) - Math.min(...positions);
+            if (span < 100) proximityBonus = 0.2;
+            else if (span < 300) proximityBonus = 0.1;
+          }
+
+          // Recency: newer entries score slightly higher
+          const age = now - new Date(e.createdAt).getTime();
+          const dayAge = age / (1000 * 60 * 60 * 24);
+          const recencyScore = Math.max(0, 0.1 * (1 - dayAge / 365));
+
+          const score = termScore + allTerms + phraseBonus + concentration + proximityBonus + recencyScore;
+          return { entry: e, score };
+        })
+        .filter((s) => s.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxResults)
+        .map((s) => s.entry);
+
       return {
-        content: [{ type: "text" as const, text: formatEntries(results.slice(0, maxResults)) }],
+        content: [{ type: "text" as const, text: formatEntries(scored) }],
       };
     })
   );
@@ -395,6 +444,54 @@ async function main(): Promise<void> {
         .join(", ");
       return {
         content: [{ type: "text" as const, text: summary }],
+      };
+    }
+  );
+
+  // ── Dash status + handoff check ──────────────────────────────────────────
+
+  mcp.tool(
+    "dash_status",
+    "Check if Dash is running and review pending handoffs. Use anytime to verify Dash is alive and see what's queued for his planner.",
+    {},
+    async () => {
+      // Check Dash health
+      let dashHealth: string;
+      try {
+        const res = await fetch("http://localhost:3577/healthz", { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const h = await res.json() as Record<string, unknown>;
+          dashHealth = `Dash is RUNNING. Uptime: ${h.uptime}s. Status: ${h.status}`;
+        } else {
+          dashHealth = `Dash responded but unhealthy: HTTP ${res.status}`;
+        }
+      } catch {
+        dashHealth = "Dash is DOWN — no response on localhost:3577";
+      }
+
+      // Read handoffs
+      let handoffSummary: string;
+      try {
+        const handoffPath = resolve(process.cwd(), "../dash/brain/operations/handoffs.jsonl");
+        const { readFile } = await import("node:fs/promises");
+        const raw = await readFile(handoffPath, "utf-8");
+        const lines = raw.split("\n").filter((l) => l.trim() && !l.includes("_schema"));
+        const pending = lines.filter((l) => {
+          try { return JSON.parse(l).status === "pending"; } catch { return false; }
+        });
+        const items = pending.map((l) => {
+          const o = JSON.parse(l);
+          return `[${o.priority || "?"}] ${o.title}`;
+        });
+        handoffSummary = pending.length === 0
+          ? "No pending handoffs."
+          : `${pending.length} pending handoffs:\n${items.join("\n")}`;
+      } catch {
+        handoffSummary = "Could not read handoffs file.";
+      }
+
+      return {
+        content: [{ type: "text" as const, text: `${dashHealth}\n\n${handoffSummary}` }],
       };
     }
   );
