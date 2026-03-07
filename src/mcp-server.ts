@@ -30,6 +30,7 @@ import { loadSettings, getSettings } from "./settings.js";
 import type { LongTermMemoryType, MemoryEntry } from "./types.js";
 import { issueVoucher, checkVoucherWithAlert, setVoucherAlertFn } from "./voucher.js";
 import { sendAlert } from "./alert.js";
+import { Crystallizer, scoreEntry } from "./crystallizer.js";
 import { createCredentialStore } from "./credentials/store.js";
 import { readSessionKey, isDpapiAvailable } from "./lib/dpapi.js";
 
@@ -117,6 +118,26 @@ async function main(): Promise<void> {
     ltm
   );
 
+  // 7. Initialize crystallizer — open loops as standing queries
+  const crystallizer = new Crystallizer(MEMORY_DIR, async (event) => {
+    // Precipitation callback: write notification + log
+    const notifPath = resolve(BRAIN_DIR, "operations", "notifications.jsonl");
+    const notif = {
+      timestamp: new Date().toISOString(),
+      source: "crystallizer",
+      message: `Loop precipitated: "${event.query}" — ${event.evidenceCount} pieces of evidence collected. Context: ${event.context}`,
+      loopId: event.loopId,
+      id: Math.random().toString(36).slice(2, 10),
+    };
+    try {
+      const { appendFile } = await import("node:fs/promises");
+      await appendFile(notifPath, JSON.stringify(notif) + "\n", "utf-8");
+    } catch { /* fire and forget */ }
+    log(`Loop precipitated: "${event.query}" (${event.evidenceCount} evidence)`);
+  });
+  await crystallizer.init();
+  log(`Open loops loaded: ${crystallizer.list("open").length} active`);
+
   // 6. Create MCP server
   const mcp = new McpServer({
     name: "core-brain",
@@ -203,38 +224,16 @@ async function main(): Promise<void> {
 
           if (!text) return { entry: e, score: 0 };
 
-          // Word boundary matching: avoid "red" matching "remembered"
-          const matched = terms.filter((t) => {
-            const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-            return re.test(text);
-          });
-          if (matched.length === 0) return { entry: e, score: 0 };
-          const termScore = matched.length / terms.length;
+          // Shared scoring geometry (word boundaries, concentration, proximity)
+          const baseScore = scoreEntry(terms, queryLower, text);
+          if (baseScore === 0) return { entry: e, score: 0 };
 
-          // Co-occurrence: all terms present = bonus
-          const allTerms = matched.length === terms.length ? 0.3 : 0;
-
-          // Phrase match: exact query substring = strong signal
-          const phraseBonus = text.includes(queryLower) ? 0.5 : 0;
-
-          // Concentration: short entries matching all terms are more relevant
-          const concentration = Math.min(1, 200 / Math.max(text.length, 1)) * 0.4;
-
-          // Proximity: terms near each other in text
-          let proximityBonus = 0;
-          if (matched.length >= 2) {
-            const positions = matched.map((t) => text.indexOf(t));
-            const span = Math.max(...positions) - Math.min(...positions);
-            if (span < 100) proximityBonus = 0.2;
-            else if (span < 300) proximityBonus = 0.1;
-          }
-
-          // Recency: newer entries score slightly higher
+          // Recency: newer entries score slightly higher (retrieval-only concern)
           const age = now - new Date(e.createdAt).getTime();
           const dayAge = age / (1000 * 60 * 60 * 24);
           const recencyScore = Math.max(0, 0.1 * (1 - dayAge / 365));
 
-          const score = termScore + allTerms + phraseBonus + concentration + proximityBonus + recencyScore;
+          const score = baseScore + recencyScore;
           return { entry: e, score };
         })
         .filter((s) => s.score > 0)
@@ -262,9 +261,20 @@ async function main(): Promise<void> {
         content,
         meta: meta as Record<string, string | number | boolean> | undefined,
       });
+
+      // Flow through the crystallizer — every new memory passes through all open loops
+      let crystalNote = "";
+      try {
+        const precipitations = await crystallizer.test(entry);
+        if (precipitations.length > 0) {
+          crystalNote = `\n\nCrystallization: ${precipitations.length} loop(s) precipitated:\n` +
+            precipitations.map((p) => `  - "${p.query}" (${p.evidenceCount} evidence)`).join("\n");
+        }
+      } catch { /* never block memory writes */ }
+
       return {
         content: [
-          { type: "text" as const, text: `Stored as ${entry.id} (${entry.type}) at ${entry.createdAt}` },
+          { type: "text" as const, text: `Stored as ${entry.id} (${entry.type}) at ${entry.createdAt}${crystalNote}` },
         ],
       };
     }
@@ -444,6 +454,68 @@ async function main(): Promise<void> {
         .join(", ");
       return {
         content: [{ type: "text" as const, text: summary }],
+      };
+    }
+  );
+
+  // ── Open loop tools (crystallizer) ──────────────────────────────────────
+
+  mcp.tool(
+    "loop_open",
+    "Create an open loop — a standing query that filters the memory stream. Evidence accumulates as matching memories are added. When enough evidence sticks, the loop precipitates and surfaces as a notification.",
+    {
+      query: z.string().min(2).max(500).describe("The search shape — terms that define what this loop catches"),
+      context: z.string().min(1).max(2000).describe("Why this loop exists — what question you're trying to answer"),
+      threshold: z.number().int().min(1).max(50).optional().describe("How many evidence hits before precipitation (default 3)"),
+      minScore: z.number().min(0.1).max(2.0).optional().describe("Minimum match score to count as evidence (default 0.4)"),
+    },
+    async ({ query, context, threshold, minScore }) => {
+      const loop = await crystallizer.open(query, context, threshold ?? 3, minScore ?? 0.4);
+      return {
+        content: [{ type: "text" as const, text: `Loop opened: ${loop.id}\nQuery: "${loop.query}"\nContext: ${loop.context}\nThreshold: ${loop.threshold} evidence hits\nMin score: ${loop.minScore}` }],
+      };
+    }
+  );
+
+  mcp.tool(
+    "loop_list",
+    "List open loops and their evidence state. Shows what's filtering, what's accumulated, what's precipitated.",
+    {
+      status: z.enum(["open", "precipitated", "resolved", "all"]).optional().describe("Filter by status (default: all)"),
+    },
+    async ({ status }) => {
+      const filterStatus = status === "all" ? undefined : (status ?? undefined);
+      const loops = crystallizer.list(filterStatus as any);
+
+      if (loops.length === 0) {
+        return { content: [{ type: "text" as const, text: "No loops found." }] };
+      }
+
+      const lines = loops.map((l) => {
+        const evidenceStr = l.evidence.length > 0
+          ? `\n    Evidence (${l.evidence.length}/${l.threshold}):\n` +
+            l.evidence.map((e) => `      - [${e.score.toFixed(2)}] ${e.snippet.slice(0, 80)}...`).join("\n")
+          : `\n    No evidence yet (0/${l.threshold})`;
+        return `[${l.status.toUpperCase()}] ${l.id}\n  Query: "${l.query}"\n  Context: ${l.context}\n  Created: ${l.createdAt}${evidenceStr}`;
+      });
+
+      return { content: [{ type: "text" as const, text: lines.join("\n\n") }] };
+    }
+  );
+
+  mcp.tool(
+    "loop_resolve",
+    "Manually resolve (close) an open loop. Use when the question has been answered or is no longer relevant.",
+    {
+      loopId: z.string().describe("The loop ID to resolve"),
+    },
+    async ({ loopId }) => {
+      const loop = await crystallizer.resolve(loopId);
+      if (!loop) {
+        return { content: [{ type: "text" as const, text: `Loop ${loopId} not found.` }], isError: true };
+      }
+      return {
+        content: [{ type: "text" as const, text: `Loop resolved: ${loop.id} ("${loop.query}")\nFinal evidence count: ${loop.evidence.length}` }],
       };
     }
   );
