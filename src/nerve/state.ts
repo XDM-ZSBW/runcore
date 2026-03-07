@@ -1,5 +1,5 @@
 /**
- * Nerve State — translates raw system internals into three-dot goo.
+ * Nerve State — translates raw system internals into three-dot field.
  *
  * Three dots: Sense, Work, Joy.
  * Three colors: blue (calm), green (moving), amber (attention).
@@ -15,6 +15,17 @@ import { readBrainLines } from "../lib/brain-io.js";
 import { join, resolve } from "node:path";
 
 const BRAIN_DIR = resolve(process.cwd(), "brain");
+
+// Pending major update — set by auto-updater, read by Sense dot
+let pendingUpdate: { current: string; latest: string } | null = null;
+
+export function setPendingUpdate(info: { current: string; latest: string }): void {
+  pendingUpdate = info;
+}
+
+export function clearPendingUpdate(): void {
+  pendingUpdate = null;
+}
 
 export type DotColor = "blue" | "green" | "amber";
 
@@ -128,6 +139,13 @@ async function computeSense(): Promise<DotState> {
       const evidence = l.evidence?.length ?? 0;
       items.push({ text: `"${l.query}" — ${evidence}/${l.threshold} evidence`, type: "active" });
     }
+  }
+
+  // Pending major update
+  if (pendingUpdate) {
+    voltageColor = "amber";
+    voltageLabel = "Update available";
+    items.push({ text: `Core ${pendingUpdate.latest} available (UI changes)`, type: "attention" });
   }
 
   // Recent notifications

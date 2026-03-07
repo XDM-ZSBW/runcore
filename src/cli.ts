@@ -273,21 +273,20 @@ async function checkForUpdate(): Promise<string | null> {
 }
 
 async function selfUpdate() {
-  const latest = await checkForUpdate();
-  if (!latest) {
+  const { checkUpdate, acceptMajorUpdate } = await import("./updater.js");
+  const info = await checkUpdate();
+  if (!info) {
     console.log(`  Already up to date (v${VERSION})`);
     return;
   }
-  console.log(`  Updating ${VERSION} → ${latest}...`);
-  const child = exec(`npm i -g ${PKG_NAME}@${latest}`, (err, stdout, stderr) => {
-    if (err) {
-      console.error(`  Update failed: ${err.message}`);
-      process.exit(1);
-    }
-    console.log(`  ✓ Updated to v${latest}. Run 'runcore' to start.`);
-  });
-  child.stdout?.pipe(process.stdout);
-  child.stderr?.pipe(process.stderr);
+  console.log(`  Updating ${VERSION} → ${info.latest} (${info.updateType})...`);
+  if (info.requiresApproval) {
+    console.log(`  This is a major update with UI changes.`);
+    await acceptMajorUpdate();
+  } else {
+    const { autoUpdate } = await import("./updater.js");
+    await autoUpdate();
+  }
 }
 
 // ── Dispatch ────────────────────────────────────────────────────────
@@ -316,13 +315,18 @@ async function main() {
   // Everything else: just start (with auto-init)
   await startServer();
 
-  // Non-blocking update check after server is running
-  checkForUpdate().then((latest) => {
-    if (latest) {
-      console.log(`  Update available: v${latest} (current: v${VERSION})`);
-      console.log(`  Run 'runcore update' to upgrade.\n`);
-    }
-  });
+  // Auto-update after server is running
+  // patch/minor: silent update + restart
+  // major: surface through nerve state, human decides
+  import("./updater.js").then(({ autoUpdate }) => {
+    autoUpdate().then(async (pending) => {
+      if (pending) {
+        const { setPendingUpdate } = await import("./nerve/state.js");
+        setPendingUpdate({ current: pending.current, latest: pending.latest });
+        console.log(`\n  Update available: v${pending.latest} (UI changes — approve in Dash)`);
+      }
+    });
+  }).catch(() => {});
 }
 
 main().catch((err) => {

@@ -4216,6 +4216,20 @@ app.get("/api/nerve/stream", async (c) => {
   });
 });
 
+// Update: accept a pending major update
+app.post("/api/nerve/accept-update", async (c) => {
+  try {
+    const { acceptMajorUpdate } = await import("./updater.js");
+    const { clearPendingUpdate } = await import("./nerve/state.js");
+    clearPendingUpdate();
+    // This will restart the process after updating
+    await acceptMajorUpdate();
+    return c.json({ ok: true, message: "Updating and restarting..." });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // Chat: streamed response (or learn command)
 app.post("/api/chat", async (c) => {
   const body = await c.req.json();
