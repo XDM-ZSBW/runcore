@@ -16,6 +16,7 @@ import { pushNotification } from "../goals/notifications.js";
 import { createLogger } from "../utils/logger.js";
 import { onGroomingComplete } from "../services/training.js";
 import { resolveEnv } from "../instance.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("queue");
 
@@ -25,7 +26,7 @@ const COMPACT_THRESHOLD = 200;
 const MAX_PROMOTIONS_PER_CYCLE = 3;
 
 const GROOM_STATE_FILE = join(
-  resolveEnv("BRAIN_DIR") ?? join(process.cwd(), "brain"),
+  BRAIN_DIR,
   "operations",
   ".grooming-last-nudge",
 );

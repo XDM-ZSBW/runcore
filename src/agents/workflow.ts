@@ -25,10 +25,11 @@ import type {
 } from "./orchestration.js";
 import { Orchestrator } from "./orchestration.js";
 import type { AgentPool } from "./runtime.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("workflow");
 
-const WORKFLOWS_DIR = join(process.cwd(), "brain", "agents", "workflows");
+const WORKFLOWS_DIR = join(BRAIN_DIR, "agents", "workflows");
 
 // ---------------------------------------------------------------------------
 // Types — workflow definition (matches schema.json)

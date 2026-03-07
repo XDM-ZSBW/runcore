@@ -14,12 +14,13 @@ import {
   ensureBrainFileSync,
   writeBrainLines,
 } from "../lib/brain-io.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("notifications");
 
 // ─── File path ───────────────────────────────────────────────────────────────
 
-const OPS_DIR = join(process.cwd(), "brain", "operations");
+const OPS_DIR = join(BRAIN_DIR, "operations");
 const NOTIF_FILE = join(OPS_DIR, "notifications.jsonl");
 const SCHEMA_LINE = JSON.stringify({ _schema: "notifications", _version: "1.0" });
 

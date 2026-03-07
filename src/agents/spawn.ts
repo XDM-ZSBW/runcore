@@ -22,6 +22,7 @@ import { createLogger } from "../utils/logger.js";
 import { resolveEnv, getInstanceName, getInstanceNameLower, getAlertEmailFrom } from "../instance.js";
 import { getSkillRegistry } from "../skills/registry.js";
 import { getBoardProvider } from "../board/provider.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("agent-spawn");
 
@@ -1113,7 +1114,7 @@ export async function generateBridgeReport(
 
     // Persist as brain document for future reference
     const reportsDir = join(
-      resolveEnv("BRAIN_DIR") ?? join(process.cwd(), "brain"),
+      BRAIN_DIR,
       "agents", "bridge-reports",
     );
     mkdirSync(reportsDir, { recursive: true });

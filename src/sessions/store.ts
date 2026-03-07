@@ -7,8 +7,9 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { encrypt, decrypt, type EncryptedPayload } from "../auth/crypto.js";
 import type { ContextMessage } from "../types.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
-const SESSIONS_DIR = join(process.cwd(), "brain", "sessions");
+const SESSIONS_DIR = join(BRAIN_DIR, "sessions");
 
 interface EncryptedFile {
   v: 1;

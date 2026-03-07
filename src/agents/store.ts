@@ -7,9 +7,9 @@ import { readBrainFile, writeBrainFile } from "../lib/brain-io.js";
 
 const log = createLogger("agent-store");
 
-const BRAIN_DIR = join(process.cwd(), "brain", "agents");
-const TASKS_DIR = join(BRAIN_DIR, "tasks");
-const LOGS_DIR = join(BRAIN_DIR, "logs");
+import { BRAIN_DIR } from "../lib/paths.js";
+const TASKS_DIR = join(BRAIN_DIR, "agents", "tasks");
+const LOGS_DIR = join(BRAIN_DIR, "agents", "logs");
 
 export { TASKS_DIR, LOGS_DIR };
 

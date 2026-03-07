@@ -18,6 +18,7 @@ import type { OpenLoopPacket, ResonanceMatch, ScanRunSummary } from "./types.js"
 import { triggerResolutionScan } from "./resolution-scanner.js";
 import { emitCdt } from "../pulse/activation-event.js";
 import { resolveEnv, getInstanceName } from "../instance.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("open-loop-scanner");
 
@@ -78,7 +79,7 @@ const olpMetrics: OlpMetrics = {
 };
 
 const RESONANCES_FILE = join(
-  resolveEnv("BRAIN_DIR") ?? join(process.cwd(), "brain"),
+  BRAIN_DIR,
   "memory",
   "resonances.jsonl",
 );

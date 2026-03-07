@@ -9,10 +9,11 @@ import { checkOllama } from "./llm/ollama.js";
 import type { ProviderName } from "./llm/providers/types.js";
 import { createLogger } from "./utils/logger.js";
 import { setWriteEncryptionEnabled } from "./lib/key-store.js";
+import { BRAIN_DIR } from "./lib/paths.js";
 
 const log = createLogger("settings");
 
-const SETTINGS_PATH = join(process.cwd(), "brain", "settings.json");
+const SETTINGS_PATH = join(BRAIN_DIR, "settings.json");
 
 // --- Schema ---
 

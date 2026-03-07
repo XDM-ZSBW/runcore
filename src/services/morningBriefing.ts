@@ -30,6 +30,7 @@ import { stateDisplayName } from "../queue/types.js";
 import { getClient as getWhatsAppClient, isWhatsAppConfigured } from "../channels/whatsapp.js";
 import { logActivity, getActivities } from "../activity/log.js";
 import type { ActivityEntry } from "../activity/log.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ const CHECK_INTERVAL_MS = 15 * 60 * 1000;  // check every 15 minutes
 const BRIEFING_HOUR = 6;                     // 6 AM local — delivers by ~6:15 AM (before 7 AM)
 
 const BRIEFING_CHANNELS_FILE = join(
-  resolveEnv("BRAIN_DIR") ?? join(process.cwd(), "brain"),
+  BRAIN_DIR,
   "operations",
   "briefing-channels.json",
 );
@@ -138,7 +139,7 @@ const MAX_DAILY_RETRIES = 3;                  // stop retrying after 3 failed at
 // ─── Persist lastBriefingDate across restarts ─────────────────────────────────
 
 const BRIEFING_STATE_DIR = join(
-  resolveEnv("BRAIN_DIR") ?? join(process.cwd(), "brain"),
+  BRAIN_DIR,
   "operations",
 );
 const BRIEFING_STATE_FILE = join(BRIEFING_STATE_DIR, ".briefing-last-date");

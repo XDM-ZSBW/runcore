@@ -27,7 +27,7 @@ const log = createLogger("training");
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 
-const BRAIN_DIR = join(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const TRAINING_DIR = join(BRAIN_DIR, "training");
 const PROFICIENCY_FILE = join(TRAINING_DIR, "proficiency.jsonl");
 const PROGRESS_FILE = join(TRAINING_DIR, "progress.json");

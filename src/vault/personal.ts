@@ -18,8 +18,9 @@ import {
   appendBrainLine,
   ensureBrainJsonl,
 } from "../lib/brain-io.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
-const VAULT_DIR = join(process.cwd(), "brain", "vault");
+const VAULT_DIR = join(BRAIN_DIR, "vault");
 const VAULT_FILE = join(VAULT_DIR, "personal.enc.jsonl");
 
 const SCHEMA_LINE = JSON.stringify({

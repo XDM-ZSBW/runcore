@@ -15,6 +15,7 @@ import { appendFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { PulseConfig, PulseStatus, VoltageSnapshot } from "./types.js";
 import { emitVoltage, emitCdt, bridgeVoltageSystem, unbridgeVoltageSystem } from "./activation-event.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("pulse");
 
@@ -32,7 +33,7 @@ const VOLTAGE_WEIGHTS: Array<{ source: string; weight: number; keywords?: string
 const USER_CHAT_WEIGHT = 30;
 const DEFAULT_WEIGHT = 5;
 const VOLTAGE_HISTORY_MAX = 100;
-const VOLTAGE_HISTORY_PATH = join(process.cwd(), "brain", "metrics", "voltage-history.jsonl");
+const VOLTAGE_HISTORY_PATH = join(BRAIN_DIR, "metrics", "voltage-history.jsonl");
 
 function resolveWeight(source: string, summary: string): number {
   // Agent failures are highest priority — but only if it actually failed

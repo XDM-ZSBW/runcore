@@ -10,14 +10,15 @@ import { randomBytes } from "node:crypto";
 import { createLogger } from "../utils/logger.js";
 import { readBrainLines, appendBrainLine, ensureBrainJsonl } from "../lib/brain-io.js";
 import type { OpenLoopPacket, OpenLoopState, Triad } from "./types.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("open-loop-store");
 
 function loopsFile(): string {
-  return join(process.cwd(), "brain", "memory", "open-loops.jsonl");
+  return join(BRAIN_DIR, "memory", "open-loops.jsonl");
 }
 function triadsFile(): string {
-  return join(process.cwd(), "brain", "memory", "triads.jsonl");
+  return join(BRAIN_DIR, "memory", "triads.jsonl");
 }
 
 const LOOPS_SCHEMA = {

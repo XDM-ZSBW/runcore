@@ -16,6 +16,7 @@ import {
   ensureBrainFileSync,
 } from "../lib/brain-io.js";
 import { getPressureIntegrator } from "../pulse/pressure.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("activity");
 
@@ -40,7 +41,7 @@ export interface ActivityEntry {
 
 // ─── File path ───────────────────────────────────────────────────────────────
 
-const OPS_DIR = join(process.cwd(), "brain", "ops");
+const OPS_DIR = join(BRAIN_DIR, "ops");
 const ACTIVITY_FILE = join(OPS_DIR, "activity.jsonl");
 const SCHEMA_LINE = JSON.stringify({ _schema: "activity", _version: "1.0" });
 

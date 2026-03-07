@@ -7,6 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { deriveKey } from "./crypto.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 // --- Types ---
 
@@ -34,7 +35,7 @@ export interface Session {
 
 // --- Paths ---
 
-const IDENTITY_DIR = join(process.cwd(), "brain", "identity");
+const IDENTITY_DIR = join(BRAIN_DIR, "identity");
 const HUMAN_PATH = join(IDENTITY_DIR, "human.json");
 const PAIRING_CODE_PATH = join(IDENTITY_DIR, "pairing-code.json");
 const SESSION_KEY_CACHE_PATH = join(IDENTITY_DIR, ".session-key");

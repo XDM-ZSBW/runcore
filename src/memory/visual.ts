@@ -12,10 +12,11 @@ import { createLogger } from "../utils/logger.js";
 import type { MemoryEntry } from "../types.js";
 import type { ProviderName } from "../llm/providers/types.js";
 import type { FileEntry } from "../files/types.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("visual-memory");
 
-const MEMORY_DIR = join(process.cwd(), "brain", "memory");
+const MEMORY_DIR = join(BRAIN_DIR, "memory");
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

@@ -21,7 +21,7 @@ import { existsSync } from "node:fs";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("index-local");
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 
 interface IndexManifest {
   indexed: string[];

@@ -53,8 +53,8 @@ export interface AcquireResult {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const BRAIN_DIR = join(process.cwd(), "brain", "agents");
-const LOCKS_FILE = join(BRAIN_DIR, "locks.json");
+import { BRAIN_DIR } from "../lib/paths.js";
+const LOCKS_FILE = join(BRAIN_DIR, "agents", "locks.json");
 const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 // ── In-memory mutex for serializing lock file access ─────────────────────────

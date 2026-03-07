@@ -14,7 +14,7 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("agents.spawn-policy");
 
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const DEFAULT_POLICY_PATH = join(BRAIN_DIR, "templates", "spawn-policy.yaml");
 
 // ── Types ────────────────────────────────────────────────────────────────────

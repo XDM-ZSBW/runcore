@@ -16,7 +16,7 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("vault.policy");
 
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const POLICY_FILE = join(BRAIN_DIR, "vault.policy.yaml");
 
 // ── Types ────────────────────────────────────────────────────────────────────

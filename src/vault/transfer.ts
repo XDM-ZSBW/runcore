@@ -19,12 +19,13 @@ import { getEncryptionKey } from "../lib/key-store.js";
 import { getInstanceName } from "../instance.js";
 import type { Credential } from "../credentials/store.js";
 import type { VaultEntry } from "./personal.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const VAULT_DIR = join(process.cwd(), "brain", "vault");
-const CRED_FILE = join(process.cwd(), "brain", "vault", "credentials.enc.jsonl");
-const PERSONAL_FILE = join(process.cwd(), "brain", "vault", "personal.enc.jsonl");
+const VAULT_DIR = join(BRAIN_DIR, "vault");
+const CRED_FILE = join(BRAIN_DIR, "vault", "credentials.enc.jsonl");
+const PERSONAL_FILE = join(BRAIN_DIR, "vault", "personal.enc.jsonl");
 
 const FORMAT = "core-vault-export";
 const VERSION = 1;

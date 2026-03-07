@@ -18,7 +18,7 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("access.manifest");
 
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const ACCESS_DIR = join(BRAIN_DIR, ".access");
 
 // ── Types ────────────────────────────────────────────────────────────────────

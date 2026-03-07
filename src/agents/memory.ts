@@ -11,10 +11,11 @@ import type { QueueTask } from "../queue/types.js";
 import { createLogger } from "../utils/logger.js";
 import { getEncryptionKey } from "../lib/key-store.js";
 import { appendBrainLine, ensureBrainJsonl } from "../lib/brain-io.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("agent-memory");
 
-const MEMORY_DIR = join(process.cwd(), "brain", "memory");
+const MEMORY_DIR = join(BRAIN_DIR, "memory");
 
 // ─── Scar Registry ────────────────────────────────────────────────────────────
 

@@ -15,7 +15,7 @@ import { createLogger } from "../utils/logger.js";
 import type { NerveState, DotColor } from "./state.js";
 
 const log = createLogger("nerve-push");
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const KEYS_PATH = join(BRAIN_DIR, "identity", ".vapid-keys.json");
 const SUBS_PATH = join(BRAIN_DIR, "memory", "push-subscriptions.jsonl");
 

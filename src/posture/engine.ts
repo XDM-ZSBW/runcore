@@ -23,7 +23,7 @@ import type {
 import { POSTURE_SURFACE } from "./types.js";
 
 const log = createLogger("posture");
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const STATE_PATH = join(BRAIN_DIR, "settings.json");
 
 // ── In-memory state ─────────────────────────────────────────────────────────

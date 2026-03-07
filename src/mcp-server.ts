@@ -36,7 +36,7 @@ import { readSessionKey, isDpapiAvailable } from "./lib/dpapi.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "./lib/paths.js";
 const MEMORY_DIR = join(BRAIN_DIR, "memory");
 
 /** Log to stderr so stdout stays clean for MCP protocol. */

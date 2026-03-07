@@ -34,7 +34,7 @@ const CDT_VOLTAGE_CONTRIBUTION = 15; // mV
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 
-const BRAIN_DIR = join(resolveEnv("BRAIN_DIR") ?? join(process.cwd(), "brain"));
+import { BRAIN_DIR } from "../lib/paths.js";
 const ACTIVATION_FILE = join(BRAIN_DIR, "ops", "activations.jsonl");
 const ACTIVATION_SCHEMA = JSON.stringify({ _schema: "activations", _version: "1.0" });
 

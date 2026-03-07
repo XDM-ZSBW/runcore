@@ -15,10 +15,11 @@ import { createLogger } from "../utils/logger.js";
 import { getInstanceName } from "../instance.js";
 import { appendBrainLine } from "../lib/brain-io.js";
 import type { LoopImpactAction } from "../openloop/types.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("session-reflection");
 
-const DECISIONS_FILE = join(process.cwd(), "brain", "memory", "decisions.jsonl");
+const DECISIONS_FILE = join(BRAIN_DIR, "memory", "decisions.jsonl");
 
 // ─── Strategy Cache ──────────────────────────────────────────────────────────
 

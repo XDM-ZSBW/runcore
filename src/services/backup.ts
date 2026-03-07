@@ -120,7 +120,7 @@ async function checkAndRunScheduledBackup(): Promise<void> {
 
 // ── Core backup logic ────────────────────────────────────────────────────────
 
-const BRAIN_DIR = join(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const TEMP_DIR = join(process.cwd(), ".core-backups", "tmp");
 
 /**

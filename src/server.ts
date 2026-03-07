@@ -264,7 +264,7 @@ function pickStreamFn(): (options: StreamOptions) => Promise<void> {
 const PORT = parseInt(process.env.CORE_PORT ?? resolveEnv("PORT") ?? "0", 10);
 let actualPort = PORT;
 const SIDECAR_PORT = resolveEnv("SEARCH_PORT") ?? "3578";
-const BRAIN_DIR = join(process.cwd(), "brain");
+import { BRAIN_DIR } from "./lib/paths.js";
 const SKILLS_DIR = join(process.cwd(), "skills");
 const MEMORY_DIR = join(BRAIN_DIR, "memory");
 const PERSONALITY_PATH = join(BRAIN_DIR, "identity", "personality.md");
@@ -674,7 +674,7 @@ app.post("/api/pair", async (c) => {
   // Save agent name to settings
   if (agentName) {
     try {
-      const settingsPath = join(process.cwd(), "brain", "settings.json");
+      const settingsPath = join(BRAIN_DIR, "settings.json");
       const raw = await readFile(settingsPath, "utf-8");
       const settings = JSON.parse(raw);
       settings.agentName = agentName.trim();
@@ -3628,7 +3628,7 @@ app.get("/api/help/context", async (c) => {
 
   let changelog = "";
   try {
-    changelog = await readBrainFile(join(process.cwd(), "brain", "operations", "changelog.md"));
+    changelog = await readBrainFile(join(BRAIN_DIR, "operations", "changelog.md"));
   } catch {
     // changelog file missing — skip
   }
@@ -3703,7 +3703,7 @@ app.get("/roadmap", async (c) => {
 // Roadmap API — parse brain/operations/roadmap.yaml and return as JSON
 app.get("/api/roadmap", async (c) => {
   try {
-    const raw = await readBrainFile(join(process.cwd(), "brain", "operations", "roadmap.yaml"));
+    const raw = await readBrainFile(join(BRAIN_DIR, "operations", "roadmap.yaml"));
     const parsed = parseRoadmapYaml(raw);
     return c.json(parsed);
   } catch (err) {
@@ -3870,7 +3870,7 @@ npm run chat</pre>
       sharedAt: new Date().toISOString(),
       status: "sent",
     };
-    const sharesPath = join(process.cwd(), "brain", "ops", "shares.jsonl");
+    const sharesPath = join(BRAIN_DIR, "ops", "shares.jsonl");
     await appendBrainLine(sharesPath, JSON.stringify(record));
 
     log.info("Share invite sent", { email, shareId });
@@ -4901,7 +4901,7 @@ app.post("/api/chat", async (c) => {
   const changelogKeywords = /\b(what'?s new|changelog|recent changes|what changed|updates?|release notes|new features?|capabilities)\b/i;
   if (changelogKeywords.test(chatMessage)) {
     try {
-      const changelogPath = join(process.cwd(), "brain", "operations", "changelog.md");
+      const changelogPath = join(BRAIN_DIR, "operations", "changelog.md");
       const changelogContent = await readBrainFile(changelogPath);
       const changelogMsg = {
         role: "system" as const,
@@ -5405,7 +5405,7 @@ app.get("/api/import/deep-index/results", async (c) => {
   const { readFile: rf } = await import("node:fs/promises");
   const { join: jp } = await import("node:path");
   try {
-    const raw = await rf(jp(process.cwd(), "brain", ".core", "deep-index.json"), "utf-8");
+    const raw = await rf(jp(BRAIN_DIR, ".core", "deep-index.json"), "utf-8");
     return c.json(JSON.parse(raw));
   } catch {
     return c.json({ entities: [], themes: [], crossRefs: [], flags: [], deepIndexed: [] });
@@ -6116,7 +6116,7 @@ process.on("SIGTERM", () => { gracefulShutdown("SIGTERM"); });
 // Crash diagnostics — write to file since terminal output may be lost on tsx watch restart
 process.on("uncaughtException", (err) => {
   const msg = `[${new Date().toISOString()}] UNCAUGHT: ${err.stack ?? err.message}\n`;
-  try { writeFileSync(join(process.cwd(), "brain", "ops", "crash.log"), msg, { flag: "a" }); } catch {}
+  try { writeFileSync(join(BRAIN_DIR, "ops", "crash.log"), msg, { flag: "a" }); } catch {}
 
   // EPIPE = broken pipe from stdout/stderr (e.g. tsx watch restart).
   // Transient I/O error — not application corruption. Log and continue.
@@ -6130,6 +6130,6 @@ process.on("uncaughtException", (err) => {
 process.on("unhandledRejection", (reason) => {
   const err = reason instanceof Error ? reason : new Error(String(reason));
   const msg = `[${new Date().toISOString()}] UNHANDLED_REJECTION: ${err.stack ?? err.message}\n`;
-  try { writeFileSync(join(process.cwd(), "brain", "ops", "crash.log"), msg, { flag: "a" }); } catch {}
+  try { writeFileSync(join(BRAIN_DIR, "ops", "crash.log"), msg, { flag: "a" }); } catch {}
   log.error("Unhandled rejection", { error: err.message, stack: err.stack });
 });

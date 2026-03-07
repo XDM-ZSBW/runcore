@@ -14,7 +14,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { readFileSync, existsSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "./paths.js";
 const LOCKED_FILE = join(BRAIN_DIR, ".locked");
 
 /** Hardcoded minimum locked paths (always locked even without .locked file). */

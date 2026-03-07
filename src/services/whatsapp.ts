@@ -36,7 +36,7 @@ export interface WhatsAppChatResult {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const BRAIN_DIR = join(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const MEMORY_DIR = join(BRAIN_DIR, "memory");
 const PERSONALITY_PATH = join(BRAIN_DIR, "identity", "personality.md");
 

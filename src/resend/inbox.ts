@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { logActivity } from "../activity/log.js";
 import { createLogger } from "../utils/logger.js";
 import { processInboundEmail, sendResendReply } from "./webhooks.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("resend.inbox");
 
@@ -64,7 +65,7 @@ async function loadAgentRegistry(): Promise<AgentRegistry> {
   if (agentRegistryCache) return agentRegistryCache;
   try {
     const raw = await readFile(
-      join(process.cwd(), "brain", "identity", "email-agents.json"),
+      join(BRAIN_DIR, "identity", "email-agents.json"),
       "utf-8",
     );
     agentRegistryCache = JSON.parse(raw) as AgentRegistry;

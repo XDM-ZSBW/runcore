@@ -12,6 +12,7 @@ import {
   cpuUsagePercent,
   diskUsageBytes,
 } from "./prometheus.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 // ─── CPU state ───────────────────────────────────────────────────────────────
 
@@ -107,7 +108,7 @@ export async function collectDiskMetrics(
   timestamp: string,
   brainDir?: string,
 ): Promise<MetricPoint[]> {
-  const dir = brainDir ?? join(process.cwd(), "brain");
+  const dir = brainDir ?? BRAIN_DIR;
   const bytes = await dirSize(dir);
 
   diskUsageBytes.set(undefined, bytes);

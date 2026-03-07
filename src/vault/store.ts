@@ -8,8 +8,9 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { encrypt, decrypt, type EncryptedPayload } from "../auth/crypto.js";
 import { shouldHydrateKey } from "../integrations/gate.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
-const VAULT_DIR = join(process.cwd(), "brain", "vault");
+const VAULT_DIR = join(BRAIN_DIR, "vault");
 const VAULT_FILE = join(VAULT_DIR, "keys.json");
 
 interface EncryptedFile {

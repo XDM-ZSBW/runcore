@@ -23,7 +23,7 @@ import { existsSync } from "node:fs";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("deep-index");
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

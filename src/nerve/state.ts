@@ -14,7 +14,7 @@ import { listTasks as listAgentTasks } from "../agents/index.js";
 import { readBrainLines } from "../lib/brain-io.js";
 import { join, resolve } from "node:path";
 
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 
 // Pending major update — set by auto-updater, read by Sense dot
 let pendingUpdate: { current: string; latest: string } | null = null;

@@ -5,6 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { BRAIN_DIR } from "./lib/paths.js";
 
 let instanceName = "Core";
 
@@ -15,7 +16,7 @@ let instanceName = "Core";
  */
 export function initInstanceName(): void {
   try {
-    const raw = readFileSync(join(process.cwd(), "brain", "settings.json"), "utf-8");
+    const raw = readFileSync(join(BRAIN_DIR, "settings.json"), "utf-8");
     const parsed = JSON.parse(raw);
     if (typeof parsed.instanceName === "string" && parsed.instanceName.trim()) {
       instanceName = parsed.instanceName.trim();

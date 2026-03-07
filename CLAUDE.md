@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Core is a file-based personal operating system for an AI agent. The repo is its **brain**: context, memory, and skills stored in markdown, YAML, and JSONL. No database, no API keys. Design follows **context engineering** — progressive disclosure of the right information at the right time. The instance name is configurable via `brain/settings.json` → `instanceName`.
+Core is the runtime for a file-based personal operating system. **Packages are code only, no data ever.** The brain (context, memory, skills in markdown, YAML, and JSONL) lives in a separate repo/directory, configured via the `CORE_BRAIN_DIR` environment variable. Default: `process.cwd() + "brain"` for backward compatibility.
+
+All brain path references flow through `src/lib/paths.ts` → `BRAIN_DIR`. No file defines its own brain path.
 
 ## Build commands
 
@@ -34,21 +36,23 @@ The runtime is **optional** — Core works purely as files read by an AI. The TS
 
 Package name is `core-brain` (v0.1.0, ESM, MIT).
 
-## File-based brain (brain/)
+## File-based brain (separate repo)
 
-The brain has five modules, each with an instruction file and data files:
+The brain lives outside this package (default: `E:/brain`, configured via `CORE_BRAIN_DIR`). It has five modules:
 
 | Module | Instruction file | Data files |
 |--------|-----------------|------------|
-| **memory** | `brain/memory/README.md` | `*.jsonl` (experiences, decisions, failures, semantic, procedural) |
+| **memory** | `memory/README.md` | `*.jsonl` (experiences, decisions, failures, semantic, procedural) |
 | **identity** | — | `tone-of-voice.md`, `brand.md`, `principles.md` |
-| **content** | `brain/content/CONTENT.md` | `templates/blog.md`, drafts |
-| **operations** | `brain/operations/OPERATIONS.md` | `goals.yaml`, `todos.md` |
-| **knowledge** | `brain/knowledge/README.md` | `research/`, `bookmarks/`, `notes/` |
+| **content** | `content/CONTENT.md` | `templates/blog.md` |
+| **operations** | `operations/OPERATIONS.md` | `goals.yaml`, `todos.md` |
+| **knowledge** | `knowledge/README.md` | `research/`, `bookmarks/`, `notes/` |
+
+Content drafts (human-facing writing) live in the publication repo (herrmangroup), not in the brain.
 
 ## Principles
 
-Read `brain/identity/principles.md` for product, architecture, and business principles. These inform decision-making across all Core-based brains. Load at Level 2 (alongside module instructions) when a task involves design choices, architecture decisions, or content that represents the brand.
+Read `identity/principles.md` (in the brain repo) for product, architecture, and business principles. These inform decision-making across all Core-based brains. Load at Level 2 (alongside module instructions) when a task involves design choices, architecture decisions, or content that represents the brand.
 
 ## Critical rules
 

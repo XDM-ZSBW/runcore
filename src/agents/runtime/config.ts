@@ -8,6 +8,7 @@
 import { join } from "node:path";
 import { resolveEnv } from "../../instance.js";
 import type { RuntimeConfig, AgentInstanceConfig, ResourceAllocation } from "./types.js";
+import { BRAIN_DIR } from "../../lib/paths.js";
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -24,7 +25,7 @@ const DEFAULTS: RuntimeConfig = {
   defaultMemoryLimitMB: 512,
   defaultCpuWeight: 50,
   monitorIntervalMs: 10_000,            // 10 seconds
-  persistDir: join(process.cwd(), "brain", "agents", "runtime"),
+  persistDir: join(BRAIN_DIR, "agents", "runtime"),
 };
 
 // ---------------------------------------------------------------------------

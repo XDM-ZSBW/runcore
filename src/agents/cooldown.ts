@@ -17,6 +17,7 @@ import { join, dirname } from "node:path";
 import { createLogger } from "../utils/logger.js";
 import { logActivity } from "../activity/log.js";
 import { recordCooldownActivation, recordCooldownSkip } from "../metrics/firewall-metrics.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("cooldown");
 
@@ -45,7 +46,7 @@ const DEFAULT_CONFIG: CooldownConfig = {
   baseCooldownMs: 30 * 60 * 1000,       // 30 min
   maxCooldownMs: 4 * 60 * 60 * 1000,    // 4 hours
   backoffMultiplier: 2,
-  persistPath: join(process.cwd(), "brain", "agents", "cooldowns.json"),
+  persistPath: join(BRAIN_DIR, "agents", "cooldowns.json"),
   maxEntries: 200,
   maxTotalFailures: 6,
 };

@@ -12,7 +12,7 @@ import { join, basename } from "node:path";
 import { readBrainFile } from "../lib/brain-io.js";
 import { resolveEnv } from "../instance.js";
 
-const BRAIN_DIR = resolveEnv("BRAIN_DIR") ?? join(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 
 /** Directories to scan for documents the user might reference by description. */
 const DOC_DIRS = [

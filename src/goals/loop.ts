@@ -17,7 +17,7 @@ import { readBrainFile } from "../lib/brain-io.js";
 import { emitCdt } from "../pulse/activation-event.js";
 import { getInstanceName, getAlertEmailFrom, resolveEnv } from "../instance.js";
 
-const BRAIN_DIR = join(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 
 export interface GoalCheckOptions {
   brain: Brain;

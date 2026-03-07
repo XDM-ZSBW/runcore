@@ -24,7 +24,7 @@ import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("governance");
 
-const BRAIN_DIR = resolve(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 
 // ---------------------------------------------------------------------------
 // Types

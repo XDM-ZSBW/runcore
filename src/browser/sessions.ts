@@ -10,10 +10,11 @@ import { join } from "node:path";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { createLogger } from "../utils/logger.js";
 import { getEncryptionKey } from "../lib/key-store.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("browser-sessions");
 
-const SESSIONS_DIR = join(process.cwd(), "brain", "browser", "sessions");
+const SESSIONS_DIR = join(BRAIN_DIR, "browser", "sessions");
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface SessionEnvelope {

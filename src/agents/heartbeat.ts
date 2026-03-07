@@ -21,10 +21,11 @@ import {
   appendBrainLineSync,
   ensureBrainFileSync,
 } from "../lib/brain-io.js";
+import { BRAIN_DIR } from "../lib/paths.js";
 
 const log = createLogger("heartbeat");
 
-const OPS_DIR = resolve(process.cwd(), "brain", "ops");
+const OPS_DIR = join(BRAIN_DIR, "ops");
 const HEARTBEAT_FILE = join(OPS_DIR, "heartbeats.jsonl");
 const SCHEMA_LINE = JSON.stringify({ _schema: "heartbeat", _version: "1.0" });
 

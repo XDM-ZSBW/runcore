@@ -96,7 +96,7 @@ let lastRun: InsightRunSummary | null = null;
 
 // ─── Persistence ─────────────────────────────────────────────────────────────
 
-const BRAIN_DIR = join(process.cwd(), "brain");
+import { BRAIN_DIR } from "../lib/paths.js";
 const INSIGHTS_FILE = join(BRAIN_DIR, "operations", "insights.jsonl");
 const INSIGHTS_SCHEMA = JSON.stringify({ _schema: "insights", _version: "1.0" });
 
