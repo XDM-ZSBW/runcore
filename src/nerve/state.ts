@@ -269,7 +269,7 @@ async function computeJoy(): Promise<DotState> {
   return { color, label, detail, items };
 }
 
-/** Get the full nerve state — three dots of goo. */
+/** Get the full nerve state — three dots of field. */
 export async function getNerveState(): Promise<NerveState> {
   const [sense, work, joy] = await Promise.all([
     computeSense(),

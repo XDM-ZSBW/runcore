@@ -33,16 +33,25 @@ Usage:
   runcore --dir <path>        Use a specific directory
   runcore status              Check if running
   runcore update              Update to latest version
+  runcore register            Register for BYOK/Spawn tier
+  runcore activate <token>    Activate with a signed token
+  runcore tier                Show current tier and capabilities
   runcore --version           Print version
 
 Environment:
   CORE_PORT          Server port (same as --port)
   CORE_HOME          Brain directory root (same as --dir)
 
+Tiers:
+  Local (default)    Brain + Ollama, zero network
+  BYOK               Full server/UI, your API keys
+  Spawn              Agent spawning + multi-agent
+  Hosted             Managed by The Herrman Group
+
 Examples:
   npx runcore                     # That's it. One command.
   npx runcore --port 4000
-  npx runcore --dir ~/my-agent
+  npx runcore register
 `.trim();
 
 // ── Arg parsing (no deps) ──────────────────────────────────────────
@@ -179,9 +188,33 @@ async function findPort(preferred: number): Promise<number> {
   });
 }
 
-// ── Start ──────────────────────────────────────────────────────────
+// ── Start (Level 1: Brain Only) ─────────────────────────────────────
 
-async function startServer() {
+async function startBrainOnly(root: string) {
+  process.chdir(root);
+  if (!process.env.LOG_LEVEL) process.env.LOG_LEVEL = "warn";
+
+  console.log(`\n  Core v${VERSION} — Local tier (brain only)`);
+  console.log(`  Memory, context, Ollama. No network surface.`);
+  console.log(`  Run \`runcore register\` to unlock full features.\n`);
+
+  // Start MCP server (stdio) for Claude Code integration
+  try {
+    await import("./mcp-server.js");
+  } catch {
+    // MCP server is optional — if it fails, brain still works
+    console.log("  MCP server not available — running standalone.\n");
+  }
+
+  // Start heartbeat if we somehow have a token (shouldn't for local, but defensive)
+  // Keep process alive
+  const keepAlive = setInterval(() => {}, 60_000);
+  keepAlive.unref();
+}
+
+// ── Start (Level 2+: Full Server) ───────────────────────────────────
+
+async function startServer(tier: import("./tier/types.js").TierName = "byok") {
   const preferredPort = parseInt(getFlag(args, "--port") ?? process.env.CORE_PORT ?? "0", 10);
   const dirArg = getFlag(args, "--dir") ?? process.env.CORE_HOME;
 
@@ -208,17 +241,32 @@ async function startServer() {
   const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   let i = 0;
   const spinner = setInterval(() => {
-    process.stdout.write(`\r  ${frames[i++ % frames.length]} Starting Core...`);
+    process.stdout.write(`\r  ${frames[i++ % frames.length]} Starting Core (${tier})...`);
   }, 80);
 
   const { start, getStartupToken, getActualPort } = await import("./server.js");
-  await start();
+  await start({ tier });
 
   clearInterval(spinner);
   process.stdout.write("\r" + " ".repeat(40) + "\r");
 
   // Resolve the actual port (handles port 0 → OS-assigned)
   const resolvedPort = getActualPort();
+
+  // Start registry heartbeat for tier >= byok
+  const { loadActivationToken } = await import("./tier/token.js");
+  const activation = await loadActivationToken(root);
+  if (activation) {
+    const { startHeartbeat, onFreezeSignal, onTierDowngrade } = await import("./tier/heartbeat.js");
+    const { freeze } = await import("./tier/freeze.js");
+
+    onFreezeSignal((signal) => freeze(signal, root));
+    onTierDowngrade((newTier) => {
+      console.log(`\n  Tier changed to: ${newTier}. Restart required.\n`);
+    });
+
+    startHeartbeat(activation.raw, tier);
+  }
 
   // Auto-open browser with startup token for zero-friction onboarding
   const token = getStartupToken();
@@ -232,7 +280,7 @@ async function startServer() {
       : `xdg-open "${url}"`;
     exec(openCmd, () => {});
 
-    console.log(`\n  Core is ready on port ${resolvedPort}\n`);
+    console.log(`\n  Core v${VERSION} — ${tier.toUpperCase()} tier on port ${resolvedPort}\n`);
   }
 }
 
@@ -289,6 +337,96 @@ async function selfUpdate() {
   }
 }
 
+// ── Registration ─────────────────────────────────────────────────────
+
+async function register() {
+  const readline = await import("node:readline");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string): Promise<string> =>
+    new Promise((res) => rl.question(q, (a) => res(a.trim())));
+
+  console.log("\n  Register for Core — request an activation tier.\n");
+  const name = await ask("  Name: ");
+  const email = await ask("  Email: ");
+  rl.close();
+
+  if (!name || !email) {
+    console.log("  Name and email are required.");
+    return;
+  }
+
+  // Generate a stable instance ID from this machine
+  const { createHash } = await import("node:crypto");
+  const { hostname } = await import("node:os");
+  const instanceId = createHash("sha256")
+    .update(`${hostname()}:${process.cwd()}`)
+    .digest("hex")
+    .slice(0, 16);
+
+  console.log(`\n  Submitting registration request...`);
+
+  try {
+    const res = await fetch("https://runcore.sh/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, instanceId, requestedAt: new Date().toISOString() }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (res.ok) {
+      console.log(`  Request submitted. You'll receive an activation token when approved.`);
+      console.log(`  Run \`runcore activate <token>\` when you get it.\n`);
+    } else {
+      const text = await res.text();
+      console.log(`  Registration failed: ${text}`);
+    }
+  } catch (err) {
+    console.log(`  Could not reach runcore.sh — check your connection.`);
+  }
+}
+
+async function activate() {
+  const jwt = args[1];
+  if (!jwt) {
+    console.log("  Usage: runcore activate <token>");
+    return;
+  }
+
+  const root = getFlag(args, "--dir") ?? process.env.CORE_HOME ?? process.cwd();
+  const { saveActivationToken } = await import("./tier/token.js");
+
+  try {
+    const token = await saveActivationToken(root, jwt);
+    console.log(`\n  Activated! Tier: ${token.tier}`);
+    console.log(`  Org: ${token.org}`);
+    console.log(`  Expires: ${token.expires}`);
+    console.log(`\n  Restart runcore to apply.\n`);
+  } catch (err) {
+    console.log(`  Activation failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+async function showTier() {
+  const root = getFlag(args, "--dir") ?? process.env.CORE_HOME ?? process.cwd();
+  const { loadActivationToken } = await import("./tier/token.js");
+  const { TIER_CAPS } = await import("./tier/types.js");
+
+  const result = await loadActivationToken(root);
+  const tier = result?.token.tier ?? "local";
+  const caps = TIER_CAPS[tier];
+
+  console.log(`\n  Current tier: ${tier}`);
+  if (result) {
+    console.log(`  Org: ${result.token.org}`);
+    console.log(`  Expires: ${result.token.expires}`);
+  }
+  console.log(`\n  Capabilities:`);
+  for (const [cap, enabled] of Object.entries(caps)) {
+    console.log(`    ${enabled ? "+" : "-"} ${cap}`);
+  }
+  console.log();
+}
+
 // ── Dispatch ────────────────────────────────────────────────────────
 
 async function main() {
@@ -312,12 +450,37 @@ async function main() {
     return;
   }
 
-  // Everything else: just start (with auto-init)
-  await startServer();
+  if (command === "register") {
+    await register();
+    return;
+  }
 
-  // Auto-update after server is running
-  // patch/minor: silent update + restart
-  // major: surface through nerve state, human decides
+  if (command === "activate") {
+    await activate();
+    return;
+  }
+
+  if (command === "tier") {
+    await showTier();
+    return;
+  }
+
+  // Load tier before deciding startup path
+  const root = resolve(getFlag(args, "--dir") ?? process.env.CORE_HOME ?? process.cwd());
+  await ensureBrain(root);
+
+  const { currentTier } = await import("./tier/token.js");
+  const tier = await currentTier(root);
+
+  if (tier === "local") {
+    // Level 1: brain-only — MCP server, Ollama, no HTTP server
+    await startBrainOnly(root);
+  } else {
+    // Level 2+: full server with tier-appropriate capabilities
+    await startServer(tier);
+  }
+
+  // Auto-update after startup
   import("./updater.js").then(({ autoUpdate }) => {
     autoUpdate().then(async (pending) => {
       if (pending) {

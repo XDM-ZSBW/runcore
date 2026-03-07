@@ -582,6 +582,14 @@ app.use("/api/*", async (c, next) => {
   return generalLimiter(c, next);
 });
 
+// --- Posture middleware (intent accumulation + surface gating) ---
+
+// Track all API interactions for posture engine
+app.use("/api/*", postureTracker());
+
+// Attach posture surface header to all responses
+app.use("/api/*", postureHeader());
+
 // --- Webhook initialization (batch registration + config + admin routes) ---
 
 const webhookInitStart = performance.now();
@@ -2784,6 +2792,11 @@ function issuesToCardPayload(issues: BoardIssue[]) {
   });
 }
 
+// Board API — gated to board posture
+app.use("/api/board/*", requireSurface("pages"));
+app.use("/api/ops/*", requireSurface("pages"));
+app.use("/api/agents/*", requireSurface("agents"));
+
 // Board status: is a provider configured, and who is the user?
 app.get("/api/board/status", async (c) => {
   const board = getBoardProvider();
@@ -3647,39 +3660,35 @@ app.get("/api/help/context", async (c) => {
   });
 });
 
-// --- Ops dashboard routes (no auth — local-only diagnostics) ---
+// --- Ops dashboard routes (posture-gated: board level) ---
 
-// Serve observatory.html
-app.get("/observatory", async (c) => {
+// Board-level pages — only assembled when user has shown intent for full visibility
+app.get("/observatory", requireSurface("pages"), async (c) => {
   const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "observatory.html"));
   return c.html(html);
 });
 
-// Serve ops.html
-app.get("/ops", async (c) => {
+app.get("/ops", requireSurface("pages"), async (c) => {
   const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "ops.html"));
   return c.html(html);
 });
 
-// Serve board.html (kanban view)
-app.get("/board", async (c) => {
+app.get("/board", requireSurface("pages"), async (c) => {
   const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "board.html"));
   return c.html(html);
 });
 
-// Serve library.html (file explorer)
-app.get("/library", async (c) => {
+app.get("/library", requireSurface("pages"), async (c) => {
   const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "library.html"));
   return c.html(html);
 });
 
-// Serve browser.html (agent's-eye view of web pages)
-app.get("/browser", async (c) => {
+app.get("/browser", requireSurface("pages"), async (c) => {
   const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "browser.html"));
   return c.html(html);
 });
 
-// Serve registry.html (service & capability dashboard)
+// Registry is always available — it's the entry point
 app.get("/registry", async (c) => {
   const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "registry.html"));
   return c.html(html);
@@ -4127,6 +4136,31 @@ app.delete("/api/ops/projects/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// --- Posture API (UI surface assembly) ---
+
+app.get("/api/posture", (c) => {
+  return c.json({
+    posture: getPosture(),
+    surface: getSurface(),
+    state: getPostureState(),
+  });
+});
+
+app.put("/api/posture", async (c) => {
+  const body = await c.req.json() as { posture?: PostureName; pinned?: boolean };
+  if (body.posture && ["silent", "pulse", "board"].includes(body.posture)) {
+    if (body.pinned !== false) {
+      pinPosture(body.posture);
+    } else {
+      pinPosture(body.posture);
+      unpinPosture();
+    }
+  } else if (body.pinned === false) {
+    unpinPosture();
+  }
+  return c.json({ posture: getPosture(), surface: getSurface(), state: getPostureState() });
+});
+
 // --- Pulse (nervous system) endpoint ---
 
 app.get("/api/pulse/status", (c) => {
@@ -4149,6 +4183,12 @@ app.get("/api/pulse/history", (c) => {
 
 import { getNerveState } from "./nerve/state.js";
 import { initPush, getVapidPublicKey, addSubscription, checkAndNotify, startPushMonitor, stopPushMonitor } from "./nerve/push.js";
+import {
+  loadPosture, startDecayTimer, stopDecayTimer,
+  getPosture, getPostureState, getSurface, pinPosture, unpinPosture,
+} from "./posture/engine.js";
+import { postureTracker, requireSurface, postureHeader } from "./posture/middleware.js";
+import type { PostureName } from "./posture/types.js";
 
 // State endpoint — three dots
 app.get("/api/nerve/state", async (c) => {
@@ -5285,9 +5325,35 @@ app.post("/api/chat", async (c) => {
   });
 });
 
+// --- Freeze endpoint (operator clicks freeze link) ---
+
+app.post("/api/freeze", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body?.signal) return c.json({ error: "Missing freeze signal" }, 400);
+
+  const { freeze, isFrozen } = await import("./tier/freeze.js");
+  if (isFrozen()) return c.json({ error: "Already frozen" }, 409);
+
+  await freeze(body.signal, process.cwd());
+  return c.json({ status: "frozen", message: "All agents dormant." });
+});
+
+app.post("/api/thaw", async (c) => {
+  const { thaw } = await import("./tier/freeze.js");
+  await thaw(process.cwd());
+  return c.json({ status: "thawed", message: "Operations resuming." });
+});
+
+app.get("/api/freeze/status", async (c) => {
+  const { isFrozen, getFreezeSignal } = await import("./tier/freeze.js");
+  return c.json({ frozen: isFrozen(), signal: getFreezeSignal() });
+});
+
 // --- Startup ---
 
-async function start() {
+async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
+  const tier = opts?.tier ?? "byok";
+  const tierGate = await import("./tier/gate.js");
   // Initialize instance name before anything else
   initInstanceName();
 
@@ -5300,6 +5366,10 @@ async function start() {
 
   // Load settings (airplane mode, model selection)
   const settings = await loadSettings();
+
+  // Initialize posture system (UI surface assembly)
+  await loadPosture();
+  startDecayTimer();
 
   // Install fetch guard before any routes or outbound calls
   installFetchGuard();
@@ -5489,19 +5559,25 @@ async function start() {
     }
   });
 
-  // Initialize instance manager (GC, health checks, load balancing)
-  instanceManager = new AgentInstanceManager(runtime);
-  await instanceManager.init();
+  // Initialize agent spawning — tier >= spawn only
+  if (tierGate.canSpawn(tier)) {
+    // Initialize instance manager (GC, health checks, load balancing)
+    instanceManager = new AgentInstanceManager(runtime);
+    await instanceManager.init();
 
-  // Initialize agent pool (circuit breakers, isolation, resource management)
-  agentPool = AgentPool.fromExisting(runtime, instanceManager);
-  setAgentPool(agentPool);
+    // Initialize agent pool (circuit breakers, isolation, resource management)
+    agentPool = AgentPool.fromExisting(runtime, instanceManager);
+    setAgentPool(agentPool);
 
-  // Initialize workflow engine for multi-agent coordination
-  workflowEngine = new WorkflowEngine(agentPool);
-  await workflowEngine.loadAllDefinitions().catch((err) => {
-    log.warn("Failed to load workflow definitions", { error: err instanceof Error ? err.message : String(err) });
-  });
+    // Initialize workflow engine for multi-agent coordination
+    workflowEngine = new WorkflowEngine(agentPool);
+    await workflowEngine.loadAllDefinitions().catch((err) => {
+      log.warn("Failed to load workflow definitions", { error: err instanceof Error ? err.message : String(err) });
+    });
+    log.info(`Agent spawning enabled (tier: ${tier})`);
+  } else {
+    log.info(`Agent spawning disabled (tier: ${tier} — requires spawn tier)`);
+  }
 
   // --- Register component health checks (after all systems initialized) ---
 
@@ -5535,25 +5611,27 @@ async function start() {
   // Start alert evaluation loop (evaluates every 30s)
   alertManager.start();
 
-  // Wire notification channels — email (Resend) and phone (Twilio voice)
-  const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey) {
-    alertDispatcher.add(new EmailChannel({
-      endpoint: "https://api.resend.com/emails",
-      apiKey: resendKey,
-      from: `${getInstanceName()} <${getAlertEmailFrom()}>`,
-      to: [resolveEnv("ALERT_EMAIL_TO") ?? ""].filter(Boolean),
-    }));
-    log.info("Alert channel: email (Resend)");
+  // Wire notification channels — tier >= byok only (requires BYOK API keys)
+  if (tierGate.canAlert(tier)) {
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      alertDispatcher.add(new EmailChannel({
+        endpoint: "https://api.resend.com/emails",
+        apiKey: resendKey,
+        from: `${getInstanceName()} <${getAlertEmailFrom()}>`,
+        to: [resolveEnv("ALERT_EMAIL_TO") ?? ""].filter(Boolean),
+      }));
+      log.info("Alert channel: email (Resend)");
+    }
+    if (process.env.TWILIO_ACCOUNT_SID) {
+      alertDispatcher.add(new PhoneChannel());
+      log.info("Alert channel: phone (Twilio voice)");
+    }
+    alertManager.updateNotifications([
+      { channel: "email", minSeverity: "warning" },
+      { channel: "phone", minSeverity: "critical" },
+    ]);
   }
-  if (process.env.TWILIO_ACCOUNT_SID) {
-    alertDispatcher.add(new PhoneChannel());
-    log.info("Alert channel: phone (Twilio voice)");
-  }
-  alertManager.updateNotifications([
-    { channel: "email", minSeverity: "warning" },
-    { channel: "phone", minSeverity: "critical" },
-  ]);
 
   // Start credit monitoring (checks every 5 min, configurable via CORE_CREDIT_CHECK_INTERVAL_MS)
   startCreditMonitor(health, alertManager);
@@ -5787,8 +5865,8 @@ async function start() {
         });
       } catch { /* ok */ }
 
-      // Announce on LAN if mesh.lanAnnounce is enabled
-      if (getMeshConfig().lanAnnounce) {
+      // Announce on LAN if mesh.lanAnnounce is enabled AND tier >= byok
+      if (tierGate.canMesh(tier) && getMeshConfig().lanAnnounce) {
         try {
           startMdns(actualPort);
         } catch (err) {
