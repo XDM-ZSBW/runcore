@@ -5365,6 +5365,19 @@ app.post("/api/import/folder", async (c) => {
     dryRun: body.dryRun ?? false,
   });
 
+  // After import, kick off local indexing in background
+  if (!body.dryRun && result.imported > 0) {
+    import("./files/index-local.js").then(({ indexImportedFiles }) => {
+      indexImportedFiles({ localOnly: true }).catch(() => {});
+    });
+  }
+
+  return c.json(result);
+});
+
+app.post("/api/import/index", async (c) => {
+  const { indexImportedFiles } = await import("./files/index-local.js");
+  const result = await indexImportedFiles({ localOnly: true });
   return c.json(result);
 });
 
