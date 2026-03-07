@@ -2763,3 +2763,203 @@
 {"timestamp":"2026-03-06T16:35:55.134Z","file":"memory/semantic.jsonl","method":"readBrainLines","caller":"mcp:memory_retrieve","channel":"mcp"}
 {"timestamp":"2026-03-06T16:35:55.135Z","file":"memory/triads.jsonl","method":"readBrainLines","caller":"mcp:memory_retrieve","channel":"mcp"}
 {"timestamp":"2026-03-06T16:35:55.135Z","file":"memory/wins.jsonl","method":"readBrainLines","caller":"mcp:memory_retrieve","channel":"mcp"}
+{"timestamp":"2026-03-07T01:54:39.152Z","file":"operations/notifications.jsonl","method":"readBrainLinesSync"}
+{"timestamp":"2026-03-07T01:54:39.155Z","file":"vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:39.159Z","file":"metrics/metrics.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:39.193Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:39.247Z","file":"operations/insights.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:49.163Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:51.059Z","file":"operations/notifications.jsonl","method":"readBrainLinesSync"}
+{"timestamp":"2026-03-07T01:54:51.063Z","file":"vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:51.067Z","file":"metrics/metrics.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:51.104Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:54:51.155Z","file":"operations/insights.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:55:01.073Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:55:29.013Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:55:29.013Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:55:29.024Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:29.024Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:29.032Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:55:29.032Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:29.032Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:55:29.033Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:34.047Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:34.047Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:34.048Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:34.048Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:39.061Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:39.060Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:39.062Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:39.062Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:44.073Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:44.073Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:44.074Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:44.075Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:49.085Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:49.085Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:49.087Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:49.087Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:55:53.432Z","file":"identity/personality.md","method":"readBrainFile","caller":"http:init:personality","channel":"http"}
+{"timestamp":"2026-03-07T01:55:53.433Z","file":"memory/experiences.jsonl","method":"readBrainLines","caller":"http:GET /api/history","channel":"http"}
+{"timestamp":"2026-03-07T01:55:53.433Z","file":"memory/semantic.jsonl","method":"readBrainLines","caller":"http:GET /api/history","channel":"http"}
+{"timestamp":"2026-03-07T01:55:53.433Z","file":"memory/procedural.jsonl","method":"readBrainLines","caller":"http:GET /api/history","channel":"http"}
+{"timestamp":"2026-03-07T01:55:53.436Z","file":"memory/embeddings.jsonl","method":"readBrainLines","caller":"http:GET /api/history","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.640Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.640Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.640Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.641Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/state","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.655Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.655Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.657Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:42.658Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:47.660Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:47.660Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:47.661Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:47.661Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:52.662Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:52.663Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:52.664Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:52.664Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:57.666Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:57.666Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:57.667Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:57.667Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:56:57.667Z","file":"operations/queue.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:02.672Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:02.672Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:02.673Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:02.673Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:07.683Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:07.683Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:07.684Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:07.684Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:09.233Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:57:09.237Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:57:12.698Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:12.698Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:12.698Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:12.699Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:17.712Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:17.712Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:17.713Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:17.713Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:22.718Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:22.718Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:22.719Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:22.719Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:27.732Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:27.733Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:27.733Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:27.734Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:32.745Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:32.745Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:32.746Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:32.746Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:37.754Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:37.754Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:37.755Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:37.755Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:39.210Z","file":"memory/resonances.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:57:39.210Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:57:39.211Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:57:42.763Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:42.764Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:42.764Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:42.765Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:47.763Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:47.763Z","file":"memory/open-loops.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:47.764Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:47.764Z","file":"operations/notifications.jsonl","method":"readBrainLines","caller":"http:GET /api/nerve/stream","channel":"http"}
+{"timestamp":"2026-03-07T01:57:51.118Z","file":"memory/resonances.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:57:51.119Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:57:51.119Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:39.169Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:39.170Z","file":"scheduling/blocks.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:39.215Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:39.216Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:51.070Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:51.071Z","file":"scheduling/blocks.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:51.133Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T01:59:51.133Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:04:39.181Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:04:39.228Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:04:39.229Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:04:51.084Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:04:51.147Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:04:51.148Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:09:39.192Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:09:39.240Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:09:39.240Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:09:51.091Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:09:51.153Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:09:51.154Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:14:39.200Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:14:39.247Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:14:39.248Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:14:51.096Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:14:51.160Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:14:51.160Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:19:39.215Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:19:39.262Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:19:39.263Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:19:51.099Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:19:51.162Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:19:51.163Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:24:39.228Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:24:39.274Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:24:39.275Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:24:51.114Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:24:51.178Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:24:51.180Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:29:39.233Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:29:39.280Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:29:39.281Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:29:51.118Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:29:51.181Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:29:51.183Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:34:39.234Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:34:39.281Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:34:39.282Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:34:51.127Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:34:51.191Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:34:51.193Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:39:39.243Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:39:39.290Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:39:39.290Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:39:51.128Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:39:51.191Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:39:51.193Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:44:39.243Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:44:39.290Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:44:39.290Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:44:51.134Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:44:51.197Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:44:51.199Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:49:39.253Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:49:39.299Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:49:39.299Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:49:51.147Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:49:51.209Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:49:51.212Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:39.252Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:39.309Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:39.309Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:49.837Z","file":"vault/credentials.enc.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:49.840Z","file":"memory/experiences.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:49.840Z","file":"memory/semantic.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:49.840Z","file":"memory/procedural.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:49.842Z","file":"memory/embeddings.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:49.890Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:51.088Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:51.149Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:51.211Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:54:51.214Z","file":"memory/open-loops.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:55:07.723Z","file":"agents/logs/agent_1772852087589_a9a73178.stdout.log","method":"readBrainFile"}
+{"timestamp":"2026-03-07T02:55:07.723Z","file":"agents/logs/agent_1772852087589_a9a73178.stderr.log","method":"readBrainFile"}
+{"timestamp":"2026-03-07T02:55:07.725Z","file":"agents/tasks/agent_1772852087589_a9a73178.json","method":"readBrainFile"}
+{"timestamp":"2026-03-07T02:55:07.726Z","file":"agents/logs/agent_1772852087589_a9a73178.stdout.log","method":"readBrainFile"}
+{"timestamp":"2026-03-07T02:55:07.726Z","file":"agents/logs/agent_1772852087589_a9a73178.stderr.log","method":"readBrainFile"}
+{"timestamp":"2026-03-07T02:55:07.728Z","file":"agents/tasks/agent_1772852087589_a9a73178.json","method":"readBrainFile"}
+{"timestamp":"2026-03-07T02:55:07.728Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:55:07.729Z","file":"operations/queue.jsonl","method":"readBrainLines"}
+{"timestamp":"2026-03-07T02:55:07.730Z","file":"agents/tasks/agent_1772852087589_a9a73178.json","method":"readBrainFile"}
