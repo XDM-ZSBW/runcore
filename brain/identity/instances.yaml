@@ -1,0 +1,94 @@
+# Instance Registry
+# Canonical list of all instances running on Core.
+# Each entry defines the instance's role, access scope, and interaction surface.
+# See: brain/knowledge/notes/architecture-glossary.md
+
+instances:
+  dash:
+    role: chief-of-staff
+    department: all
+    reports_to: Bryant
+    template: true
+    description: "Chief of Staff agent — been in every room, knows what breaks. Bleeding edge. Battle-tested. Reports back when the dictionary needs updating. The agent class that sits closest to the metal on every node."
+    access: "Bryant's vault — full. Other vaults — none unless explicitly granted."
+    interacts_with:
+      - Bryant
+    status: active
+    repo: "E:/dash"
+    spawn_policy: "brain/templates/spawn-policy.yaml"
+    notes: "THE onboarding template. Customer gets a chief-of-staff type, names it, and it handles everything from there. Spawns other agent types as needed, governed by spawn policy. Chief of staff serves the owner, not the system."
+
+  wendy:
+    role: administration
+    department: administration
+    reports_to: Bryant
+    description: "Administration department agent — scheduling, financials, back-office"
+    access: partitioned
+    access_manifest: "brain/.access/wendy.yaml"
+    interacts_with:
+      - Bryant
+      - executives
+    status: planned
+    repo: null
+    notes: "Sees operations and scheduling. No personal memories, no audit logs."
+
+  cora:
+    role: brand
+    department: brand-marketing
+    reports_to: Bryant
+    description: "Brand & marketing agent — public face, content voice, herrmangroup.com representation, market presence"
+    access: partitioned
+    access_manifest: "brain/.access/cora.yaml"
+    interacts_with:
+      - public
+      - Bryant
+    status: planned
+    repo: null
+    notes: "Watches how the brand is being represented in realtime. Content, voice, public knowledge, website. The audience is the public — different from the commercial department's prospects/clients."
+
+  robert:
+    role: commercial
+    department: commercial
+    reports_to: Bryant
+    description: "Commercial department agent — client-facing, sales, prospect interactions, real estate"
+    access: partitioned
+    access_manifest: "brain/.access/robert.yaml"
+    interacts_with:
+      - external_clients
+      - prospects
+    status: planned
+    repo: null
+    notes: "Template for every customer-facing product/service instance. When a customer onboards via core-agent, their instance is spawned from the commercial template — role, access tiers, interaction surface. They name it whatever they want. The commercial agent is the mold, not the product."
+
+  marvin:
+    role: loss-prevention
+    department: loss-prevention
+    reports_to: Bryant
+    description: "Loss prevention agent — watches the doors. Vault policy enforcement, anomaly detection, access auditing. The agent that ensures separation of concerns across trust boundaries."
+    access: partitioned
+    access_manifest: "brain/.access/marvin.yaml"
+    interacts_with:
+      - owner
+      - chief-of-staff
+    status: planned
+    repo: null
+    notes: "The one watching the doors can't also be the one opening them. Separate from administration, brand, commercial, and chief of staff. Audits vault access, flags anomalies, enforces tier boundaries."
+
+# Scaling rule:
+#   Only add a new agent class when a PEOPLE INTERFACE requires it —
+#   a different trust boundary, a different audience, a different door.
+#   Otherwise, spawn more of the highest class that represents the most needs.
+#   Agent classes exist because humans need to know who they're talking to
+#   and what that agent can see. Not because of technical limitations.
+
+# Roles reference:
+#   personal    — full access to owner's vault (only .locked paths denied). No cross-vault access.
+#   back-office — operations scope, deny personal/audit paths
+#   front-office — public scope, deny operations/memory/drafts
+#   custom      — user-defined, any combination of read/deny/write globs
+
+# Delegation / Surrogate:
+#   TODO: Define delegation model — emergency contact / surrogate gets scoped,
+#   time-limited, revocable access via voucher. Not keys — a delegation token.
+#   "On behalf of" semantics. No one gets root. Every vault is sovereign.
+#   Concepts: delegation chain, surrogate voucher, scoped authority, audit trail.
