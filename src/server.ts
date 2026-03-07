@@ -5349,6 +5349,56 @@ app.get("/api/freeze/status", async (c) => {
   return c.json({ frozen: isFrozen(), signal: getFreezeSignal() });
 });
 
+// --- Brain import API ---
+
+app.post("/api/import/folder", async (c) => {
+  const body = await c.req.json() as { paths: string[]; dryRun?: boolean };
+  if (!body.paths || !Array.isArray(body.paths) || body.paths.length === 0) {
+    return c.json({ error: "paths[] required" }, 400);
+  }
+
+  const { resolve } = await import("node:path");
+  const { importToBrain } = await import("./files/import.js");
+  const result = await importToBrain({
+    sources: body.paths.map(p => resolve(p)),
+    brainRoot: process.cwd(),
+    dryRun: body.dryRun ?? false,
+  });
+
+  return c.json(result);
+});
+
+app.post("/api/import/files", async (c) => {
+  const formData = await c.req.formData();
+  const files = formData.getAll("files") as File[];
+  if (files.length === 0) return c.json({ error: "No files provided" }, 400);
+
+  const { mkdir: mkdirFs, writeFile: writeFs } = await import("node:fs/promises");
+  const { join: joinPath } = await import("node:path");
+  const ingestDir = joinPath(process.cwd(), "ingest");
+  await mkdirFs(ingestDir, { recursive: true });
+
+  const saved: string[] = [];
+  for (const file of files) {
+    if (!file.name) continue;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const dest = joinPath(ingestDir, file.name);
+    await writeFs(dest, buffer);
+    saved.push(file.name);
+  }
+
+  // Process the ingest folder immediately
+  const { processIngestFolder } = await import("./files/ingest-folder.js");
+  const ingestedDir = joinPath(process.cwd(), "ingested");
+  const result = await processIngestFolder(ingestDir, ingestedDir);
+
+  return c.json({
+    saved: saved.length,
+    files: saved,
+    ingested: result.newFiles,
+  });
+});
+
 // --- Startup ---
 
 async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
