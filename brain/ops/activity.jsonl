@@ -593,3 +593,230 @@
 {"id":401,"timestamp":"2026-03-05T15:01:06.860Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b7ea190bee70"}
 {"id":411,"timestamp":"2026-03-05T15:01:16.550Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b30569929bb8"}
 {"id":330,"timestamp":"2026-03-05T15:06:34.213Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_f47428b8748a"}
+{"id":402,"timestamp":"2026-03-05T15:11:06.863Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_079ba98edb4e"}
+{"id":412,"timestamp":"2026-03-05T15:11:16.561Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_6d8451e548ab"}
+{"id":403,"timestamp":"2026-03-05T15:21:06.877Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_31e6e316cde0"}
+{"id":413,"timestamp":"2026-03-05T15:21:16.563Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_c8011ed7af2d"}
+{"id":331,"timestamp":"2026-03-05T15:21:34.238Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_e0b700da98d5"}
+{"id":404,"timestamp":"2026-03-05T15:31:06.884Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_25ff1f9a45ce"}
+{"id":414,"timestamp":"2026-03-05T15:31:16.571Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ec370f1b7ee4"}
+{"id":330,"timestamp":"2026-03-05T15:33:00.449Z","source":"system","summary":"Metrics rotated: 15400 → 10000 points","traceId":"ts_a3ad2a56e35f"}
+{"id":405,"timestamp":"2026-03-05T15:39:06.609Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_b994ee39ea19"}
+{"id":415,"timestamp":"2026-03-05T15:39:15.911Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_b92478bf346e"}
+{"id":406,"timestamp":"2026-03-05T15:41:06.885Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_a0d8345d374b"}
+{"id":416,"timestamp":"2026-03-05T15:41:16.580Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_f71e015a12c7"}
+{"id":407,"timestamp":"2026-03-05T15:51:06.900Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ebc24c6b6438"}
+{"id":417,"timestamp":"2026-03-05T15:51:16.594Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_9d62a20798d9"}
+{"id":408,"timestamp":"2026-03-05T16:01:06.911Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_dcdadf4a07a0"}
+{"id":418,"timestamp":"2026-03-05T16:01:16.610Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_26cab543c19f"}
+{"id":332,"timestamp":"2026-03-05T16:01:34.331Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_2f7ba10e7a78"}
+{"id":409,"timestamp":"2026-03-05T16:11:06.926Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ae657af8a047"}
+{"id":419,"timestamp":"2026-03-05T16:11:16.627Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_68516c53938b"}
+{"id":410,"timestamp":"2026-03-05T16:21:06.940Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_fd63866afaa0"}
+{"id":420,"timestamp":"2026-03-05T16:21:16.633Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_57975155b3cc"}
+{"id":411,"timestamp":"2026-03-05T16:31:06.948Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_9b94ff1dffe0"}
+{"id":421,"timestamp":"2026-03-05T16:31:16.639Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_85f6670de65a"}
+{"id":412,"timestamp":"2026-03-05T16:38:51.988Z","source":"system","summary":"Metrics rotated: 15544 → 10000 points","traceId":"ts_ebe11c0b8fac"}
+{"id":422,"timestamp":"2026-03-05T16:39:01.934Z","source":"system","summary":"Metrics rotated: 15544 → 10000 points","traceId":"ts_a283693427a6"}
+{"id":413,"timestamp":"2026-03-05T16:39:06.631Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_5bbc2dc1515f"}
+{"id":423,"timestamp":"2026-03-05T16:39:15.932Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_87cb2240ebbf"}
+{"id":414,"timestamp":"2026-03-05T16:41:06.956Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_220af46c22a6"}
+{"id":424,"timestamp":"2026-03-05T16:41:16.645Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_241bf12dcfa9"}
+{"id":415,"timestamp":"2026-03-05T16:51:06.967Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_01e89cdd31fa"}
+{"id":425,"timestamp":"2026-03-05T16:51:16.657Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_694fed941f07"}
+{"id":416,"timestamp":"2026-03-05T17:01:06.982Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d6071f88c499"}
+{"id":426,"timestamp":"2026-03-05T17:01:16.671Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_6d58103394f8"}
+{"id":417,"timestamp":"2026-03-05T17:11:06.993Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_71fe59a824c9"}
+{"id":427,"timestamp":"2026-03-05T17:11:16.675Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b54561228f38"}
+{"id":418,"timestamp":"2026-03-05T17:21:07.005Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d8180a0e1ede"}
+{"id":428,"timestamp":"2026-03-05T17:21:16.685Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_39167a772f75"}
+{"id":419,"timestamp":"2026-03-05T17:31:07.009Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_669ab2d70303"}
+{"id":429,"timestamp":"2026-03-05T17:31:16.697Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_fa143672825a"}
+{"id":333,"timestamp":"2026-03-05T17:36:34.431Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_cb81d80f30bf"}
+{"id":420,"timestamp":"2026-03-05T17:39:06.601Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_e530bd6dc5e2"}
+{"id":430,"timestamp":"2026-03-05T17:39:15.925Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_2ed61eb63a0f"}
+{"id":421,"timestamp":"2026-03-05T17:41:07.018Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_e9d95b9547d0"}
+{"id":431,"timestamp":"2026-03-05T17:41:16.702Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_c951b948c901"}
+{"id":334,"timestamp":"2026-03-05T17:41:21.400Z","source":"system","summary":"Metrics rotated: 15762 → 10000 points","traceId":"ts_a3e9ab905474"}
+{"id":422,"timestamp":"2026-03-05T17:51:07.035Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_7a0e2f7a2dc9"}
+{"id":432,"timestamp":"2026-03-05T17:51:16.706Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ea0b93de206a"}
+{"id":423,"timestamp":"2026-03-05T18:01:07.049Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_033922f4f14c"}
+{"id":433,"timestamp":"2026-03-05T18:01:16.722Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_cfeb4f878b19"}
+{"id":424,"timestamp":"2026-03-05T18:11:07.066Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_578ad76b9dd5"}
+{"id":434,"timestamp":"2026-03-05T18:11:16.740Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_55ca7762a7eb"}
+{"id":425,"timestamp":"2026-03-05T18:21:07.073Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_dd0d00627cce"}
+{"id":435,"timestamp":"2026-03-05T18:21:16.755Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_3fbf05f62f9c"}
+{"id":426,"timestamp":"2026-03-05T18:31:07.085Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_6cd97ac9a1c2"}
+{"id":436,"timestamp":"2026-03-05T18:31:16.764Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ebbdb242b67e"}
+{"id":331,"timestamp":"2026-03-05T18:33:03.402Z","source":"system","summary":"Metrics rotated: 15400 → 10000 points","traceId":"ts_bed6a8bf46d9"}
+{"id":427,"timestamp":"2026-03-05T18:39:06.684Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_30d88dc96453"}
+{"id":437,"timestamp":"2026-03-05T18:39:15.951Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_4a0274a0670a"}
+{"id":428,"timestamp":"2026-03-05T18:41:07.103Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_9716c03d5732"}
+{"id":438,"timestamp":"2026-03-05T18:41:16.774Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_65f1e22d26e3"}
+{"id":429,"timestamp":"2026-03-05T18:51:07.117Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_20d3cfbb989a"}
+{"id":439,"timestamp":"2026-03-05T18:51:16.783Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_9051f557045f"}
+{"id":430,"timestamp":"2026-03-05T19:01:07.133Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_598a1835e3d7"}
+{"id":440,"timestamp":"2026-03-05T19:01:16.785Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ab32fd8c2950"}
+{"id":431,"timestamp":"2026-03-05T19:11:07.140Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_bf8d94b22100"}
+{"id":441,"timestamp":"2026-03-05T19:11:16.797Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_8a67b799fee8"}
+{"id":432,"timestamp":"2026-03-05T19:21:07.143Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_3ef54da74de6"}
+{"id":442,"timestamp":"2026-03-05T19:21:16.807Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5f4807de156c"}
+{"id":433,"timestamp":"2026-03-05T19:31:07.156Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_c1991c6600ae"}
+{"id":443,"timestamp":"2026-03-05T19:31:16.817Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_4eb33aff8cb9"}
+{"id":434,"timestamp":"2026-03-05T19:38:54.956Z","source":"system","summary":"Metrics rotated: 15544 → 10000 points","traceId":"ts_f7b4f5d8f612"}
+{"id":444,"timestamp":"2026-03-05T19:39:04.883Z","source":"system","summary":"Metrics rotated: 15544 → 10000 points","traceId":"ts_a02477df5160"}
+{"id":435,"timestamp":"2026-03-05T19:39:06.692Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_35e31cd2e23c"}
+{"id":445,"timestamp":"2026-03-05T19:39:16.020Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_8e8f26163793"}
+{"id":436,"timestamp":"2026-03-05T19:41:07.170Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_0e76f60ec159"}
+{"id":446,"timestamp":"2026-03-05T19:41:16.831Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_a141d8d05457"}
+{"id":335,"timestamp":"2026-03-05T19:46:34.660Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_d4b1085ae159"}
+{"id":437,"timestamp":"2026-03-05T19:51:07.183Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_faada0fc76cd"}
+{"id":447,"timestamp":"2026-03-05T19:51:16.844Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_eeb1a66892cf"}
+{"id":438,"timestamp":"2026-03-05T20:01:07.193Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_933090095570"}
+{"id":448,"timestamp":"2026-03-05T20:01:16.858Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_48b7b375d80b"}
+{"id":439,"timestamp":"2026-03-05T20:11:07.210Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_42933cb065e8"}
+{"id":449,"timestamp":"2026-03-05T20:11:16.876Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_0f433708ec9d"}
+{"id":440,"timestamp":"2026-03-05T20:21:07.220Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_f27f56de6b20"}
+{"id":450,"timestamp":"2026-03-05T20:21:16.881Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_26b6e0a2f051"}
+{"id":441,"timestamp":"2026-03-05T20:31:07.222Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d0cf8bdf149e"}
+{"id":451,"timestamp":"2026-03-05T20:31:16.890Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b4e377c96449"}
+{"id":442,"timestamp":"2026-03-05T20:39:06.555Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_15544c450954"}
+{"id":452,"timestamp":"2026-03-05T20:39:15.989Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_1065be4fb445"}
+{"id":443,"timestamp":"2026-03-05T20:41:07.235Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_63849c6a4941"}
+{"id":453,"timestamp":"2026-03-05T20:41:16.895Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b3368bd129f5"}
+{"id":336,"timestamp":"2026-03-05T20:41:24.299Z","source":"system","summary":"Metrics rotated: 15762 → 10000 points","traceId":"ts_db1f549ea84d"}
+{"id":444,"timestamp":"2026-03-05T20:51:07.246Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_02e27e907f98"}
+{"id":454,"timestamp":"2026-03-05T20:51:16.910Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b62828520df8"}
+{"id":445,"timestamp":"2026-03-05T21:01:07.260Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_3100355804a3"}
+{"id":455,"timestamp":"2026-03-05T21:01:16.915Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_2ef2e8016261"}
+{"id":446,"timestamp":"2026-03-05T21:11:07.268Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5cf2b79c530e"}
+{"id":456,"timestamp":"2026-03-05T21:11:16.929Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_fff2d76c2055"}
+{"id":447,"timestamp":"2026-03-05T21:21:07.279Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ad5eb33e1a64"}
+{"id":457,"timestamp":"2026-03-05T21:21:16.930Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_39cf49194039"}
+{"id":337,"timestamp":"2026-03-05T21:26:34.788Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_75fa992b380f"}
+{"id":448,"timestamp":"2026-03-05T21:31:07.281Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_8e2dccf6fa50"}
+{"id":458,"timestamp":"2026-03-05T21:31:16.942Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b5ac5385b210"}
+{"id":332,"timestamp":"2026-03-05T21:33:06.184Z","source":"system","summary":"Metrics rotated: 15414 → 10000 points","traceId":"ts_1b104a648c53"}
+{"id":338,"timestamp":"2026-03-05T21:36:34.909Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_f7d44123745d"}
+{"id":449,"timestamp":"2026-03-05T21:39:06.631Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_9a88efc58b57"}
+{"id":459,"timestamp":"2026-03-05T21:39:16.015Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_62744edf1fe9"}
+{"id":450,"timestamp":"2026-03-05T21:41:07.298Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5e0fcbdf12f3"}
+{"id":460,"timestamp":"2026-03-05T21:41:16.943Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_dbb9f259a5d8"}
+{"id":451,"timestamp":"2026-03-05T21:51:07.310Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_3b130a8c0880"}
+{"id":461,"timestamp":"2026-03-05T21:51:16.952Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_22e5a2ef19dc"}
+{"id":452,"timestamp":"2026-03-05T22:01:07.321Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_010d04206e1e"}
+{"id":462,"timestamp":"2026-03-05T22:01:16.954Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_9e35b43eef8b"}
+{"id":453,"timestamp":"2026-03-05T22:11:07.324Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_dfcdfe3d42ec"}
+{"id":463,"timestamp":"2026-03-05T22:11:16.966Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_e4fa6586fff5"}
+{"id":454,"timestamp":"2026-03-05T22:21:07.327Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_2f96904ad10d"}
+{"id":464,"timestamp":"2026-03-05T22:21:16.980Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_e77eb1f705fd"}
+{"id":339,"timestamp":"2026-03-05T22:26:34.898Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_37b5e337eecf"}
+{"id":455,"timestamp":"2026-03-05T22:31:07.331Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1cf3d2e9b8eb"}
+{"id":465,"timestamp":"2026-03-05T22:31:16.980Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_befeb53ecabf"}
+{"id":456,"timestamp":"2026-03-05T22:38:57.760Z","source":"system","summary":"Metrics rotated: 15544 → 10000 points","traceId":"ts_147001d12520"}
+{"id":457,"timestamp":"2026-03-05T22:39:06.621Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_0c9257f077c9"}
+{"id":466,"timestamp":"2026-03-05T22:39:07.671Z","source":"system","summary":"Metrics rotated: 15556 → 10000 points","traceId":"ts_02ac765b84ef"}
+{"id":467,"timestamp":"2026-03-05T22:39:15.981Z","source":"resend","summary":"Processing inbound email from bcherrman@gmail.com → Core: \"Hello\"","traceId":"ts_6241b8fed2ac"}
+{"id":458,"timestamp":"2026-03-05T22:41:07.343Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d09a2d614d50"}
+{"id":468,"timestamp":"2026-03-05T22:41:16.989Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_a1b88c9f8508"}
+{"id":459,"timestamp":"2026-03-05T22:51:07.348Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_6c9a576df01d"}
+{"id":469,"timestamp":"2026-03-05T22:51:16.992Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_0806316e79ee"}
+{"id":460,"timestamp":"2026-03-05T23:01:07.362Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d5b2c0ccf0d6"}
+{"id":470,"timestamp":"2026-03-05T23:01:17.005Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ea20eba911b4"}
+{"id":461,"timestamp":"2026-03-05T23:11:07.378Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_2fd20b3e4985"}
+{"id":471,"timestamp":"2026-03-05T23:11:17.021Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_df4bab6b673f"}
+{"id":462,"timestamp":"2026-03-05T23:21:07.391Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_357e4de68f4b"}
+{"id":472,"timestamp":"2026-03-05T23:21:17.038Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_0bb4eef497b5"}
+{"id":463,"timestamp":"2026-03-05T23:31:10.078Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_7e961c00ad71"}
+{"id":473,"timestamp":"2026-03-05T23:31:19.728Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_03cbe6b37961"}
+{"id":464,"timestamp":"2026-03-05T23:41:10.082Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_54558da41caa"}
+{"id":474,"timestamp":"2026-03-05T23:41:19.741Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_95d21ebd0638"}
+{"id":340,"timestamp":"2026-03-05T23:41:29.720Z","source":"system","summary":"Metrics rotated: 15762 → 10000 points","traceId":"ts_98665055e84d"}
+{"id":465,"timestamp":"2026-03-05T23:51:10.085Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_df4167cf498c"}
+{"id":475,"timestamp":"2026-03-05T23:51:19.745Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_504558e09874"}
+{"id":466,"timestamp":"2026-03-06T00:01:10.086Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_23047a13ddc4"}
+{"id":476,"timestamp":"2026-03-06T00:01:19.749Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_a1e9b6bda2cc"}
+{"id":467,"timestamp":"2026-03-06T00:11:10.094Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_8527e29eb781"}
+{"id":477,"timestamp":"2026-03-06T00:11:19.760Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1de7833d8a14"}
+{"id":468,"timestamp":"2026-03-06T00:21:10.104Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_009e6f36e6c7"}
+{"id":478,"timestamp":"2026-03-06T00:21:19.771Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_fd5416419a8e"}
+{"id":469,"timestamp":"2026-03-06T00:31:10.120Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_7c822079c225"}
+{"id":479,"timestamp":"2026-03-06T00:31:19.786Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_085539f0fcac"}
+{"id":333,"timestamp":"2026-03-06T00:33:11.731Z","source":"system","summary":"Metrics rotated: 15400 → 10000 points","traceId":"ts_5f4307c2628b"}
+{"id":470,"timestamp":"2026-03-06T00:41:10.124Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_3be83b26da15"}
+{"id":480,"timestamp":"2026-03-06T00:41:19.794Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_752c0edbf34a"}
+{"id":471,"timestamp":"2026-03-06T00:51:10.135Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b85ed29a46ec"}
+{"id":481,"timestamp":"2026-03-06T00:51:19.796Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_adb7916a7deb"}
+{"id":472,"timestamp":"2026-03-06T01:01:10.148Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1edef8951b4c"}
+{"id":482,"timestamp":"2026-03-06T01:01:19.799Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5a42cce7d731"}
+{"id":473,"timestamp":"2026-03-06T01:11:10.159Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_aa380959b6d6"}
+{"id":483,"timestamp":"2026-03-06T01:11:19.806Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5d0ff97ddda8"}
+{"id":474,"timestamp":"2026-03-06T01:21:10.162Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1bfc6339f5ca"}
+{"id":484,"timestamp":"2026-03-06T01:21:19.815Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b578210a5949"}
+{"id":475,"timestamp":"2026-03-06T01:31:10.168Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_82302aa59cfc"}
+{"id":485,"timestamp":"2026-03-06T01:31:19.828Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_165a700d692a"}
+{"id":476,"timestamp":"2026-03-06T01:39:03.270Z","source":"system","summary":"Metrics rotated: 15542 → 10000 points","traceId":"ts_769708ebaf5d"}
+{"id":486,"timestamp":"2026-03-06T01:39:13.113Z","source":"system","summary":"Metrics rotated: 15543 → 10000 points","traceId":"ts_1c0ca7ee4866"}
+{"id":477,"timestamp":"2026-03-06T01:41:10.176Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d29d52192092"}
+{"id":487,"timestamp":"2026-03-06T01:41:19.844Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_7e80f879e08a"}
+{"id":341,"timestamp":"2026-03-06T01:46:37.947Z","source":"gmail","summary":"1 new unread email(s)","traceId":"ts_6aa2fa68b64b"}
+{"id":478,"timestamp":"2026-03-06T01:51:10.185Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_ff82bb6174b5"}
+{"id":488,"timestamp":"2026-03-06T01:51:19.857Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_7efcc7f04ed2"}
+{"id":479,"timestamp":"2026-03-06T02:01:10.200Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_99ca28bf68e2"}
+{"id":489,"timestamp":"2026-03-06T02:01:19.861Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_4639aa7d6cc0"}
+{"id":480,"timestamp":"2026-03-06T02:11:10.204Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5d7fde752207"}
+{"id":490,"timestamp":"2026-03-06T02:11:19.874Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_6d80a36ca2a6"}
+{"id":481,"timestamp":"2026-03-06T02:21:10.210Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_c3b0f6aec5d0"}
+{"id":491,"timestamp":"2026-03-06T02:21:19.883Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_697ada7d0722"}
+{"id":342,"timestamp":"2026-03-06T02:21:38.152Z","source":"gmail","summary":"2 new unread email(s)","traceId":"ts_bf7cb5939cfb"}
+{"id":482,"timestamp":"2026-03-06T02:31:10.223Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_53e2a4795acb"}
+{"id":492,"timestamp":"2026-03-06T02:31:19.891Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1a5c6e49a7dc"}
+{"id":483,"timestamp":"2026-03-06T02:41:10.232Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_3cd9fd379656"}
+{"id":493,"timestamp":"2026-03-06T02:41:19.898Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_97ec98aee435"}
+{"id":343,"timestamp":"2026-03-06T02:41:32.554Z","source":"system","summary":"Metrics rotated: 15762 → 10000 points","traceId":"ts_19db5d563891"}
+{"id":484,"timestamp":"2026-03-06T02:51:10.244Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_fce802e003eb"}
+{"id":494,"timestamp":"2026-03-06T02:51:19.906Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_99b5d9ebfa95"}
+{"id":485,"timestamp":"2026-03-06T03:01:10.250Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_edfcb428a6ee"}
+{"id":495,"timestamp":"2026-03-06T03:01:19.917Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_0ac345fe03f4"}
+{"id":486,"timestamp":"2026-03-06T03:11:10.265Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_6638d3447106"}
+{"id":496,"timestamp":"2026-03-06T03:11:19.926Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_151dfdef72ed"}
+{"id":487,"timestamp":"2026-03-06T03:21:10.271Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_0d05c4b84505"}
+{"id":497,"timestamp":"2026-03-06T03:21:19.935Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_6a75f706f94a"}
+{"id":488,"timestamp":"2026-03-06T03:31:10.276Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1c370dc71760"}
+{"id":498,"timestamp":"2026-03-06T03:31:19.944Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_c2c753e63f60"}
+{"id":334,"timestamp":"2026-03-06T03:33:14.478Z","source":"system","summary":"Metrics rotated: 15400 → 10000 points","traceId":"ts_7abb543cfa1e"}
+{"id":489,"timestamp":"2026-03-06T03:41:10.282Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_cebef5333759"}
+{"id":499,"timestamp":"2026-03-06T03:41:19.951Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_d2e7d37ccdef"}
+{"id":490,"timestamp":"2026-03-06T03:51:10.285Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_f2450040a2b4"}
+{"id":500,"timestamp":"2026-03-06T03:51:19.960Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1f30bb317068"}
+{"id":491,"timestamp":"2026-03-06T04:01:10.296Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_9ff480100af0"}
+{"id":501,"timestamp":"2026-03-06T04:01:19.970Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_9378ef2aa522"}
+{"id":492,"timestamp":"2026-03-06T04:11:10.310Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_5ccfdc966156"}
+{"id":502,"timestamp":"2026-03-06T04:11:19.971Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_8fce4c2f2169"}
+{"id":493,"timestamp":"2026-03-06T04:21:10.325Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b602c6ebd450"}
+{"id":503,"timestamp":"2026-03-06T04:21:19.982Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_c24b474fe1b5"}
+{"id":494,"timestamp":"2026-03-06T04:31:10.331Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_f4fbdaee4769"}
+{"id":504,"timestamp":"2026-03-06T04:31:19.984Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_22f0c5424348"}
+{"id":495,"timestamp":"2026-03-06T04:39:06.074Z","source":"system","summary":"Metrics rotated: 15526 → 10000 points","traceId":"ts_46e9604f9d56"}
+{"id":505,"timestamp":"2026-03-06T04:39:15.944Z","source":"system","summary":"Metrics rotated: 15526 → 10000 points","traceId":"ts_728aa84d86cf"}
+{"id":496,"timestamp":"2026-03-06T04:41:10.339Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_bc35fef094f6"}
+{"id":506,"timestamp":"2026-03-06T04:41:19.997Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_1f9f375b58b0"}
+{"id":497,"timestamp":"2026-03-06T04:51:10.343Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_7faf80a1e64a"}
+{"id":507,"timestamp":"2026-03-06T04:51:20.002Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_7297c84337a9"}
+{"id":498,"timestamp":"2026-03-06T05:01:10.347Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_451141651062"}
+{"id":508,"timestamp":"2026-03-06T05:01:20.017Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_4bbda7488902"}
+{"id":499,"timestamp":"2026-03-06T05:11:10.362Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_757cbdebc716"}
+{"id":509,"timestamp":"2026-03-06T05:11:20.029Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_53a286084b94"}
+{"id":500,"timestamp":"2026-03-06T05:21:10.370Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_b58250bde828"}
+{"id":510,"timestamp":"2026-03-06T05:21:20.037Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_767ef108dfeb"}
+{"id":501,"timestamp":"2026-03-06T05:31:10.384Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_60a971edd6af"}
+{"id":511,"timestamp":"2026-03-06T05:31:20.050Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_e24062456039"}
+{"id":502,"timestamp":"2026-03-06T05:41:10.394Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_95357e1c9440"}
+{"id":512,"timestamp":"2026-03-06T05:41:20.056Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_e93ebd951ba5"}
+{"id":344,"timestamp":"2026-03-06T05:41:35.334Z","source":"system","summary":"Metrics rotated: 15762 → 10000 points","traceId":"ts_e01fe8bde0e5"}
+{"id":503,"timestamp":"2026-03-06T05:51:10.406Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_8ab25915240d"}
+{"id":513,"timestamp":"2026-03-06T05:51:20.062Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_22e22310b25f"}
+{"id":504,"timestamp":"2026-03-06T06:01:10.409Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_33a94a770caa"}
+{"id":514,"timestamp":"2026-03-06T06:01:20.076Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_80b4292cca77"}
+{"id":505,"timestamp":"2026-03-06T06:11:10.416Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_bcd2c48873f7"}
+{"id":515,"timestamp":"2026-03-06T06:11:20.090Z","source":"system","summary":"Trace insight analysis failed: OPENROUTER_API_KEY not set","traceId":"ts_393326131966"}

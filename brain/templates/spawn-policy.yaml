@@ -1,0 +1,36 @@
+# Spawn Policy — governs what the chief-of-staff agent can create
+# Ships with every new chief-of-staff instance at onboarding.
+# The owner can modify. Loss prevention audits.
+
+owner: "{{OWNER}}"
+governed_by: "{{CHIEF_OF_STAFF}}"
+
+# Maximum concurrent agents this chief-of-staff can spawn
+max_agents: 4
+
+# Allowed agent types and their limits
+allowed_types:
+  administration:
+    max: 1
+    auto_spawn: false
+  brand:
+    max: 1
+    auto_spawn: false
+  commercial:
+    max: 2
+    auto_spawn: false
+  loss-prevention:
+    max: 1
+    auto_spawn: false
+
+# Chief-of-staff cannot spawn another chief-of-staff
+deny_types:
+  - chief-of-staff
+
+# Spawn requires owner approval by default
+# Can be relaxed per-type once trust is established
+require_owner_approval: true
+
+# TODO: Budget/cost caps per spawn
+# TODO: Temporal spawn rules (only during business hours?)
+# TODO: Auto-spawn triggers (when workload exceeds threshold)

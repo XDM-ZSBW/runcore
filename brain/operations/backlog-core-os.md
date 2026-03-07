@@ -256,48 +256,87 @@ the brain, not dictate it.
 `brain/knowledge/notes/core-v2-virtual-brain-layer.md` in the Dash repo for
 the complete design exploration.
 
-### U-007: Brain access partitioning — public/private/shared layers
-**Problem:** When someone else chats with your instance (e.g., a collaborator
-talks to Dash), the brain is fully exposed. Credentials, API keys, personal
-conversations, financial details, phone numbers — all readable by the LLM in
-context. There's no visibility boundary between what's safe to share and what's
-private. Multi-instance solves "separate people, separate brains" but not
-"someone else talking to *your* brain."
-**Concept:**
-- **Private layer** (default): credentials, vault contents, API keys, personal
-  conversations, financial info, personal identifiers. Never surfaced to
-  non-owner sessions.
-- **Shared layer** (explicit opt-in): project info, general knowledge, published
-  content, capabilities, skill descriptions. Surfaced when a guest chats.
-- **Public layer** (fully open): instance name, available skills, system status.
-  Anyone can see this without authentication.
-**Design considerations:**
-- File-level partitioning: tag files/directories with visibility (e.g.,
-  `brain/vault/` is always private, `brain/knowledge/` is shared by default)
-- Entry-level partitioning: JSONL entries could carry a `visibility` field
-  (private | shared | public) — useful for memories where some are shareable
-- Context assembly must filter by session type (owner vs guest) before building
-  LLM context. The partition boundary is enforced at the context assembler, not
-  at the file system.
-- Guest sessions get a reduced context: shared knowledge + public capabilities +
-  conversation history. No vault, no private memories, no credentials.
-- Owner can mark individual items as shared ("share this note with guests")
+### U-007: Instance access partitioning — role-based access manifests
+**Problem:** Multiple instances (Dash, Wendy, Cora) share a brain filesystem
+but need different visibility. Dash gets full access. Wendy (back-office) sees
+operations and scheduling but not personal memories. Cora (front-office) sees
+public knowledge and published content only. Guest sessions on any instance
+also need restricted views.
+**Design (decided 2026-03-05):**
+- **Access manifests** in `brain/.access/<instance>.yaml` — per-instance YAML
+  files declaring `role`, `read` (glob patterns), `deny` (glob overrides),
+  `write` (glob patterns). See [Access Manifest Spec](../knowledge/notes/access-manifest-spec.md).
+- Extends existing `.locked` infrastructure — `.locked` is absolute deny,
+  access manifests are role-based allow/deny layered on top.
+- Context assembler filters by the requesting instance's manifest before
+  building LLM context. Enforcement at the assembler, not at the filesystem.
+- Three built-in roles: `personal` (full access), `back-office` (operations
+  scope), `front-office` (public scope). Custom roles supported.
+- Guest sessions inherit the instance's manifest with an additional
+  `guest_override` that further restricts to shared/public paths only.
 **Relationship to other items:**
 - Extends VBL (U-006): the brain manifest could declare visibility per module
-- Required before any real guest-chat feature ships
-- Distinct from multi-instance (separate brains) and share flow (invite to install)
-**Not yet designed:** Auth mechanism for owner vs guest sessions, UI for managing
-visibility, migration of existing brain files to partitioned model.
+- Required before Wendy or Cora instances ship
+- Instance identities defined in `brain/identity/instances.yaml`
+- Full architecture reference: [Architecture Glossary](../knowledge/notes/architecture-glossary.md)
+**Not yet designed:** Auth mechanism for guest sessions, UI for managing
+manifests, migration of existing brain files to partitioned model.
+
+### U-008: PDF as generic document type
+**Problem:** Core needs a standard document format for generic capabilities —
+reports, exports, formatted output, archival. Markdown works for brain internals
+but isn't sufficient for structured, shareable documents.
+**Decision:** Adopt PDF as the document type. Build/integrate PDF tooling into
+Core's capability surface.
+**Scope:**
+- PDF generation from brain content (reports, summaries, exports)
+- PDF reading/parsing for ingestion into knowledge base
+- Template-driven PDF creation (branded output)
+- Not a priority for v1 runtime — long-range capability investment
+
+### U-009: Human presence indicators + escalation routing
+**Problem:** Agents need to know whether the human is available before
+escalating. Currently there's no presence signal — alerts fire into the void
+when the human is offline or resting.
+**Three states:**
+- **Online** — actively available. Full escalation surface. Alerts, questions,
+  approvals all flow in real time.
+- **Rest** — reachable for emergencies only. Only critical/security alerts
+  break through. Everything else queues.
+- **Off** — unreachable. Everything queues. No notifications dispatched.
+**Reliability contract:** The system doesn't need 24/7 availability. It needs
+the human to reliably show up for X units per Y cycle (e.g., 2 hours per day,
+8 hours per week). As long as that contract holds, escalation queues drain,
+approvals get processed, and the system stays healthy.
+**Design considerations:**
+- Presence could be explicit (human toggles state) or inferred (activity
+  signals, time-of-day rules, device connectivity)
+- Escalation routing table: `{severity} × {presence} → {action}` — e.g.,
+  critical+rest → push notification, standard+off → queue silently
+- Ties into alerting stack (Dash has NotificationDispatcher, Core writes to
+  shared location). Presence awareness lets the dispatcher make smarter
+  routing decisions.
+- Cooldowns per escalation type prevent alert fatigue during online windows
+- "Office hours" concept: scheduled online windows where the system batches
+  and presents queued items efficiently
+**Not yet designed:** Presence detection mechanism, escalation severity
+taxonomy, queue drain prioritization algorithm, cross-instance presence
+(does one human's presence state apply to all their instances?).
 
 ### Open questions
-- Should instances track which upstream version they forked from? (git tag vs settings field)
-- How much divergence is acceptable before "update" becomes "merge conflict hell"?
-- Should brain migrations be reversible (down-migrations)?
-- Registry packages vs code updates — are these the same channel or separate?
-- Free vs paid: what's the line? Updates? Skills marketplace? Hosting? Support?
-- When to decide: after N users? After first paying customer asks? After v1 stability?
-- U-007: Where does the partition boundary live — file-level, entry-level, or both?
-- U-007: How does a guest authenticate? Safe word? Link token? Biometric?
+
+**Decided (2026-03-05):**
+- ~~Should instances track which upstream version they forked from?~~ **Yes.** (Method TBD — git tag vs settings field)
+- ~~How much divergence is acceptable before "update" becomes merge conflict hell?~~ **As much as the membrane requires to maintain balance.** The membrane is the constraint, not an arbitrary version window.
+- ~~Should brain migrations be reversible (down-migrations)?~~ **No.** The brain knows when the process starts. No reason to fight transformation — accept the effects and move forward.
+
+**Needs more research:**
+- Registry packages vs code updates — same channel or separate? *(Need more context on registry design)*
+- Free vs paid: what's the line? *(Need comparison table — see three-repo-membrane-architecture.md for the emerging model: client+membrane open, host closed/paid)*
+- When to decide on monetization? *(Need comparison of top N timing options)*
+- U-007: Should access manifests support entry-level filtering (JSONL `visibility` field) in addition to file-level globs? *(Need to evaluate performance impact on context assembly)*
+- U-007: How does a guest authenticate against an instance? *(Need top N professional and science case studies compared by risk)*
+- Instance spawning: What's the minimum viable setup to create a new instance from Core? *(Need to define the `core init <name>` workflow)*
 
 ---
 

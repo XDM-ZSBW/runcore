@@ -12,7 +12,7 @@ goals:
   - id: kr2
     name: "No PII leaves machine without consent"
     target: "Private mode blocks all outbound LLM calls. Sensitive fields never sent."
-    current: "Defense-in-depth complete: privateMode (88f9332), fetch guard, integration gate, sensitive field redaction (pattern-based at network boundary). SSN, cards, API keys, PEM keys, bearer tokens, AWS keys, hex secrets all redacted before cloud egress."
+    current: "Defense-in-depth complete: privateMode (88f9332), fetch guard, integration gate. PrivacyMembrane (2026-03-05): reversible typed-placeholder redaction (<<CATEGORY_N>>) with bidirectional map, SensitiveRegistry (brain/knowledge/sensitive.yaml + built-in patterns), streaming token buffer for split-placeholder rehydration. Replaces one-way [REDACTED] with structure-preserving placeholders. Quantum-resistant by design — substitution, not encryption."
     status: complete
 
   - id: kr3
