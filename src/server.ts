@@ -539,6 +539,12 @@ app.get("/", async (c) => {
   return c.html(html);
 });
 
+// --- Nerve endpoint (PWA) ---
+app.get("/nerve", async (c) => {
+  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "nerve", "index.html"));
+  return c.html(html);
+});
+
 // --- Audit context middleware ---
 // Tags all brain file reads within HTTP handlers with the route info.
 app.use("/api/*", async (c, next) => {
@@ -4139,6 +4145,77 @@ app.get("/api/pulse/history", (c) => {
   return c.json(integrator.getVoltageHistory());
 });
 
+// --- Nerve API (three-dot goo) ---
+
+import { getNerveState } from "./nerve/state.js";
+import { initPush, getVapidPublicKey, addSubscription, checkAndNotify } from "./nerve/push.js";
+
+// State endpoint — three dots
+app.get("/api/nerve/state", async (c) => {
+  const state = await getNerveState();
+  return c.json(state);
+});
+
+// VAPID public key for push subscription
+app.get("/api/nerve/vapid-key", (c) => {
+  try {
+    return c.json({ key: getVapidPublicKey() });
+  } catch {
+    return c.json({ error: "Push not initialized" }, 503);
+  }
+});
+
+// Store push subscription from a nerve endpoint
+app.post("/api/nerve/subscribe", async (c) => {
+  const body = await c.req.json();
+  const { subscription, label } = body as {
+    subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
+    label?: string;
+  };
+  if (!subscription?.endpoint || !subscription?.keys) {
+    return c.json({ error: "Invalid subscription" }, 400);
+  }
+  const id = await addSubscription(subscription, label);
+  return c.json({ id });
+});
+
+// SSE stream — real-time nerve state updates
+app.get("/api/nerve/stream", async (c) => {
+  return streamSSE(c, async (stream) => {
+    // Send initial state
+    const initial = await getNerveState();
+    await stream.writeSSE({ event: "state", data: JSON.stringify(initial) });
+
+    // Poll every 5 seconds and send updates
+    let lastJson = JSON.stringify(initial);
+    const interval = setInterval(async () => {
+      try {
+        const state = await getNerveState();
+        const json = JSON.stringify(state);
+        if (json !== lastJson) {
+          lastJson = json;
+          await stream.writeSSE({ event: "state", data: json });
+          // Check if push notifications should fire
+          await checkAndNotify(state).catch(() => {});
+        }
+      } catch { /* stream may be closed */ }
+    }, 5000);
+
+    // Keep alive
+    const keepAlive = setInterval(async () => {
+      try { await stream.writeSSE({ event: "ping", data: "" }); } catch { /* ok */ }
+    }, 30000);
+
+    stream.onAbort(() => {
+      clearInterval(interval);
+      clearInterval(keepAlive);
+    });
+
+    // Hold the stream open
+    await new Promise(() => {});
+  });
+});
+
 // Chat: streamed response (or learn command)
 app.post("/api/chat", async (c) => {
   const body = await c.req.json();
@@ -5348,6 +5425,16 @@ async function start() {
     }
   }
 
+  // Initialize nerve push notifications (VAPID keys + subscriptions)
+  try {
+    await initPush();
+    log.info("Nerve push notifications ready");
+  } catch (err) {
+    log.warn("Nerve push init failed — push notifications disabled", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Start weekly backlog review timer (runs every Friday — DASH-59)
   startBacklogReviewTimer(queueProvider.getStore());
 
@@ -5670,6 +5757,20 @@ async function start() {
         actualPort = addr.port;
       }
       log.info(`Listening on http://localhost:${actualPort}`);
+
+      // Show LAN IP for phone access
+      try {
+        import("node:os").then(({ networkInterfaces }) => {
+          const nets = networkInterfaces();
+          for (const name of Object.keys(nets)) {
+            for (const net of nets[name] ?? []) {
+              if (net.family === "IPv4" && !net.internal) {
+                log.info(`Nerve (phone): http://${net.address}:${actualPort}/nerve`);
+              }
+            }
+          }
+        });
+      } catch { /* ok */ }
 
       // Announce on LAN if mesh.lanAnnounce is enabled
       if (getMeshConfig().lanAnnounce) {

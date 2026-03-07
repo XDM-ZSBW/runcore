@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>Nerve</title>
+  <link rel="manifest" href="/public/nerve/manifest.json">
+  <link rel="icon" href="/public/nerve/icon-192.svg">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-hover: #1a1a1a;
+      --border: #252525;
+      --text: #e0e0e0;
+      --text-dim: #606060;
+      --text-secondary: #909090;
+      --blue: #5b8def;
+      --green: #4ade80;
+      --amber: #f59e0b;
+      --blue-glow: rgba(91, 141, 239, 0.15);
+      --green-glow: rgba(74, 222, 128, 0.15);
+      --amber-glow: rgba(245, 158, 11, 0.15);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      --mono: "SF Mono", "Cascadia Code", "Consolas", monospace;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 8px;
+      flex-shrink: 0;
+    }
+
+    .header .title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .header .status {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .status-dot.disconnected { background: var(--amber); }
+
+    /* ── Dots Container ── */
+    .dots-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      padding: 20px;
+    }
+
+    /* ── Single Dot ── */
+    .dot-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .dot {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      position: relative;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .dot-container:active .dot {
+      transform: scale(0.9);
+    }
+
+    .dot::before {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .dot.blue {
+      background: var(--blue);
+      box-shadow: 0 0 20px rgba(91, 141, 239, 0.3);
+    }
+    .dot.blue::before { background: var(--blue-glow); }
+
+    .dot.green {
+      background: var(--green);
+      box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+    }
+    .dot.green::before { background: var(--green-glow); }
+
+    .dot.amber {
+      background: var(--amber);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+      animation: pulse-amber 2s ease-in-out infinite;
+    }
+    .dot.amber::before { background: var(--amber-glow); opacity: 1; }
+
+    @keyframes pulse-amber {
+      0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+      50% { box-shadow: 0 0 35px rgba(245, 158, 11, 0.5); }
+    }
+
+    /* Breathing animation for calm dots */
+    .dot.blue, .dot.green {
+      animation: breathe 4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.04); opacity: 0.9; }
+    }
+
+    .dot-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      transition: color 0.2s;
+    }
+
+    .dot-container:hover .dot-label,
+    .dot-container.active .dot-label {
+      color: var(--text-secondary);
+    }
+
+    /* ── Drilldown Panel ── */
+    .drilldown {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+      max-height: 65dvh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .drilldown.open {
+      transform: translateY(0);
+    }
+
+    .drilldown-handle {
+      display: flex;
+      justify-content: center;
+      padding: 12px 0 4px;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 1;
+    }
+
+    .drilldown-handle::after {
+      content: "";
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+    }
+
+    .drilldown-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 24px 16px;
+    }
+
+    .drilldown-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .drilldown-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .drilldown-subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      padding: 0 24px 16px;
+    }
+
+    .drilldown-items {
+      padding: 0 24px 24px;
+    }
+
+    .drilldown-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .drilldown-item:first-child {
+      border-top: none;
+    }
+
+    .item-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .item-indicator.info { background: var(--text-dim); }
+    .item-indicator.active { background: var(--green); }
+    .item-indicator.attention { background: var(--amber); }
+
+    .item-text {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+
+    .item-text.attention { color: var(--text); }
+
+    /* ── Backdrop ── */
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 99;
+    }
+
+    .backdrop.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      flex-shrink: 0;
+      padding: 12px 20px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .footer-btn:hover {
+      color: var(--text-secondary);
+      border-color: var(--text-dim);
+    }
+
+    .last-update {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* ── Push prompt ── */
+    .push-prompt {
+      position: fixed;
+      bottom: 80px;
+      left: 20px;
+      right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: none;
+      gap: 12px;
+      flex-direction: column;
+      z-index: 200;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .push-prompt.show { display: flex; }
+
+    .push-prompt p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .push-prompt .actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .push-prompt button {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+    }
+
+    .push-prompt .btn-allow {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .push-prompt .btn-dismiss {
+      background: none;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Empty state ── */
+    .empty {
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 8px 0;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <span class="title">{{INSTANCE_NAME}}</span>
+      <span class="status">
+        <span class="status-dot" id="conn-dot"></span>
+        <span id="conn-text">connecting</span>
+      </span>
+    </div>
+
+    <div class="dots-area">
+      <div class="dot-container" data-dot="sense" onclick="toggleDrilldown('sense')">
+        <div class="dot blue" id="dot-sense"></div>
+        <span class="dot-label">sense</span>
+      </div>
+      <div class="dot-container" data-dot="work" onclick="toggleDrilldown('work')">
+        <div class="dot blue" id="dot-work"></div>
+        <span class="dot-label">work</span>
+      </div>
+      <div class="dot-container" data-dot="joy" onclick="toggleDrilldown('joy')">
+        <div class="dot blue" id="dot-joy"></div>
+        <span class="dot-label">joy</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span class="last-update" id="last-update"></span>
+      <button class="footer-btn" id="open-core-btn" onclick="openCore()">Open Core</button>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" onclick="closeDrilldown()"></div>
+
+  <div class="drilldown" id="drilldown">
+    <div class="drilldown-handle"></div>
+    <div class="drilldown-header">
+      <div class="drilldown-dot" id="dd-dot"></div>
+      <span class="drilldown-title" id="dd-title"></span>
+    </div>
+    <div class="drilldown-subtitle" id="dd-subtitle"></div>
+    <div class="drilldown-items" id="dd-items"></div>
+  </div>
+
+  <div class="push-prompt" id="push-prompt">
+    <p>Get notified when something needs attention. Push notifications only fire on amber.</p>
+    <div class="actions">
+      <button class="btn-dismiss" onclick="dismissPush()">Not now</button>
+      <button class="btn-allow" onclick="enablePush()">Enable</button>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──
+    var state = null;
+    var activeDot = null;
+    var sse = null;
+    var reconnectTimer = null;
+    var vapidKey = null;
+
+    // ── API ──
+    function api(path) {
+      return fetch("/api/nerve" + path).then(function(r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+    }
+
+    // ── Render dots ──
+    function render(s) {
+      state = s;
+      ["sense", "work", "joy"].forEach(function(key) {
+        var dot = document.getElementById("dot-" + key);
+        var data = s[key];
+        dot.className = "dot " + data.color;
+      });
+      document.getElementById("last-update").textContent = formatTime(s.timestamp);
+
+      // Update drilldown if open
+      if (activeDot && state[activeDot]) {
+        renderDrilldown(activeDot);
+      }
+    }
+
+    function formatTime(iso) {
+      var d = new Date(iso);
+      var now = new Date();
+      var diff = now - d;
+      if (diff < 5000) return "just now";
+      if (diff < 60000) return Math.floor(diff / 1000) + "s ago";
+      if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    // ── Drilldown ──
+    function toggleDrilldown(dot) {
+      if (activeDot === dot) {
+        closeDrilldown();
+      } else {
+        openDrilldown(dot);
+      }
+    }
+
+    function openDrilldown(dot) {
+      activeDot = dot;
+      renderDrilldown(dot);
+
+      document.getElementById("drilldown").classList.add("open");
+      document.getElementById("backdrop").classList.add("visible");
+
+      // Highlight active dot container
+      document.querySelectorAll(".dot-container").forEach(function(el) {
+        el.classList.toggle("active", el.dataset.dot === dot);
+      });
+    }
+
+    function renderDrilldown(dot) {
+      if (!state || !state[dot]) return;
+      var data = state[dot];
+      var names = { sense: "Sense", work: "Work", joy: "Joy" };
+      var colors = { blue: "var(--blue)", green: "var(--green)", amber: "var(--amber)" };
+
+      document.getElementById("dd-dot").style.background = colors[data.color];
+      document.getElementById("dd-title").textContent = names[dot] + " — " + data.label;
+      document.getElementById("dd-subtitle").textContent = data.detail;
+
+      var container = document.getElementById("dd-items");
+      if (!data.items || data.items.length === 0) {
+        container.innerHTML = '<div class="empty">Nothing to show</div>';
+        return;
+      }
+
+      container.innerHTML = data.items.map(function(item) {
+        return '<div class="drilldown-item">' +
+          '<div class="item-indicator ' + item.type + '"></div>' +
+          '<span class="item-text ' + (item.type === "attention" ? "attention" : "") + '">' +
+          escapeHtml(item.text) +
+          '</span>' +
+          '</div>';
+      }).join("");
+    }
+
+    function closeDrilldown() {
+      activeDot = null;
+      document.getElementById("drilldown").classList.remove("open");
+      document.getElementById("backdrop").classList.remove("visible");
+      document.querySelectorAll(".dot-container").forEach(function(el) {
+        el.classList.remove("active");
+      });
+    }
+
+    function escapeHtml(s) {
+      var d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // ── SSE (real-time updates) ──
+    function connectSSE() {
+      if (sse) { sse.close(); sse = null; }
+
+      sse = new EventSource("/api/nerve/stream");
+
+      sse.onopen = function() {
+        document.getElementById("conn-dot").className = "status-dot";
+        document.getElementById("conn-text").textContent = "live";
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      };
+
+      sse.addEventListener("state", function(e) {
+        try {
+          var data = JSON.parse(e.data);
+          render(data);
+        } catch (err) { console.warn("SSE parse error", err); }
+      });
+
+      sse.onerror = function() {
+        document.getElementById("conn-dot").className = "status-dot disconnected";
+        document.getElementById("conn-text").textContent = "reconnecting";
+        sse.close();
+        sse = null;
+        reconnectTimer = setTimeout(connectSSE, 3000);
+      };
+    }
+
+    // ── Open Core ──
+    function openCore() {
+      // Navigate to the full Core UI on the same host
+      window.location.href = "/";
+    }
+
+    // ── Push notifications ──
+    function checkPush() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      if (Notification.permission === "granted") {
+        subscribePush();
+        return;
+      }
+      if (Notification.permission === "denied") return;
+
+      // Show prompt after a brief delay
+      setTimeout(function() {
+        document.getElementById("push-prompt").classList.add("show");
+      }, 3000);
+    }
+
+    function dismissPush() {
+      document.getElementById("push-prompt").classList.remove("show");
+    }
+
+    function enablePush() {
+      document.getElementById("push-prompt").classList.remove("show");
+      Notification.requestPermission().then(function(perm) {
+        if (perm === "granted") subscribePush();
+      });
+    }
+
+    function subscribePush() {
+      if (!vapidKey) return;
+      navigator.serviceWorker.ready.then(function(reg) {
+        return reg.pushManager.getSubscription().then(function(sub) {
+          if (sub) return sub;
+          var key = urlBase64ToUint8Array(vapidKey);
+          return reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: key,
+          });
+        });
+      }).then(function(sub) {
+        // Send subscription to server
+        fetch("/api/nerve/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subscription: sub.toJSON(),
+            label: navigator.userAgent.includes("Android") ? "Android" : "Browser",
+          }),
+        });
+      }).catch(function(err) {
+        console.warn("Push subscription failed:", err);
+      });
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      var padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      var raw = atob(base64);
+      var arr = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr;
+    }
+
+    // ── Swipe to dismiss drilldown ──
+    (function() {
+      var dd = document.getElementById("drilldown");
+      var startY = 0;
+      var currentY = 0;
+      var dragging = false;
+
+      dd.addEventListener("touchstart", function(e) {
+        if (dd.scrollTop > 0) return;
+        startY = e.touches[0].clientY;
+        dragging = true;
+      }, { passive: true });
+
+      dd.addEventListener("touchmove", function(e) {
+        if (!dragging) return;
+        currentY = e.touches[0].clientY;
+        var delta = currentY - startY;
+        if (delta > 0) {
+          dd.style.transform = "translateY(" + delta + "px)";
+        }
+      }, { passive: true });
+
+      dd.addEventListener("touchend", function() {
+        if (!dragging) return;
+        dragging = false;
+        var delta = currentY - startY;
+        dd.style.transform = "";
+        if (delta > 80) closeDrilldown();
+      });
+    })();
+
+    // ── Init ──
+    (function() {
+      // Initial fetch
+      api("/state").then(render).catch(function(err) {
+        console.warn("Initial state fetch failed:", err);
+      });
+
+      // Get VAPID key for push
+      api("/vapid-key").then(function(data) {
+        vapidKey = data.key;
+      }).catch(function() {});
+
+      // Register service worker
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/public/nerve/sw.js").then(function() {
+          checkPush();
+        });
+      }
+
+      // Connect SSE for live updates
+      connectSSE();
+
+      // Update relative timestamps every 30s
+      setInterval(function() {
+        if (state) {
+          document.getElementById("last-update").textContent = formatTime(state.timestamp);
+        }
+      }, 30000);
+    })();
+  </script>
+</body>
+</html>

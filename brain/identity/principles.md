@@ -29,6 +29,9 @@ The industry races to make AI feel human. We skip that entirely. AI doesn't need
 **The product disappears as it succeeds.**
 Every other company optimizes for engagement — clicks, sessions, screen time. We optimize for disappearance. The metric isn't daily active users — it's how rarely you need to look. Tier 1: you see your business. Tier 2: you feel your business. Tier 3: your business acts on instinct. The top tier is ICI — the experience and the reality are the same thing.
 
+**Three dots are the public sense of Core.**
+The public API is a feeling. Three dots — glance. Drill down — more. That's it. Whether it's one agent or a thousand, the human sees the same three dots. The complexity is behind the membrane, not in front of it. Every surface is a nerve ending: chrome extension, phone, watch, notification shade. The dots are the onramp, not a landing page. They're already telling you something useful before you decide to go deeper. Core is the only product. Everything else is a dot on a surface.
+
 **Positive reinforcement only.**
 Grounded in operant conditioning (Skinner, 1938). The system reinforces behavior by adding something good, never by adding something bad. Numbers surface to celebrate progress, never to nag. The system tracks everything internally but the human only sees a number when it means something good. No "you haven't logged in," no guilt. Negative reinforcement works — we know it works. We choose not to use it. That's a product decision grounded in science, not ignorance of science. Exception: streaks — show them while alive, silence when broken. No "you lost your streak." It quietly disappears until the next one starts.
 
