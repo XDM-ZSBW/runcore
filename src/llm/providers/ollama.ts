@@ -14,6 +14,7 @@ const DEFAULT_UTILITY_MODEL = "llama3.2:3b";
 
 // Models ranked by quality for chat (best first). Auto picks the best available.
 const CHAT_MODEL_RANK = [
+  "qwen2.5-coder:7b",
   "llama3.2:3b",
   "gemma3:4b",
   "phi3:latest",
@@ -22,6 +23,21 @@ const CHAT_MODEL_RANK = [
   "llama3:latest",
   "llama3.2:1b",
   "tinyllama:latest",
+];
+
+// Models ranked for coding/agent tasks (best first). Used by bestLocalCodingModel().
+const CODING_MODEL_RANK = [
+  "qwen2.5-coder:32b",
+  "qwen2.5-coder:14b",
+  "qwen2.5-coder:7b",
+  "qwen2.5-coder:3b",
+  "deepseek-coder-v2:16b",
+  "deepseek-coder:6.7b",
+  "codellama:34b",
+  "codellama:13b",
+  "codellama:7b",
+  "qwen3:8b",
+  "llama3.1:8b",
 ];
 
 // Embedding/utility models to exclude from chat selection
@@ -126,6 +142,39 @@ export async function bestLocalModel(): Promise<string> {
     // Ollama unreachable
   }
   return DEFAULT_CHAT_MODEL;
+}
+
+/**
+ * Pick the best available local coding model from Ollama.
+ * Prefers purpose-built coding models over general-purpose ones.
+ */
+export async function bestLocalCodingModel(): Promise<string> {
+  const baseUrl = getBaseUrl();
+  try {
+    const res = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return "qwen2.5-coder:7b";
+
+    const data = (await res.json()) as { models: Array<{ name: string; size: number }> };
+    const available = new Set(data.models.map((m) => m.name));
+
+    // Find the best coding model that's actually pulled
+    for (const model of CODING_MODEL_RANK) {
+      if (available.has(model)) {
+        log.info("Auto-selected local coding model", { model });
+        return model;
+      }
+    }
+
+    // Fallback: any model with "coder" in the name
+    const coderModel = data.models.find((m) => m.name.includes("coder"));
+    if (coderModel) {
+      log.info("Auto-selected local coding model (by name)", { model: coderModel.name });
+      return coderModel.name;
+    }
+  } catch {
+    // Ollama unreachable
+  }
+  return "qwen2.5-coder:7b";
 }
 
 function formatMessages(messages: ContextMessage[]) {

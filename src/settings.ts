@@ -85,7 +85,7 @@ export interface CoreSettings {
   privateMode: boolean;
   /** Explicit provider override. When set, takes precedence over airplaneMode. */
   provider?: ProviderName;
-  models: { chat: string; utility: string };
+  models: { chat: string; utility: string; agent?: string };
   /** Encrypt all brain files at rest (JSONL, YAML, MD, JSON).
    *  When false, files are written as plaintext even if an encryption key is available. */
   encryptBrainFiles: boolean;
@@ -112,7 +112,7 @@ const DEFAULTS: CoreSettings = {
   instanceName: "Core",
   airplaneMode: false,
   privateMode: false,
-  models: { chat: "auto", utility: "auto" },
+  models: { chat: "auto", utility: "auto", agent: "auto" },
   encryptBrainFiles: true,
   safeWordMode: "always",
   tts: { enabled: true, port: 3579, voice: "en_US-lessac-medium", autoPlay: true },
@@ -153,6 +153,7 @@ export async function loadSettings(): Promise<CoreSettings> {
         models: {
           chat: typeof parsed.models?.chat === "string" ? parsed.models.chat : DEFAULTS.models.chat,
           utility: typeof parsed.models?.utility === "string" ? parsed.models.utility : DEFAULTS.models.utility,
+          agent: typeof parsed.models?.agent === "string" ? parsed.models.agent : DEFAULTS.models.agent,
         },
         encryptBrainFiles: typeof parsed.encryptBrainFiles === "boolean" ? parsed.encryptBrainFiles
           : typeof parsed.encryptEpisodicFiles === "boolean" ? parsed.encryptEpisodicFiles
@@ -257,6 +258,7 @@ export async function updateSettings(partial: Partial<CoreSettings>): Promise<Co
   if (partial.models) {
     if (typeof partial.models.chat === "string") cached.models.chat = partial.models.chat;
     if (typeof partial.models.utility === "string") cached.models.utility = partial.models.utility;
+    if (typeof partial.models.agent === "string") cached.models.agent = partial.models.agent;
   }
   if (typeof partial.encryptBrainFiles === "boolean") {
     cached.encryptBrainFiles = partial.encryptBrainFiles;
@@ -342,6 +344,51 @@ export function resolveChatModel(): string | undefined {
 export function resolveUtilityModel(): string | undefined {
   const v = cached.models.utility;
   return v === "auto" ? undefined : v;
+}
+
+/**
+ * Returns the agent model string. Falls back to utility model if not set.
+ * When set to a local coding model (e.g. qwen2.5-coder:7b), agent tasks
+ * use it instead of burning cloud tokens on execution work.
+ */
+export function resolveAgentModel(): string | undefined {
+  const v = cached.models.agent;
+  if (v && v !== "auto") return v;
+  // When on Ollama (airplane/private mode), let the provider auto-select
+  // the best coding model — don't pass undefined (which picks chat model)
+  return resolveUtilityModel();
+}
+
+/** Async version that auto-discovers the best local coding model when on Ollama. */
+let _agentModelCache: string | null = null;
+export async function resolveAgentModelAsync(): Promise<string | undefined> {
+  const v = cached.models.agent;
+  if (v && v !== "auto") return v;
+  // If we're on Ollama, pick the best coding model
+  if (resolveProvider() === "ollama") {
+    if (!_agentModelCache) {
+      const { bestLocalCodingModel } = await import("./llm/providers/ollama.js");
+      _agentModelCache = await bestLocalCodingModel();
+    }
+    return _agentModelCache;
+  }
+  return resolveUtilityModel();
+}
+
+/**
+ * Returns the provider to use for agent tasks.
+ * If the agent model is explicitly set to a local model, forces Ollama.
+ */
+export function resolveAgentProvider(): ProviderName {
+  const agentModel = cached.models.agent;
+  if (agentModel && agentModel !== "auto" && !agentModel.includes("/")) {
+    // No slash = not a cloud model (cloud models are org/model format)
+    // Check if it looks like an Ollama model (name:tag or plain name)
+    if (agentModel.includes(":") || !agentModel.includes("-")) {
+      return "ollama";
+    }
+  }
+  return resolveProvider();
 }
 
 /** Returns the TTS configuration. */

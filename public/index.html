@@ -2130,6 +2130,12 @@
             <option value="auto">Auto (best available)</option>
           </select>
         </div>
+        <div class="model-field">
+          <label>Agent model</label>
+          <select id="model-agent" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;">
+            <option value="auto">Auto (best coding model)</option>
+          </select>
+        </div>
         <div class="toggle-row" data-requires="vault">
           <div>
             <div class="toggle-label">Airplane Mode</div>
@@ -4051,30 +4057,35 @@
   const airplaneToggle = document.getElementById("airplane-toggle");
   const modelChatSelect = document.getElementById("model-chat");
   const modelUtilitySelect = document.getElementById("model-utility");
+  const modelAgentSelect = document.getElementById("model-agent");
   const llmSaveStatus = document.getElementById("llm-save-status");
 
-  async function populateModelDropdowns(selectedChat, selectedUtility) {
+  async function populateModelDropdowns(selectedChat, selectedUtility, selectedAgent) {
     try {
       const data = await api("/api/models");
       const models = data.models || [];
-      for (const sel of [modelChatSelect, modelUtilitySelect]) {
-        const current = sel === modelChatSelect ? selectedChat : selectedUtility;
-        sel.innerHTML = '<option value="auto">Auto (best available)</option>';
+      var dropdowns = [
+        { el: modelChatSelect, current: selectedChat, autoLabel: "Auto (best available)" },
+        { el: modelUtilitySelect, current: selectedUtility, autoLabel: "Auto (best available)" },
+        { el: modelAgentSelect, current: selectedAgent, autoLabel: "Auto (best coding model)" },
+      ];
+      for (var dd of dropdowns) {
+        dd.el.innerHTML = '<option value="auto">' + dd.autoLabel + '</option>';
         for (const m of models) {
           const opt = document.createElement("option");
           opt.value = m.name;
           const sizeMB = m.size ? Math.round(m.size / 1024 / 1024) : 0;
           opt.textContent = m.name + (sizeMB ? ` (${sizeMB >= 1024 ? (sizeMB / 1024).toFixed(1) + "GB" : sizeMB + "MB"})` : "");
-          if (m.name === current) opt.selected = true;
-          sel.appendChild(opt);
+          if (m.name === dd.current) opt.selected = true;
+          dd.el.appendChild(opt);
         }
         // If the saved model isn't in the list, add it as an option anyway
-        if (current && current !== "auto" && !models.some(m => m.name === current)) {
+        if (dd.current && dd.current !== "auto" && !models.some(m => m.name === dd.current)) {
           const opt = document.createElement("option");
-          opt.value = current;
-          opt.textContent = current + " (not found)";
+          opt.value = dd.current;
+          opt.textContent = dd.current + " (not found)";
           opt.selected = true;
-          sel.appendChild(opt);
+          dd.el.appendChild(opt);
         }
       }
     } catch {
@@ -4088,9 +4099,11 @@
       airplaneToggle.checked = data.airplaneMode;
       const chatModel = data.models?.chat || "auto";
       const utilityModel = data.models?.utility || "auto";
+      const agentModel = data.models?.agent || "auto";
       modelChatSelect.value = chatModel;
       modelUtilitySelect.value = utilityModel;
-      await populateModelDropdowns(chatModel, utilityModel);
+      modelAgentSelect.value = agentModel;
+      await populateModelDropdowns(chatModel, utilityModel, agentModel);
     } catch {
       // defaults are fine
     }
@@ -4109,6 +4122,7 @@
           models: {
             chat: modelChatSelect.value || "auto",
             utility: modelUtilitySelect.value || "auto",
+            agent: modelAgentSelect.value || "auto",
           },
         },
       });

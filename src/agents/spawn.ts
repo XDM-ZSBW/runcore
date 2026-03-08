@@ -17,7 +17,7 @@ import { recordSpawnRateBlock, recordBridgeReport as recordBridgeReportMetric } 
 import { traceAgentSpawn, withSpan } from "../tracing/instrument.js";
 import { getCorrelationId } from "../tracing/correlation.js";
 import { completeChat } from "../llm/complete.js";
-import { resolveProvider, resolveUtilityModel } from "../settings.js";
+import { resolveProvider, resolveUtilityModel, resolveAgentModelAsync, resolveAgentProvider } from "../settings.js";
 import { createLogger } from "../utils/logger.js";
 import { resolveEnv, getInstanceName, getInstanceNameLower, getAlertEmailFrom } from "../instance.js";
 import { skillRegistry as _skillRegistry } from "../skills/registry.js";
@@ -895,8 +895,8 @@ async function reflectOnCompletion(task: AgentTask, output: string): Promise<voi
     }
 
     // Tier 2: Full LLM reflection for non-routine completions
-    const provider = resolveProvider();
-    const model = resolveUtilityModel();
+    const provider = resolveAgentProvider();
+    const model = await resolveAgentModelAsync();
 
     const response = await completeChat({
       messages: [
@@ -968,8 +968,8 @@ async function evaluateScar(task: AgentTask, output: string): Promise<void> {
   if (task.status !== "completed") return;
 
   try {
-    const provider = resolveProvider();
-    const model = resolveUtilityModel();
+    const provider = resolveAgentProvider();
+    const model = await resolveAgentModelAsync();
 
     const response = await completeChat({
       messages: [

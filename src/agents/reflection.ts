@@ -7,7 +7,7 @@
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { completeChat } from "../llm/complete.js";
-import { resolveProvider, resolveUtilityModel } from "../settings.js";
+import { resolveAgentProvider, resolveAgentModelAsync } from "../settings.js";
 import { listTasks } from "./store.js";
 import { loadLoops } from "../openloop/store.js";
 import { logActivity } from "../activity/log.js";
@@ -175,8 +175,8 @@ export async function reflectOnSession(
     }, null, 2);
 
     // Step 4: Call LLM
-    const provider = resolveProvider();
-    const model = resolveUtilityModel();
+    const provider = resolveAgentProvider();
+    const model = await resolveAgentModelAsync();
 
     const response = await completeChat({
       messages: [
