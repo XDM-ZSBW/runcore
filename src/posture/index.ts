@@ -31,6 +31,20 @@ export type {
   PostureState,
   PostureSurface,
   InteractionSignal,
+  IntentSignalKind,
+  IntentSignal,
+  NerveProfile,
+  DecayPauseConditions,
+  PostureConfig,
+  PostureTransition,
+  TransitionDirection,
 } from "./types.js";
 
-export { POSTURE_SURFACE, POSTURE_LEVEL } from "./types.js";
+export {
+  POSTURE_SURFACE,
+  POSTURE_LEVEL,
+  INTENT_WEIGHTS,
+  INSTANT_BOARD_SIGNALS,
+  POSTURE_CEILING,
+  DEFAULT_POSTURE_CONFIG,
+} from "./types.js";

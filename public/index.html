@@ -19,7 +19,7 @@
     --user-bg: #1a1a2e;
     --assistant-bg: #141414;
     --radius: 8px;
-    --max-width: 640px;
+    --max-width: 720px;
   }
 
   body {
@@ -1075,42 +1075,100 @@
   .activity-source.system { background: rgba(120,120,120,0.15); color: #9ca3af; }
   .activity-source.agent { background: rgba(168,85,247,0.15); color: #c084fc; }
 
-  /* Agent waiting indicator (inline in chat) */
-  .agent-status {
-    margin: 8px 0;
-    padding: 10px 14px;
-    background: rgba(168,85,247,0.08);
-    border: 1px solid rgba(168,85,247,0.25);
-    border-radius: var(--radius);
-    font-size: 13px;
-    color: #c084fc;
-    display: flex;
+  /* Agent card wrapper — sits in chat flow like a message */
+  .agent-card-wrap {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 4px 20px;
+    width: 100%;
+  }
+
+  /* Agent card — compact pill, inline in chat flow */
+  .agent-card {
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-  }
-  .agent-status .agent-spinner {
-    width: 14px; height: 14px;
-    border: 2px solid rgba(168,85,247,0.3);
-    border-top-color: #c084fc;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    flex-shrink: 0;
-  }
-  .agent-status .agent-label { flex: 1; }
-  .agent-status .agent-cancel {
-    padding: 3px 10px;
-    background: rgba(239,68,68,0.15);
-    color: #f87171;
-    border: 1px solid rgba(239,68,68,0.3);
-    border-radius: 4px;
+    gap: 8px;
+    margin: 4px 0;
+    padding: 5px 12px;
+    background: rgba(168,85,247,0.08);
+    border: 1px solid rgba(168,85,247,0.2);
+    border-radius: 20px;
     font-size: 12px;
+    color: #c084fc;
+    cursor: pointer;
+    transition: all 0.2s;
+    max-width: 100%;
+  }
+  .agent-card:hover { background: rgba(168,85,247,0.14); }
+  .agent-card .agent-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #c084fc;
+    animation: agent-pulse 1.5s ease-in-out infinite;
+  }
+  .agent-card .agent-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+  .agent-card .agent-timer {
+    color: rgba(192,132,252,0.6);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .agent-card .agent-cancel {
+    padding: 1px 6px;
+    background: rgba(239,68,68,0.12);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 10px;
+    font-size: 10px;
     cursor: pointer;
     font-family: inherit;
+    line-height: 1.4;
   }
-  .agent-status .agent-cancel:hover { background: rgba(239,68,68,0.25); }
-  .agent-status.done { border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.08); color: #4ade80; }
-  .agent-status.failed { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); color: #f87171; }
+  .agent-card .agent-cancel:hover { background: rgba(239,68,68,0.25); }
+  .agent-card.done {
+    border-color: rgba(34,197,94,0.25);
+    background: rgba(34,197,94,0.06);
+    color: #4ade80;
+    cursor: pointer;
+  }
+  .agent-card.done .agent-dot { background: #4ade80; animation: none; }
+  .agent-card.failed {
+    border-color: rgba(239,68,68,0.25);
+    background: rgba(239,68,68,0.06);
+    color: #f87171;
+    cursor: default;
+  }
+  .agent-card.failed .agent-dot { background: #f87171; animation: none; }
+  @keyframes agent-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Agent card expanded output */
+  .agent-card-expanded {
+    margin: 2px 0 6px 20px;
+    padding: 8px 12px;
+    background: rgba(168,85,247,0.05);
+    border-left: 2px solid rgba(168,85,247,0.2);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .agent-card-expanded.visible { display: block; }
 
   /* Board item cards (inline in chat) */
   .board-cards { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
@@ -3579,63 +3637,109 @@
 
       for (var i = 0; i < data.tasks.length; i++) {
         var task = data.tasks[i];
+        if (!task || !task.id) continue;
 
         // Only track tasks created after we started polling
         if (agentPollSince && task.createdAt < agentPollSince) continue;
         recentCount++;
 
         var el = agentElements[task.id];
+        var taskLabel = task.label || task.id.slice(0, 8);
 
         if (task.status === "running" || task.status === "pending") {
           hasRunning = true;
 
-          // Create indicator if it doesn't exist
           if (!el) {
+            // Create pill card + hidden expanded panel
+            var wrap = document.createElement("div");
+            wrap.className = "agent-card-wrap";
             el = document.createElement("div");
-            el.className = "agent-status";
-            el.innerHTML = '<div class="agent-spinner"></div>'
-              + '<span class="agent-label">Running agent: <strong>' + task.label + '</strong></span>'
-              + '<button class="agent-cancel">Cancel</button>';
-            messagesEl.appendChild(el);
+            el.className = "agent-card";
+            el.dataset.started = Date.now();
+            el.innerHTML = '<span class="agent-dot"></span>'
+              + '<span class="agent-name">' + taskLabel + '</span>'
+              + '<span class="agent-timer">0s</span>'
+              + '<button class="agent-cancel">\u00d7</button>';
+            var expanded = document.createElement("div");
+            expanded.className = "agent-card-expanded";
+            expanded.id = "agent-expand-" + task.id;
+            wrap.appendChild(el);
+            wrap.appendChild(expanded);
+            messagesEl.appendChild(wrap);
             agentElements[task.id] = el;
             messagesEl.scrollTop = messagesEl.scrollHeight;
+
+            // Toggle expand on click
+            (function(cardEl, expEl) {
+              cardEl.addEventListener("click", function(e) {
+                if (e.target.classList.contains("agent-cancel")) return;
+                expEl.classList.toggle("visible");
+              });
+            })(el, expanded);
           }
 
+          // Update timer
+          var started = parseInt(el.dataset.started || Date.now());
+          var elapsed = Math.round((Date.now() - started) / 1000);
+          var timerEl = el.querySelector(".agent-timer");
+          if (timerEl) timerEl.textContent = elapsed < 60 ? elapsed + "s" : Math.floor(elapsed/60) + "m " + (elapsed%60) + "s";
+
           // Wire cancel button
-          (function(taskId, label, elem) {
+          (function(taskId, tLabel, elem) {
             var btn = elem.querySelector(".agent-cancel");
-            if (btn) btn.onclick = async function() {
-              try {
-                await api("/api/agents/tasks/" + taskId + "/cancel", { method: "POST" });
-                elem.className = "agent-status failed";
-                elem.innerHTML = '<span class="agent-label">Agent cancelled: <strong>' + label + '</strong></span>';
-              } catch {}
-            };
-          })(task.id, task.label, el);
+            if (btn && !btn._wired) {
+              btn._wired = true;
+              btn.onclick = async function(e) {
+                e.stopPropagation();
+                try {
+                  await api("/api/agents/tasks/" + taskId + "/cancel", { method: "POST" });
+                  elem.className = "agent-card failed";
+                  elem.innerHTML = '<span class="agent-dot"></span>'
+                    + '<span class="agent-name">' + tLabel + '</span>'
+                    + '<span class="agent-timer">cancelled</span>';
+                } catch {}
+              };
+            }
+          })(task.id, taskLabel, el);
 
         } else if (task.status === "completed" || task.status === "failed" || task.status === "cancelled") {
+          var isDone = task.status === "completed";
+          var stateClass = isDone ? "done" : "failed";
+          var stateLabel = isDone ? "done" : task.status;
+
           if (el) {
-            // Resolve existing indicator
-            var isDone = task.status === "completed";
-            el.className = "agent-status " + (isDone ? "done" : "failed");
-            var resultText = isDone ? "completed" : task.status;
-            if (task.resultSummary) {
-              resultText += " — " + task.resultSummary.slice(0, 200);
+            el.className = "agent-card " + stateClass;
+            var summary = task.resultSummary ? task.resultSummary.slice(0, 120) : "";
+            el.innerHTML = '<span class="agent-dot"></span>'
+              + '<span class="agent-name">' + taskLabel + '</span>'
+              + '<span class="agent-timer">' + stateLabel + '</span>';
+            // Fill expanded panel with result
+            var expPanel = document.getElementById("agent-expand-" + task.id);
+            if (expPanel && task.resultSummary) {
+              expPanel.textContent = task.resultSummary;
             }
-            el.innerHTML = '<span class="agent-label">Agent ' + resultText + ': <strong>'
-              + task.label + '</strong></span>';
             messagesEl.scrollTop = messagesEl.scrollHeight;
           } else {
-            // Task completed before we ever saw it running — show result directly
-            console.log("[agent] Task completed before first poll:", task.id, task.label, task.status);
+            console.log("[agent] Task completed before first poll:", task.id, taskLabel, task.status);
+            var wrap2 = document.createElement("div");
+            wrap2.className = "agent-card-wrap";
             el = document.createElement("div");
-            var isDone2 = task.status === "completed";
-            el.className = "agent-status " + (isDone2 ? "done" : "failed");
-            var rt = isDone2 ? "completed" : task.status;
-            if (task.resultSummary) rt += " — " + task.resultSummary.slice(0, 200);
-            el.innerHTML = '<span class="agent-label">Agent ' + rt + ': <strong>' + task.label + '</strong></span>';
-            messagesEl.appendChild(el);
+            el.className = "agent-card " + stateClass;
+            el.innerHTML = '<span class="agent-dot"></span>'
+              + '<span class="agent-name">' + taskLabel + '</span>'
+              + '<span class="agent-timer">' + stateLabel + '</span>';
+            var exp2 = document.createElement("div");
+            exp2.className = "agent-card-expanded";
+            exp2.id = "agent-expand-" + task.id;
+            if (task.resultSummary) exp2.textContent = task.resultSummary;
+            wrap2.appendChild(el);
+            wrap2.appendChild(exp2);
+            messagesEl.appendChild(wrap2);
             agentElements[task.id] = el;
+            // Auto-expand completed cards briefly so user sees result
+            if (isDone && task.resultSummary) {
+              el.addEventListener("click", function() { exp2.classList.toggle("visible"); });
+            }
             messagesEl.scrollTop = messagesEl.scrollHeight;
           }
         }

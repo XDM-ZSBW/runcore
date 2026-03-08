@@ -93,3 +93,86 @@ export interface PostureState {
   /** When the interaction window started */
   windowStart: string;
 }
+
+// ── Intent signals (from Dash posture spec) ─────────────────────────────────
+
+/** The seven canonical intent signal kinds. */
+export type IntentSignalKind =
+  | "open_app"
+  | "tap_dot"
+  | "tap_nudge"
+  | "start_typing"
+  | "voice_activation"
+  | "multiple_tap"
+  | "joy_signal";
+
+/** Weight table from the spec. */
+export const INTENT_WEIGHTS: Record<IntentSignalKind, number> = {
+  open_app: 2,
+  tap_dot: 1,
+  tap_nudge: 1,
+  start_typing: 3,
+  voice_activation: 3,
+  multiple_tap: 1,
+  joy_signal: 1,
+};
+
+/** Signals that cause instant escalation to board. */
+export const INSTANT_BOARD_SIGNALS: readonly IntentSignalKind[] = [
+  "start_typing",
+  "voice_activation",
+] as const;
+
+export interface IntentSignal {
+  kind: IntentSignalKind;
+  ts: string;
+}
+
+// ── Nerve profiles ──────────────────────────────────────────────────────────
+
+export type NerveProfile = "glance" | "phone" | "tablet" | "desktop";
+
+/** Maximum posture reachable by each nerve profile. */
+export const POSTURE_CEILING: Record<NerveProfile, PostureName> = {
+  glance: "pulse",
+  phone: "board",
+  tablet: "board",
+  desktop: "board",
+};
+
+// ── Decay pause conditions ──────────────────────────────────────────────────
+
+export interface DecayPauseConditions {
+  activeAgentWork: boolean;
+  pendingHumanDecision: boolean;
+  crisisMode: boolean;
+}
+
+// ── Escalation config ───────────────────────────────────────────────────────
+
+export interface PostureConfig {
+  silentToPulseThreshold: number;
+  pulseToBoardThreshold: number;
+  boardDecayMs: number;
+  pulseDecayMs: number;
+}
+
+export const DEFAULT_POSTURE_CONFIG: PostureConfig = {
+  silentToPulseThreshold: 1,
+  pulseToBoardThreshold: 5,
+  boardDecayMs: 5 * 60 * 1000,
+  pulseDecayMs: 30 * 60 * 1000,
+};
+
+// ── Posture transition event ────────────────────────────────────────────────
+
+export type TransitionDirection = "escalate" | "decay";
+
+export interface PostureTransition {
+  from: PostureName;
+  to: PostureName;
+  direction: TransitionDirection;
+  reason: string;
+  ts: string;
+  sessionId: string;
+}

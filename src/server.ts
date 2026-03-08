@@ -6159,6 +6159,8 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
         actualPort = addr.port;
       }
       log.info(`Listening on http://localhost:${actualPort}`);
+      console.log(`\n  ${getInstanceName()} is running:\n`);
+      console.log(`  → http://localhost:${actualPort}\n`);
 
       // Show LAN IP for phone access
       try {
@@ -6167,7 +6169,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
           for (const name of Object.keys(nets)) {
             for (const net of nets[name] ?? []) {
               if (net.family === "IPv4" && !net.internal) {
-                log.info(`Nerve (phone): http://${net.address}:${actualPort}/nerve`);
+                console.log(`  → http://${net.address}:${actualPort}  (LAN)\n`);
               }
             }
           }
