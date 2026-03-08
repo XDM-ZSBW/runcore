@@ -3703,6 +3703,67 @@ app.get("/api/metrics/names", async (c) => {
   return c.json({ names });
 });
 
+// Time-series bucketed data for a named metric.
+app.get("/api/metrics/series", async (c) => {
+  const name = c.req.query("name");
+  if (!name) return c.json({ error: "name parameter required" }, 400);
+  const now = Date.now();
+  const since = c.req.query("since") ?? new Date(now - 60 * 60 * 1000).toISOString();
+  const until = c.req.query("until") ?? new Date(now).toISOString();
+  const bucketCount = parseInt(c.req.query("buckets") ?? "60", 10);
+  const points = await metricsStore.query({ name, since, until });
+  const sinceMs = new Date(since).getTime();
+  const untilMs = new Date(until).getTime();
+  const intervalMs = (untilMs - sinceMs) / bucketCount;
+  const buckets: { time: string; count: number; avg: number; min: number; max: number }[] = [];
+  for (let i = 0; i < bucketCount; i++) {
+    const bucketStart = sinceMs + i * intervalMs;
+    const bucketEnd = bucketStart + intervalMs;
+    const bucketStartISO = new Date(bucketStart).toISOString();
+    const bucketEndISO = new Date(bucketEnd).toISOString();
+    const inBucket = points.filter((p) => {
+      const t = p.timestamp;
+      return t >= bucketStartISO && (i === bucketCount - 1 ? t <= bucketEndISO : t < bucketEndISO);
+    });
+    if (inBucket.length === 0) {
+      buckets.push({ time: bucketStartISO, count: 0, avg: 0, min: 0, max: 0 });
+    } else {
+      const values = inBucket.map((p) => p.value);
+      const sum = values.reduce((a, v) => a + v, 0);
+      buckets.push({
+        time: bucketStartISO,
+        count: inBucket.length,
+        avg: sum / inBucket.length,
+        min: Math.min(...values),
+        max: Math.max(...values),
+      });
+    }
+  }
+  return c.json({ name, since, until, buckets, interval: intervalMs });
+});
+
+// Export raw metric points as JSON or CSV.
+app.get("/api/metrics/export", async (c) => {
+  const now = Date.now();
+  const since = c.req.query("since") ?? new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const until = c.req.query("until") ?? new Date(now).toISOString();
+  const name = c.req.query("name") || undefined;
+  const format = c.req.query("format") ?? "json";
+  const points = await metricsStore.query({ name, since, until });
+  if (format === "csv") {
+    const header = "timestamp,name,value,unit,tags";
+    const rows = points.map((p) => {
+      const tags = p.tags ? JSON.stringify(p.tags).replace(/"/g, '""') : "";
+      return `${p.timestamp},${p.name},${p.value},${p.unit ?? ""},\"${tags}\"`;
+    });
+    const csv = [header, ...rows].join("\n");
+    c.header("Content-Type", "text/csv");
+    c.header("Content-Disposition", 'attachment; filename="metrics-export.csv"');
+    return c.body(csv);
+  }
+  return c.json({ points, count: points.length });
+});
+
 // Evaluate alert thresholds and return any fired alerts.
 app.post("/api/metrics/alerts/evaluate", async (c) => {
   const alerts = await evaluateAlerts(metricsStore);

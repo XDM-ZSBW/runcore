@@ -6,6 +6,7 @@
 import type { ContextMessage } from "../types.js";
 import { classifyApiError } from "./errors.js";
 import { createLogger } from "../utils/logger.js";
+import { recordLlmRequest } from "../metrics/collector.js";
 
 /** @deprecated Import StreamOptions from "./providers/types.js" instead. */
 export type { StreamOptions } from "./providers/types.js";
@@ -31,6 +32,14 @@ export async function streamChat(options: StreamOptions): Promise<void> {
   const model = options.model ?? process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
   log.debug("Streaming chat request", { model, messageCount: options.messages.length });
 
+  const startMs = performance.now();
+  let inputChars = 0;
+  for (const m of options.messages) {
+    if (typeof m.content === "string") inputChars += m.content.length;
+  }
+  const inputTokens = Math.ceil(inputChars / 4);
+  let outputChars = 0;
+
   const body = {
     model,
     messages: options.messages.map((m) => ({
@@ -55,6 +64,7 @@ export async function streamChat(options: StreamOptions): Promise<void> {
     });
   } catch (err) {
     log.error("Stream connection failed", { model, error: (err instanceof Error ? err : new Error(String(err))).message });
+    recordLlmRequest("openrouter", model, Math.round(performance.now() - startMs), inputTokens, 0, false);
     options.onError(err instanceof Error ? err : new Error(String(err)));
     return;
   }
@@ -62,12 +72,14 @@ export async function streamChat(options: StreamOptions): Promise<void> {
   if (!response.ok) {
     const text = await response.text().catch(() => "unknown error");
     log.error("OpenRouter stream API error", { status: response.status, body: text, model });
+    recordLlmRequest("openrouter", model, Math.round(performance.now() - startMs), inputTokens, 0, false);
     options.onError(classifyApiError("OpenRouter", response.status, text, model));
     return;
   }
 
   const reader = response.body?.getReader();
   if (!reader) {
+    recordLlmRequest("openrouter", model, Math.round(performance.now() - startMs), inputTokens, 0, false);
     options.onError(new Error("No response body"));
     return;
   }
@@ -91,6 +103,7 @@ export async function streamChat(options: StreamOptions): Promise<void> {
 
         const data = trimmed.slice(6);
         if (data === "[DONE]") {
+          recordLlmRequest("openrouter", model, Math.round(performance.now() - startMs), inputTokens, Math.ceil(outputChars / 4), true);
           options.onDone();
           return;
         }
@@ -99,6 +112,7 @@ export async function streamChat(options: StreamOptions): Promise<void> {
           const parsed = JSON.parse(data);
           const delta = parsed.choices?.[0]?.delta?.content;
           if (delta) {
+            outputChars += delta.length;
             options.onToken(delta);
           }
         } catch {
@@ -107,8 +121,10 @@ export async function streamChat(options: StreamOptions): Promise<void> {
       }
     }
     // Stream ended without [DONE]
+    recordLlmRequest("openrouter", model, Math.round(performance.now() - startMs), inputTokens, Math.ceil(outputChars / 4), true);
     options.onDone();
   } catch (err) {
+    recordLlmRequest("openrouter", model, Math.round(performance.now() - startMs), inputTokens, Math.ceil(outputChars / 4), false);
     if (options.signal?.aborted) return;
     options.onError(err instanceof Error ? err : new Error(String(err)));
   } finally {

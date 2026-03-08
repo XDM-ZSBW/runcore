@@ -18,7 +18,7 @@ export interface MetricPoint {
 }
 
 /** Pre-defined metric categories for collection. */
-export type MetricCategory = "system" | "http" | "agent" | "error";
+export type MetricCategory = "system" | "http" | "agent" | "error" | "llm" | "sidecar" | "context";
 
 /** Histogram bucket for latency distributions. */
 export interface HistogramBucket {

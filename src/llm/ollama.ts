@@ -7,6 +7,7 @@
 import type { ContextMessage } from "../types.js";
 import type { StreamOptions } from "./openrouter.js";
 import { createLogger } from "../utils/logger.js";
+import { recordLlmRequest } from "../metrics/collector.js";
 
 const log = createLogger("llm.ollama");
 
@@ -68,6 +69,15 @@ export async function streamChatLocal(options: StreamOptions): Promise<void> {
   const model = options.model ?? process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
   log.debug("Ollama streaming chat request", { model, messageCount: options.messages.length });
 
+  const startMs = performance.now();
+  // Estimate input tokens from message content (chars / 4)
+  let inputChars = 0;
+  for (const m of options.messages) {
+    if (typeof m.content === "string") inputChars += m.content.length;
+  }
+  const inputTokens = Math.ceil(inputChars / 4);
+  let outputChars = 0;
+
   const body = {
     model,
     messages: options.messages.map((m) => ({
@@ -87,6 +97,7 @@ export async function streamChatLocal(options: StreamOptions): Promise<void> {
     });
   } catch (err) {
     log.error("Ollama stream connection failed", { model, error: (err instanceof Error ? err : new Error(String(err))).message });
+    recordLlmRequest("ollama", model, Math.round(performance.now() - startMs), inputTokens, 0, false);
     options.onError(err instanceof Error ? err : new Error(String(err)));
     return;
   }
@@ -94,12 +105,14 @@ export async function streamChatLocal(options: StreamOptions): Promise<void> {
   if (!response.ok) {
     const text = await response.text().catch(() => "unknown error");
     log.error("Ollama stream API error", { status: response.status, body: text, model });
+    recordLlmRequest("ollama", model, Math.round(performance.now() - startMs), inputTokens, 0, false);
     options.onError(new Error(`Ollama ${response.status}: ${text}`));
     return;
   }
 
   const reader = response.body?.getReader();
   if (!reader) {
+    recordLlmRequest("ollama", model, Math.round(performance.now() - startMs), inputTokens, 0, false);
     options.onError(new Error("No response body"));
     return;
   }
@@ -124,9 +137,11 @@ export async function streamChatLocal(options: StreamOptions): Promise<void> {
           // Ollama format: { message: { content: "..." }, done: false }
           const content = parsed.message?.content;
           if (content) {
+            outputChars += content.length;
             options.onToken(content);
           }
           if (parsed.done) {
+            recordLlmRequest("ollama", model, Math.round(performance.now() - startMs), inputTokens, Math.ceil(outputChars / 4), true);
             options.onDone();
             return;
           }
@@ -136,8 +151,10 @@ export async function streamChatLocal(options: StreamOptions): Promise<void> {
       }
     }
     // Stream ended without done:true
+    recordLlmRequest("ollama", model, Math.round(performance.now() - startMs), inputTokens, Math.ceil(outputChars / 4), true);
     options.onDone();
   } catch (err) {
+    recordLlmRequest("ollama", model, Math.round(performance.now() - startMs), inputTokens, Math.ceil(outputChars / 4), false);
     if (options.signal?.aborted) return;
     options.onError(err instanceof Error ? err : new Error(String(err)));
   } finally {

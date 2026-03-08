@@ -62,6 +62,21 @@ let cumulativeAgentTotal = 0;
 let errorCount = 0;
 const errorsBySource = new Map<string, number>();
 
+/** LLM request tracking — populated via recordLlmRequest(). */
+const llmDurations: number[] = [];
+const llmRequestCounts = new Map<string, number>(); // key: "provider|model"
+const llmInputTokens = new Map<string, number>();   // key: "provider|model"
+const llmOutputTokens = new Map<string, number>();   // key: "provider|model"
+let llmErrorCount = 0;
+
+/** Sidecar request tracking — populated via recordSidecarRequest(). */
+const sidecarDurations: number[] = [];
+const sidecarRequestCounts = new Map<string, number>(); // key: sidecar name
+const sidecarErrorCounts = new Map<string, number>();   // key: sidecar name
+
+/** Context assembly tracking — populated via recordContextAssembly(). */
+const contextAssemblyDurations: number[] = [];
+
 // ─── Collection ──────────────────────────────────────────────────────────────
 
 /** Collect all metrics and write to store. */
@@ -87,11 +102,16 @@ async function collect(): Promise<void> {
   });
   eventLoopDriftSeconds.set(undefined, driftRounded / 1000);
 
+  const collectStart = performance.now();
+
   // Snapshot accumulators (sync) so new data arriving during the async
   // write goes into fresh accumulators, not into the void.
   const hadHttp = httpLatencies.length > 0;
   const hadAgent = agentSpawnCount > 0 || agentCompleteCount > 0 || agentFailCount > 0;
   const hadErrors = errorCount > 0;
+  const hadLlm = llmDurations.length > 0 || llmErrorCount > 0;
+  const hadSidecar = sidecarDurations.length > 0;
+  const hadContextAssembly = contextAssemblyDurations.length > 0;
 
   // HTTP: snapshot and drain
   const httpSnap = hadHttp ? httpLatencies.splice(0) : [];
@@ -114,6 +134,23 @@ async function collect(): Promise<void> {
   const errorCountSnap = errorCount;
   const errorsBySourceSnap = hadErrors ? new Map(errorsBySource) : null;
   if (hadErrors) { errorCount = 0; errorsBySource.clear(); }
+
+  // LLM: snapshot and drain
+  const llmDurSnap = hadLlm ? llmDurations.splice(0) : [];
+  const llmRequestCountsSnap = hadLlm ? new Map(llmRequestCounts) : null;
+  const llmInputTokensSnap = hadLlm ? new Map(llmInputTokens) : null;
+  const llmOutputTokensSnap = hadLlm ? new Map(llmOutputTokens) : null;
+  const llmErrorCountSnap = llmErrorCount;
+  if (hadLlm) { llmRequestCounts.clear(); llmInputTokens.clear(); llmOutputTokens.clear(); llmErrorCount = 0; }
+
+  // Sidecar: snapshot and drain
+  const sidecarDurSnap = hadSidecar ? sidecarDurations.splice(0) : [];
+  const sidecarRequestCountsSnap = hadSidecar ? new Map(sidecarRequestCounts) : null;
+  const sidecarErrorCountsSnap = hadSidecar ? new Map(sidecarErrorCounts) : null;
+  if (hadSidecar) { sidecarRequestCounts.clear(); sidecarErrorCounts.clear(); }
+
+  // Context assembly: snapshot and drain
+  const contextDurSnap = hadContextAssembly ? contextAssemblyDurations.splice(0) : [];
 
   // Build points from snapshots
   if (hadHttp) {
@@ -218,8 +255,89 @@ async function collect(): Promise<void> {
     }
   }
 
+  // LLM metrics
+  if (hadLlm) {
+    for (const [key, count] of llmRequestCountsSnap!) {
+      const [provider, model] = key.split("|");
+      points.push({
+        timestamp: now, name: "llm.request.count", value: count,
+        unit: "count", tags: { provider, model },
+      });
+    }
+    for (const [key, tokens] of llmInputTokensSnap!) {
+      const [provider, model] = key.split("|");
+      points.push({
+        timestamp: now, name: "llm.token.input", value: tokens,
+        unit: "count", tags: { provider, model },
+      });
+    }
+    for (const [key, tokens] of llmOutputTokensSnap!) {
+      const [provider, model] = key.split("|");
+      points.push({
+        timestamp: now, name: "llm.token.output", value: tokens,
+        unit: "count", tags: { provider, model },
+      });
+    }
+    if (llmDurSnap.length > 0) {
+      const sorted = [...llmDurSnap].sort((a, b) => a - b);
+      const sum = sorted.reduce((a, v) => a + v, 0);
+      points.push(
+        { timestamp: now, name: "llm.request.duration.avg", value: Math.round(sum / sorted.length), unit: "ms" },
+        { timestamp: now, name: "llm.request.duration.p95", value: percentile(sorted, 95), unit: "ms" },
+        { timestamp: now, name: "llm.request.duration.max", value: sorted[sorted.length - 1], unit: "ms" },
+      );
+    }
+    if (llmErrorCountSnap > 0) {
+      points.push({ timestamp: now, name: "llm.request.error_count", value: llmErrorCountSnap, unit: "count" });
+    }
+  }
+
+  // Sidecar metrics
+  if (hadSidecar) {
+    for (const [sidecar, count] of sidecarRequestCountsSnap!) {
+      points.push({
+        timestamp: now, name: "sidecar.request.count", value: count,
+        unit: "count", tags: { sidecar },
+      });
+    }
+    for (const [sidecar, count] of sidecarErrorCountsSnap!) {
+      if (count > 0) {
+        points.push({
+          timestamp: now, name: "sidecar.error.count", value: count,
+          unit: "count", tags: { sidecar },
+        });
+      }
+    }
+    if (sidecarDurSnap.length > 0) {
+      const sorted = [...sidecarDurSnap].sort((a, b) => a - b);
+      const sum = sorted.reduce((a, v) => a + v, 0);
+      points.push(
+        { timestamp: now, name: "sidecar.request.duration.avg", value: Math.round(sum / sorted.length), unit: "ms" },
+        { timestamp: now, name: "sidecar.request.duration.p95", value: percentile(sorted, 95), unit: "ms" },
+        { timestamp: now, name: "sidecar.request.duration.max", value: sorted[sorted.length - 1], unit: "ms" },
+      );
+    }
+  }
+
+  // Context assembly metrics
+  if (hadContextAssembly) {
+    const sorted = [...contextDurSnap].sort((a, b) => a - b);
+    const sum = sorted.reduce((a, v) => a + v, 0);
+    points.push(
+      { timestamp: now, name: "context.assembly.duration.avg", value: Math.round(sum / sorted.length), unit: "ms" },
+      { timestamp: now, name: "context.assembly.duration.p95", value: percentile(sorted, 95), unit: "ms" },
+      { timestamp: now, name: "context.assembly.duration.max", value: sorted[sorted.length - 1], unit: "ms" },
+    );
+  }
+
   // Firewall metrics: drain accumulators
   points.push(...collectFirewallMetrics());
+
+  // Self-metrics
+  const collectDuration = Math.round((performance.now() - collectStart) * 100) / 100;
+  points.push({ timestamp: now, name: "metrics.collect.duration", value: collectDuration, unit: "ms" });
+  const storePointCount = await store.pointCount().catch(() => 0);
+  points.push({ timestamp: now, name: "metrics.store.points", value: storePointCount, unit: "count" });
 
   // Write all points in a single batch
   try {
@@ -250,6 +368,31 @@ async function collect(): Promise<void> {
       for (const [source, count] of errorsBySourceSnap!) {
         errorsBySource.set(source, (errorsBySource.get(source) ?? 0) + count);
       }
+    }
+    if (hadLlm) {
+      llmDurations.push(...llmDurSnap);
+      for (const [key, count] of llmRequestCountsSnap!) {
+        llmRequestCounts.set(key, (llmRequestCounts.get(key) ?? 0) + count);
+      }
+      for (const [key, tokens] of llmInputTokensSnap!) {
+        llmInputTokens.set(key, (llmInputTokens.get(key) ?? 0) + tokens);
+      }
+      for (const [key, tokens] of llmOutputTokensSnap!) {
+        llmOutputTokens.set(key, (llmOutputTokens.get(key) ?? 0) + tokens);
+      }
+      llmErrorCount += llmErrorCountSnap;
+    }
+    if (hadSidecar) {
+      sidecarDurations.push(...sidecarDurSnap);
+      for (const [key, count] of sidecarRequestCountsSnap!) {
+        sidecarRequestCounts.set(key, (sidecarRequestCounts.get(key) ?? 0) + count);
+      }
+      for (const [key, count] of sidecarErrorCountsSnap!) {
+        sidecarErrorCounts.set(key, (sidecarErrorCounts.get(key) ?? 0) + count);
+      }
+    }
+    if (hadContextAssembly) {
+      contextAssemblyDurations.push(...contextDurSnap);
     }
   }
 
@@ -339,6 +482,33 @@ export function recordError(source: string): void {
 
   // Prometheus instrument
   errorsTotal.inc({ source });
+}
+
+/** Record an LLM request (streaming or non-streaming). */
+export function recordLlmRequest(
+  provider: string, model: string, durationMs: number,
+  inputTokens: number, outputTokens: number, success: boolean,
+): void {
+  const key = `${provider}|${model}`;
+  llmDurations.push(durationMs);
+  llmRequestCounts.set(key, (llmRequestCounts.get(key) ?? 0) + 1);
+  llmInputTokens.set(key, (llmInputTokens.get(key) ?? 0) + inputTokens);
+  llmOutputTokens.set(key, (llmOutputTokens.get(key) ?? 0) + outputTokens);
+  if (!success) llmErrorCount++;
+}
+
+/** Record a sidecar request (search, TTS, STT, avatar, etc.). */
+export function recordSidecarRequest(sidecar: string, durationMs: number, success: boolean): void {
+  sidecarDurations.push(durationMs);
+  sidecarRequestCounts.set(sidecar, (sidecarRequestCounts.get(sidecar) ?? 0) + 1);
+  if (!success) {
+    sidecarErrorCounts.set(sidecar, (sidecarErrorCounts.get(sidecar) ?? 0) + 1);
+  }
+}
+
+/** Record context assembly timing. */
+export function recordContextAssembly(durationMs: number): void {
+  contextAssemblyDurations.push(durationMs);
 }
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────

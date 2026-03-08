@@ -13,6 +13,7 @@ import { LLMError } from "./errors.js";
 import { withRetry } from "./retry.js";
 import { rehydrateResponse } from "./redact.js";
 import { createLogger } from "../utils/logger.js";
+import { recordLlmRequest } from "../metrics/collector.js";
 
 const log = createLogger("llm");
 
@@ -36,15 +37,33 @@ export async function completeChat(options: CompleteChatOptions): Promise<string
   return completeChatCached(options, completeChatUncached, options.cacheTTLMs);
 }
 
+/** Estimate token count from text (chars / 4, consistent with context assembler). */
+function estimateTokens(messages: ContextMessage[]): number {
+  let chars = 0;
+  for (const m of messages) {
+    if (typeof m.content === "string") chars += m.content.length;
+    else {
+      for (const block of m.content) {
+        if ("text" in block) chars += block.text.length;
+      }
+    }
+  }
+  return Math.ceil(chars / 4);
+}
+
 /** Direct LLM call without caching — routes to the configured provider. */
 async function completeChatUncached(options: CompleteChatOptions): Promise<string> {
   const provider = getProvider(options.provider);
+  const model = options.model ?? provider.defaultUtilityModel;
 
   log.debug("Completion request", {
     provider: options.provider,
-    model: options.model ?? "default",
+    model: model,
     messageCount: options.messages.length,
   });
+
+  const startMs = performance.now();
+  const inputTokens = estimateTokens(options.messages);
 
   try {
     const raw = await withRetry(
@@ -54,7 +73,11 @@ async function completeChatUncached(options: CompleteChatOptions): Promise<strin
       },
       { maxRetries: 3, baseDelayMs: 1_000, maxDelayMs: 30_000 },
     );
-    return rehydrateResponse(raw);
+    const result = rehydrateResponse(raw);
+    const durationMs = Math.round(performance.now() - startMs);
+    const outputTokens = Math.ceil(result.length / 4);
+    recordLlmRequest(options.provider, model, durationMs, inputTokens, outputTokens, true);
+    return result;
   } catch (err) {
     // On credit/billing errors from cloud providers, try Ollama as a fallback
     if (err instanceof LLMError && err.isCreditsError && options.provider !== "ollama") {
@@ -65,6 +88,7 @@ async function completeChatUncached(options: CompleteChatOptions): Promise<strin
           provider: options.provider,
           status: err.statusCode,
         });
+        const fallbackStartMs = performance.now();
         const fallbackRaw = await withRetry(
           () => {
             const fallbackTimeout = AbortSignal.timeout(120_000);
@@ -72,9 +96,18 @@ async function completeChatUncached(options: CompleteChatOptions): Promise<strin
           },
           { maxRetries: 3, baseDelayMs: 1_000, maxDelayMs: 30_000 },
         );
-        return rehydrateResponse(fallbackRaw);
+        const fallbackResult = rehydrateResponse(fallbackRaw);
+        const fallbackDurationMs = Math.round(performance.now() - fallbackStartMs);
+        const fallbackOutputTokens = Math.ceil(fallbackResult.length / 4);
+        recordLlmRequest("ollama", ollama.defaultUtilityModel, fallbackDurationMs, inputTokens, fallbackOutputTokens, true);
+        // Also record the original provider's failure
+        const failDurationMs = Math.round(fallbackStartMs - startMs);
+        recordLlmRequest(options.provider, model, failDurationMs, inputTokens, 0, false);
+        return fallbackResult;
       }
     }
+    const durationMs = Math.round(performance.now() - startMs);
+    recordLlmRequest(options.provider, model, durationMs, inputTokens, 0, false);
     throw err;
   }
 }
