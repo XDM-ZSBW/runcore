@@ -54,6 +54,10 @@ Content drafts (human-facing writing) live in the publication repo (herrmangroup
 
 Read `identity/principles.md` (in the brain repo) for product, architecture, and business principles. These inform decision-making across all Core-based brains. Load at Level 2 (alongside module instructions) when a task involves design choices, architecture decisions, or content that represents the brand.
 
+## Prompt security boundary
+
+The system prompt has two layers: a **core prompt** (runtime-controlled, not user-editable) and a **personality layer** (user-controlled via brain files). This is a security surface. Personality is skin, core prompt is skeleton. Users customize how the agent feels; the runtime controls what the agent is. See [docs/prompt-security-boundary.md](docs/prompt-security-boundary.md) for the full spec. Never move core prompt logic into user-editable brain files.
+
 ## Critical rules
 
 1. **Route first.** Read `SKILL.md` to determine which module(s) a task needs. Load only those — never load everything.
