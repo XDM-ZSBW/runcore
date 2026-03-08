@@ -163,9 +163,60 @@
     border-radius: 50%;
     background: #22c55e;
     transition: background 0.3s;
+    cursor: pointer;
+    position: relative;
   }
   .chat-header .dot.degraded { background: #f59e0b; }
   .chat-header .dot.unhealthy { background: #ef4444; }
+
+  /* Health drilldown panel */
+  .health-panel {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 8px;
+    width: 280px;
+    background: var(--bg-secondary, #161b22);
+    border: 1px solid var(--border, #30363d);
+    border-radius: var(--radius, 8px);
+    padding: 10px;
+    font-size: 12px;
+    z-index: 200;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .health-panel.open { display: block; }
+  .health-panel-title {
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #8b949e);
+    margin-bottom: 8px;
+  }
+  .health-panel-empty {
+    color: var(--text-muted, #8b949e);
+    font-style: italic;
+  }
+  .health-event {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .health-event:last-child { border-bottom: none; }
+  .health-event-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+  .health-event-dot.degraded { background: #f59e0b; }
+  .health-event-dot.unhealthy { background: #ef4444; }
+  .health-event-dot.healthy { background: #22c55e; }
+  .health-event-text { flex: 1; color: var(--text-primary, #e6edf3); }
+  .health-event-time { color: var(--text-muted, #8b949e); white-space: nowrap; }
 
   .chat-header .header-nav {
     display: flex;
@@ -1848,7 +1899,12 @@
 <!-- Chat screen -->
 <div id="chat-screen" class="screen">
   <div class="chat-header">
-    <span class="dot"></span>
+    <span class="dot" id="health-dot" style="position:relative;">
+      <div class="health-panel" id="health-panel">
+        <div class="health-panel-title">System health</div>
+        <div id="health-events"></div>
+      </div>
+    </span>
     <a href="/" style="color:inherit;text-decoration:none;font-weight:600;" id="agent-name-header">Core</a>
     <nav class="header-nav" id="header-nav">
       <a href="/" class="active">Chat</a>
@@ -4944,20 +5000,72 @@
 
 
   // --- Start ---
-  // --- Health dot: event-driven, no polling ---
-  var healthDot = document.querySelector(".chat-header .dot");
-  var healthState = "healthy"; // healthy | degraded | unhealthy
+  // --- Health dot: event-driven with drilldown ---
+  var healthDot = document.getElementById("health-dot");
+  var healthPanel = document.getElementById("health-panel");
+  var healthEventsEl = document.getElementById("health-events");
+  var healthState = "healthy";
   var healthDecayTimer = null;
+  var healthLog = []; // { state, reason, time }
 
   function setHealthDot(state, reason) {
     if (!healthDot) return;
     healthState = state;
     healthDot.className = "dot" + (state === "degraded" ? " degraded" : state === "unhealthy" ? " unhealthy" : "");
     healthDot.title = reason || state;
+
+    // Log the event (keep last 20)
+    if (reason && reason !== "recovered") {
+      healthLog.push({ state: state, reason: reason, time: Date.now() });
+      if (healthLog.length > 20) healthLog.shift();
+      renderHealthPanel();
+    }
+
     // Auto-recover to green after 60s of no bad events
     clearTimeout(healthDecayTimer);
     if (state !== "healthy") {
-      healthDecayTimer = setTimeout(function() { setHealthDot("healthy", "recovered"); }, 60000);
+      healthDecayTimer = setTimeout(function() {
+        setHealthDot("healthy", "recovered");
+        healthDot.className = "dot";
+        healthState = "healthy";
+      }, 60000);
+    }
+  }
+
+  function renderHealthPanel() {
+    if (!healthEventsEl) return;
+    if (healthLog.length === 0) {
+      healthEventsEl.innerHTML = '<div class="health-panel-empty">All clear</div>';
+      return;
+    }
+    // Show newest first
+    var html = "";
+    for (var i = healthLog.length - 1; i >= 0; i--) {
+      var ev = healthLog[i];
+      var ago = Math.round((Date.now() - ev.time) / 1000);
+      var timeStr = ago < 60 ? ago + "s ago" : Math.round(ago / 60) + "m ago";
+      html += '<div class="health-event">'
+        + '<div class="health-event-dot ' + ev.state + '"></div>'
+        + '<span class="health-event-text">' + ev.reason + '</span>'
+        + '<span class="health-event-time">' + timeStr + '</span>'
+        + '</div>';
+    }
+    healthEventsEl.innerHTML = html;
+  }
+
+  // Click to toggle drilldown
+  if (healthDot) {
+    healthDot.addEventListener("click", function(e) {
+      e.stopPropagation();
+      renderHealthPanel(); // refresh timestamps
+      healthPanel.classList.toggle("open");
+    });
+    // Close on outside click
+    document.addEventListener("click", function() {
+      healthPanel.classList.remove("open");
+    });
+    if (healthPanel) {
+      healthPanel.addEventListener("click", function(e) { e.stopPropagation(); });
     }
   }
 
@@ -4965,7 +5073,17 @@
   (async function() {
     try {
       var data = await api("/api/health");
-      setHealthDot(data.status || "healthy", data.status);
+      if (data.status && data.status !== "healthy") {
+        setHealthDot(data.status, data.status);
+      }
+      // Populate from server checks
+      if (data.checks_registered) {
+        for (var name of data.checks_registered) {
+          if (data[name] && data[name].status !== "healthy") {
+            setHealthDot(data[name].status, name + ": " + (data[name].detail || data[name].status));
+          }
+        }
+      }
     } catch { setHealthDot("degraded", "Cannot reach server"); }
   })();
 
