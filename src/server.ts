@@ -973,18 +973,19 @@ app.post("/api/mobile/voucher", async (c) => {
     if (v.expiresAt < Date.now()) deviceVouchers.delete(k);
   }
 
-  // The QR payload — phone opens this URL
-  const qrPayload = JSON.stringify({
+  // The QR payload — a URL the phone opens directly
+  const voucherPayload = encodeURIComponent(JSON.stringify({
     relay: "https://runcore.sh",
     token,
     instance: instanceHash,
     name: voucher.instanceName,
-  });
+  }));
+  const qrUrl = `https://runcore.sh/pair#${voucherPayload}`;
 
   return c.json({
     token,
     expiresIn: 600,
-    qrData: qrPayload,
+    qrData: qrUrl,
     instanceName: voucher.instanceName,
   });
 });
@@ -6012,6 +6013,29 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
 
   // Load paired mobile devices
   await loadPairedDevices();
+
+  // Register with runcore.sh relay (fire-and-forget, non-blocking)
+  (async () => {
+    try {
+      const { createHash } = await import("node:crypto");
+      const instanceHash = createHash("sha256")
+        .update(getInstanceName() + BRAIN_DIR)
+        .digest("hex")
+        .slice(0, 16);
+      await fetch("https://runcore.sh/api/relay/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceHash,
+          displayName: getInstanceName(),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      log.info("Registered with runcore.sh relay", { instanceHash });
+    } catch {
+      log.debug("Relay registration skipped (offline or unreachable)");
+    }
+  })();
 
   // Pre-warm notification queue from disk (encryption key is set by now)
   const notifCount = await initNotifications();
