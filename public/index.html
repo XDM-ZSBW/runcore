@@ -3611,7 +3611,7 @@
     }
     // Capture the current assistant message as anchor for inline blocks
     if (!agentAnchorEl) {
-      var msgs = messagesEl.querySelectorAll(".message.assistant .content");
+      var msgs = messagesEl.querySelectorAll(".message.assistant");
       if (msgs.length > 0) agentAnchorEl = msgs[msgs.length - 1];
     }
     if (!agentPollTimer) {

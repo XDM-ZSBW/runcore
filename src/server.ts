@@ -315,6 +315,33 @@ const chatSessions = new Map<string, ChatSession>();
 const sessionKeys = new Map<string, Buffer>();
 let goalTimerStarted = false;
 
+// --- Thread management ---
+
+interface ChatThread {
+  id: string;
+  title: string;
+  history: ContextMessage[];
+  historySummary: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Threads per session. Key = sessionId, value = Map<threadId, ChatThread>. */
+const sessionThreads = new Map<string, Map<string, ChatThread>>();
+
+function getThreadsForSession(sessionId: string): Map<string, ChatThread> {
+  let threads = sessionThreads.get(sessionId);
+  if (!threads) {
+    threads = new Map();
+    sessionThreads.set(sessionId, threads);
+  }
+  return threads;
+}
+
+function generateThreadId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 /** One-time startup token for zero-friction local auth. */
 let startupToken: string | null = null;
 
