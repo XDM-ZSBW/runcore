@@ -111,6 +111,25 @@ export function createCdtEvent(opts: EmitCdtOptions & { voltageAtTrigger?: numbe
   };
 }
 
+// ─── Aggregate CDT rate limiter ──────────────────────────────────────────────
+// Prevents cascade storms where N different CDT sources pile on in the same
+// tick, each adding 15mV. Per-source refractory (5 min) handles individual
+// sources; this caps total CDT voltage contributions globally.
+
+const CDT_AGGREGATE_WINDOW_MS = 60_000; // 1 minute
+const CDT_AGGREGATE_MAX = 3;            // max voltage-contributing CDTs per window
+let cdtAggregateCount = 0;
+let cdtAggregateWindowStart = Date.now();
+
+function isCdtAggregateExhausted(): boolean {
+  const now = Date.now();
+  if (now - cdtAggregateWindowStart > CDT_AGGREGATE_WINDOW_MS) {
+    cdtAggregateCount = 0;
+    cdtAggregateWindowStart = now;
+  }
+  return cdtAggregateCount >= CDT_AGGREGATE_MAX;
+}
+
 // ─── Emission API ───────────────────────────────────────────────────────────
 
 /**
@@ -118,10 +137,11 @@ export function createCdtEvent(opts: EmitCdtOptions & { voltageAtTrigger?: numbe
  *
  * Handles the full pipeline:
  * 1. CDT refractory check (per-source 5 min window)
- * 2. Voltage snapshot
- * 3. Event creation and persistence
- * 4. Voltage contribution (via bridge)
- * 5. Subscriber notification
+ * 2. Aggregate CDT rate check (max 3 voltage contributions per 60s)
+ * 3. Voltage snapshot
+ * 4. Event creation and persistence
+ * 5. Voltage contribution (via bridge, if within aggregate limit)
+ * 6. Subscriber notification
  *
  * @returns true if emitted, false if suppressed by refractory
  */
@@ -142,16 +162,23 @@ export function emitCdt(opts: EmitCdtOptions): boolean {
       : undefined,
   });
 
-  // Persist + refractory bookkeeping
+  // Persist + refractory bookkeeping (always record, even if voltage is capped)
   recordActivation(event, opts.sourceKey).catch(() => {});
 
-  // Contribute voltage to the pressure system
+  // Contribute voltage to the pressure system — capped by aggregate limiter
   const contribution = event.voltageContribution ?? 0;
   if (contribution > 0 && voltageContributor) {
-    voltageContributor(contribution);
-    log.debug(
-      `CDT +${contribution}mV (${opts.sourceKey}): emitted trigger=${opts.triggerId}`,
-    );
+    if (isCdtAggregateExhausted()) {
+      log.debug(
+        `CDT voltage suppressed (aggregate limit ${CDT_AGGREGATE_MAX}/${CDT_AGGREGATE_WINDOW_MS}ms): ${opts.sourceKey}`,
+      );
+    } else {
+      cdtAggregateCount++;
+      voltageContributor(contribution);
+      log.debug(
+        `CDT +${contribution}mV (${opts.sourceKey}): emitted trigger=${opts.triggerId} [${cdtAggregateCount}/${CDT_AGGREGATE_MAX}]`,
+      );
+    }
   }
 
   // Notify subscribers

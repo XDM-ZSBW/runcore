@@ -9,7 +9,7 @@ const DatabaseSchema = z.object({
 });
 
 const ApiSchema = z.object({
-  port: z.number().int().min(0).max(65535).default(3577),
+  port: z.number().int().min(0).max(65535).default(0),
   cors: z.array(z.string()).default(["*"]),
   trustProxy: z.boolean().default(false),
 });
@@ -37,7 +37,7 @@ export const ProjectConfigSchema = z.object({
   encrypt: z.boolean().default(false),
   safeWord: z.string().optional(),
   database: DatabaseSchema.default(() => ({ url: "", poolMin: 2, poolMax: 10 })),
-  api: ApiSchema.default(() => ({ port: 3577, cors: ["*"], trustProxy: false })),
+  api: ApiSchema.default(() => ({ port: 0, cors: ["*"], trustProxy: false })),
   logging: LoggingSchema.default(() => ({ level: "warn" as const, format: "pretty" as const })),
   features: FeaturesSchema,
   build: BuildSchema.default(() => ({ outDir: "dist", sourceMaps: true, minify: false })),

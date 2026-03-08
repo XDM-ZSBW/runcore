@@ -10,6 +10,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { acquireLock, releaseLock } from "./runtime-lock.js";
 
 // Package root — works whether run from CWD or npx
 const __filename = fileURLToPath(import.meta.url);
@@ -505,6 +506,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `WRONG: Describing the agent request in prose. WRONG: Wrapping the block in \`\`\`markdown. WRONG: Putting non-JSON text inside the block.`,
         `RIGHT: Plain [AGENT_REQUEST] tag, one line of JSON, [/AGENT_REQUEST] tag. Nothing else inside.`,
         `Agent failures are normal (auth issues, timeouts, environment mismatches). Never stop spawning agents because of past failures.`,
+        `IMPORTANT: Do NOT announce agent spawns in your visible response text. No "Agent spawned to...", no "I'll spawn an agent...", no "Let me run an agent...". The UI shows agent status automatically. Just include the [AGENT_REQUEST] block silently at the end. Your visible text should answer the user's question or continue the conversation naturally.`,
         ] : []),  // end spawning gate
         // Inject instance-readable vault values (CORE_*/DASH_* prefixed only — never secrets)
         ...(() => {
@@ -6159,6 +6161,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
         actualPort = addr.port;
       }
       log.info(`Listening on http://localhost:${actualPort}`);
+      acquireLock(actualPort, getInstanceName());
       console.log(`\n  ${getInstanceName()} is running:\n`);
       console.log(`  → http://localhost:${actualPort}\n`);
 
@@ -6326,6 +6329,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   await shutdownPlugins().catch(() => {});
   await shutdownLLMCache();
   await shutdownTracing();
+  releaseLock();
   process.exit(0);
 }
 process.on("SIGINT", () => { gracefulShutdown("SIGINT"); });

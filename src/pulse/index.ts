@@ -31,6 +31,34 @@ export {
   initPressureIntegrator,
 } from "./pressure.js";
 
+// ─── Work signal (inference metrics → pulse) ─────────────────────────────────
+export {
+  computeWorkSignal,
+  computeFromTrend,
+  getWorkSignalBreakdown,
+  setInferenceMetricsProvider,
+  type WorkSignalBreakdown,
+  type TrendWindow,
+  type InferenceMetricsProvider,
+} from "./work.js";
+
+// ─── Flywheel tier system ─────────────────────────────────────────────────────
+export {
+  calculateFlywheelTier,
+  dotStateToTier,
+  DOT_PRODUCT_MAP,
+  TIER_COLORS,
+} from "./tier.js";
+
+export type {
+  DotState,
+  DotTier,
+  DotName,
+  DotStatus,
+  FlywheelTier,
+  FlywheelStatus,
+} from "./tier.js";
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type {
   ActivationEvent,

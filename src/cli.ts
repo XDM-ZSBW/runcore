@@ -306,7 +306,23 @@ async function startServer(tier: import("./tier/types.js").TierName = "byok") {
 // ── Status ─────────────────────────────────────────────────────────
 
 async function status() {
-  const port = getFlag(args, "--port") ?? process.env.CORE_PORT ?? "3577";
+  const portFlag = getFlag(args, "--port") ?? process.env.CORE_PORT;
+
+  let port: number;
+  if (portFlag) {
+    port = parseInt(portFlag, 10);
+  } else {
+    // Discover from runtime lock
+    const { discoverRunning } = await import("./runtime-lock.js");
+    const lock = discoverRunning();
+    if (!lock) {
+      console.log("Core is not running (no runtime lock found)");
+      process.exit(1);
+      return;
+    }
+    port = lock.port;
+  }
+
   const url = `http://localhost:${port}/api/health`;
 
   try {

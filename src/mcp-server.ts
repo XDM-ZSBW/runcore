@@ -520,31 +520,38 @@ async function main(): Promise<void> {
     }
   );
 
-  // ── Dash status + handoff check ──────────────────────────────────────────
+  // ── Instance status + handoff check ─────────────────────────────────────
 
   mcp.tool(
     "dash_status",
-    "Check if Dash is running and review pending handoffs. Use anytime to verify Dash is alive and see what's queued for his planner.",
+    "Check if the Core server is running and review pending handoffs. Use anytime to verify the instance is alive and see what's queued.",
     {},
     async () => {
-      // Check Dash health
-      let dashHealth: string;
-      try {
-        const res = await fetch("http://localhost:3577/healthz", { signal: AbortSignal.timeout(5000) });
-        if (res.ok) {
-          const h = await res.json() as Record<string, unknown>;
-          dashHealth = `Dash is RUNNING. Uptime: ${h.uptime}s. Status: ${h.status}`;
-        } else {
-          dashHealth = `Dash responded but unhealthy: HTTP ${res.status}`;
+      const { discoverRunning } = await import("./runtime-lock.js");
+      const lock = discoverRunning();
+
+      let instanceHealth: string;
+      if (!lock) {
+        instanceHealth = "Server is DOWN — no runtime lock found";
+      } else {
+        // Lock exists and PID is alive — verify HTTP health
+        try {
+          const res = await fetch(`http://localhost:${lock.port}/healthz`, { signal: AbortSignal.timeout(5000) });
+          if (res.ok) {
+            const h = await res.json() as Record<string, unknown>;
+            instanceHealth = `${lock.name} is RUNNING on port ${lock.port}. Uptime: ${h.uptime}s. Status: ${h.status}. PID: ${lock.pid}`;
+          } else {
+            instanceHealth = `${lock.name} responded but unhealthy: HTTP ${res.status} (port ${lock.port}, pid ${lock.pid})`;
+          }
+        } catch {
+          instanceHealth = `${lock.name} has lock (pid=${lock.pid}, port=${lock.port}) but HTTP health check failed`;
         }
-      } catch {
-        dashHealth = "Dash is DOWN — no response on localhost:3577";
       }
 
-      // Read handoffs
+      // Read handoffs from this brain
       let handoffSummary: string;
       try {
-        const handoffPath = resolve(process.cwd(), "../dash/brain/operations/handoffs.jsonl");
+        const handoffPath = join(BRAIN_DIR, "operations", "handoffs.jsonl");
         const { readFile } = await import("node:fs/promises");
         const raw = await readFile(handoffPath, "utf-8");
         const lines = raw.split("\n").filter((l) => l.trim() && !l.includes("_schema"));
@@ -559,11 +566,11 @@ async function main(): Promise<void> {
           ? "No pending handoffs."
           : `${pending.length} pending handoffs:\n${items.join("\n")}`;
       } catch {
-        handoffSummary = "Could not read handoffs file.";
+        handoffSummary = "No pending handoffs.";
       }
 
       return {
-        content: [{ type: "text" as const, text: `${dashHealth}\n\n${handoffSummary}` }],
+        content: [{ type: "text" as const, text: `${instanceHealth}\n\n${handoffSummary}` }],
       };
     }
   );

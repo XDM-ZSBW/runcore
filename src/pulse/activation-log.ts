@@ -16,7 +16,6 @@ import { join } from "node:path";
 import { appendBrainLine, ensureBrainJsonl } from "../lib/brain-io.js";
 import { createLogger } from "../utils/logger.js";
 import type { ActivationEvent } from "./types.js";
-import { resolveEnv } from "../instance.js";
 
 const log = createLogger("activation-log");
 

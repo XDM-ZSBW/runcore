@@ -56,7 +56,7 @@ export async function streamChat(options: StreamOptions): Promise<void> {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "http://localhost:3577",
+        "HTTP-Referer": "https://runcore.sh",
         "X-Title": getInstanceName(),
       },
       body: JSON.stringify(body),
