@@ -22,17 +22,17 @@ Cloud gives you capability that scales past what your hardware can do. Larger mo
 
 The flywheel offset is the architecture that lets both forces push without either one winning. They don't compete. They counterbalance. The wheel spins because both are present.
 
-## The membrane: redaction as a property of flow
+## The access layer: redaction as a property of flow
 
 Here's where most hybrid architectures get it wrong. They treat the boundary between local and cloud as a gate — a checkpoint where data stops, gets inspected, gets approved, and moves on. That's a bottleneck. Worse, it's a decision point, and decision points are where things stall or leak.
 
-The flywheel doesn't have a gate. It has a membrane.
+The flywheel doesn't have a gate. It has a built-in access layer.
 
 When local AI determines it needs cloud capability, the outbound stream begins. But the stream doesn't carry your data to a checkpoint for review. The stream *is* the review. Every word that flows through is evaluated as it moves — entity names, account numbers, proprietary terms, personal identifiers — all processed at the word level, in the flow, at the speed of the flow.
 
 Sensitive tokens get replaced before they ever assemble into a complete thought on the other side. The cloud model receives a coherent request with the sensitive parts swapped for safe placeholders. It does its work. The response flows back. The local layer re-maps the placeholders to the originals.
 
-The cloud never sees the real data. Not because a gate blocked it, but because the real data never existed in the cloud's context. The membrane didn't stop the flow — it shaped it.
+The cloud never sees the real data. Not because a gate blocked it, but because the real data never existed in the cloud's context. The access layer didn't stop the flow — it shaped it.
 
 This is the difference between a checkpoint and a property. A checkpoint is something you pass through. A property is something the stream *has*. The redaction isn't a step in the pipeline. It's a characteristic of the pipeline itself.
 
@@ -42,7 +42,7 @@ When the flywheel is balanced, you stop thinking about local vs. cloud. You thin
 
 Your local agents handle what they can — and over time, they handle more. They learn your patterns, your vocabulary, your decision history. The knowledge module grows. The local capability surface expands with use, like a path that widens the more it's walked.
 
-When a task exceeds local capability, the flywheel tilts toward cloud — but the membrane holds. The sensitive context stays home. The cloud gets exactly what it needs to help: the shape of the problem without the identity of the people in it.
+When a task exceeds local capability, the flywheel tilts toward cloud — but the access layer holds. The sensitive context stays home. The cloud gets exactly what it needs to help: the shape of the problem without the identity of the people in it.
 
 The response comes back. Local integrates it. The flywheel rebalances.
 
@@ -56,11 +56,11 @@ The instinct is to see hybrid as a concession. "You couldn't go fully local, so 
 
 Fully local with no cloud access is a ceiling you chose. Fully cloud with no local layer is a trust boundary you abandoned. The flywheel isn't between those two compromises. It's above them.
 
-The sovereignty guarantee from Simple Override still holds. You own the hardware. The kill switch is still above the agents. "Stop" still means stop. The membrane adds a second guarantee: even when you *choose* to reach into cloud capability, your sensitive data doesn't cross the boundary. Not because policy says so. Because the architecture makes it physically impossible for the complete sensitive payload to exist on the cloud side.
+The sovereignty guarantee from Simple Override still holds. You own the hardware. The kill switch is still above the agents. "Stop" still means stop. The access layer adds a second guarantee: even when you *choose* to reach into cloud capability, your sensitive data doesn't cross the boundary. Not because policy says so. Because the architecture makes it physically impossible for the complete sensitive payload to exist on the cloud side.
 
 Two guarantees, layered:
 1. You can stop everything. (Override.)
-2. When it's running, your data stays yours. (Membrane.)
+2. When it's running, your data stays yours. (Access layer.)
 
 That's not a compromise. That's defense in depth, applied to trust instead of security.
 
@@ -68,7 +68,7 @@ That's not a compromise. That's defense in depth, applied to trust instead of se
 
 This pattern scales down as naturally as it scales up.
 
-A family running a local mesh — each person with their own AI brain, shared knowledge where it makes sense (calendar, groceries, house projects), private where it doesn't — has the same architecture as an enterprise deployment. The flywheel spins the same way. Local handles the daily rhythm. Cloud steps in for the hard problems. The membrane keeps family data out of training pipelines.
+A family running a local mesh — each person with their own AI brain, shared knowledge where it makes sense (calendar, groceries, house projects), private where it doesn't — has the same architecture as an enterprise deployment. The flywheel spins the same way. Local handles the daily rhythm. Cloud steps in for the hard problems. The access layer keeps family data out of training pipelines.
 
 The difference between a family mesh and an enterprise mesh isn't the architecture. It's the trust boundary. And on a family network, that boundary is as tight as it gets.
 
@@ -80,7 +80,7 @@ That's not a product pitch. That's how it should have always worked.
 
 The flywheel is stable, but it's not invincible. Three things can break the balance:
 
-**The membrane thins.** If the word-level redaction gets sloppy — misses a name, lets a proprietary term through, fails to catch a new pattern of sensitive data — the trust guarantee erodes. This is why the membrane isn't a static filter. It learns from the same knowledge module your local agents use. When your vocabulary grows, the membrane's awareness grows with it.
+**The access layer thins.** If the word-level redaction gets sloppy — misses a name, lets a proprietary term through, fails to catch a new pattern of sensitive data — the trust guarantee erodes. This is why the access layer isn't a static filter. It learns from the same knowledge module your local agents use. When your vocabulary grows, its awareness grows with it.
 
 **Local atrophies.** If you default to cloud for convenience, the local capability surface stops expanding. The flywheel tilts until it's just cloud-with-extra-steps. The architecture can nudge against this — surfacing how often cloud is called, showing which task types could be handled locally — but ultimately the human decides. It's your flywheel.
 
@@ -92,7 +92,7 @@ In all three cases, the human is the mechanic. Not because the system can't self
 
 The flywheel's deeper gift is time.
 
-When the system is balanced — local handling the routine, cloud available for the peaks, membrane holding the boundary — you stop spending mental energy on "is this safe?" and "should I use AI for this?" The answer is just yes. It's running. It's fine. The architecture is doing the worrying for you.
+When the system is balanced — local handling the routine, cloud available for the peaks, the access layer holding the boundary — you stop spending mental energy on "is this safe?" and "should I use AI for this?" The answer is just yes. It's running. It's fine. The architecture is doing the worrying for you.
 
 That frees up space for the work that actually matters. The thinking. The creative leaps. The long quiet stretches where an idea takes shape before you're ready to name it.
 

@@ -7,7 +7,7 @@
 
 A fresh `npx @runcore-sh/runcore` install shows the full settings panel — mesh config, LLM providers, voice settings, Google Workspace, Linear board integration, service registry, API key vault, and navigation to observatory, ops, roadmap, registry pages. None of these work on local tier. The UI promises capabilities the system cannot deliver.
 
-Worse: the UI implies infrastructure connectivity that doesn't exist. A fresh local install is a stranger — no bond, no governance, no membrane, no trust chain. The interface should reflect that.
+Worse: the UI implies infrastructure connectivity that doesn't exist. A fresh local install is a stranger — no pairing, no governance, no access control, no trust chain. The interface should reflect that.
 
 ## Principle
 
