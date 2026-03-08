@@ -267,7 +267,10 @@ function pickStreamFn(): (options: StreamOptions) => Promise<void> {
 
 // --- Config ---
 
-const PORT = parseInt(process.env.CORE_PORT ?? resolveEnv("PORT") ?? "0", 10);
+import { getLastPort } from "./runtime-lock.js";
+const _envPort = parseInt(process.env.CORE_PORT ?? resolveEnv("PORT") ?? "0", 10);
+// Sticky port: if no explicit port set, reuse the last known port from runtime lock
+const PORT = _envPort === 0 ? getLastPort() : _envPort;
 let actualPort = PORT;
 const SIDECAR_PORT = resolveEnv("SEARCH_PORT") ?? "3578";
 import { BRAIN_DIR } from "./lib/paths.js";
@@ -1899,6 +1902,95 @@ app.post("/api/history/intro", async (c) => {
   if (cs.history.length === 0) {
     cs.history.push({ role: "assistant", content: message });
   }
+  return c.json({ ok: true });
+});
+
+// --- Thread routes ---
+
+app.get("/api/threads", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid session" }, 401);
+
+  const threads = getThreadsForSession(sessionId);
+  const list = [...threads.values()]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .map(t => ({ id: t.id, title: t.title, createdAt: t.createdAt, updatedAt: t.updatedAt }));
+  return c.json({ threads: list });
+});
+
+app.post("/api/threads", async (c) => {
+  const body = await c.req.json<{ sessionId?: string; title?: string }>();
+  const sessionId = body.sessionId;
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid session" }, 401);
+
+  const threads = getThreadsForSession(sessionId);
+  const now = new Date().toISOString();
+  const thread: ChatThread = {
+    id: generateThreadId(),
+    title: body.title || "New thread",
+    history: [],
+    historySummary: "",
+    createdAt: now,
+    updatedAt: now,
+  };
+  threads.set(thread.id, thread);
+
+  // Save current main history as the previous thread, then clear for fresh conversation
+  const cs = chatSessions.get(sessionId);
+  if (cs) {
+    cs.history = [];
+    cs.historySummary = "";
+    cs.foldedBack = false;
+    cs.turnCount = 0;
+  }
+
+  return c.json({ thread: { id: thread.id, title: thread.title, createdAt: thread.createdAt, updatedAt: thread.updatedAt } });
+});
+
+app.get("/api/threads/:id/history", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid session" }, 401);
+
+  const threads = getThreadsForSession(sessionId);
+  const thread = threads.get(c.req.param("id"));
+  if (!thread) return c.json({ error: "Thread not found" }, 404);
+
+  const messages = thread.history
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ role: m.role, content: m.content }));
+  return c.json({ messages });
+});
+
+app.patch("/api/threads/:id", async (c) => {
+  const body = await c.req.json<{ sessionId?: string; title?: string }>();
+  const sessionId = body.sessionId;
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid session" }, 401);
+
+  const threads = getThreadsForSession(sessionId);
+  const thread = threads.get(c.req.param("id"));
+  if (!thread) return c.json({ error: "Thread not found" }, 404);
+
+  if (body.title) thread.title = body.title;
+  thread.updatedAt = new Date().toISOString();
+  return c.json({ ok: true });
+});
+
+app.delete("/api/threads/:id", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid session" }, 401);
+
+  const threads = getThreadsForSession(sessionId);
+  threads.delete(c.req.param("id"));
   return c.json({ ok: true });
 });
 
@@ -5305,7 +5397,7 @@ app.post("/api/chat", async (c) => {
           if (lastOpen !== -1 && tokenBuf2.indexOf(">>", lastOpen) === -1) return;
           flushBuf2();
         },
-        onDone: () => {
+        onDone: async () => {
           flushBuf2(); // flush remainder
           reqSignal?.removeEventListener("abort", onAbort);
 
@@ -5363,20 +5455,22 @@ app.post("/api/chat", async (c) => {
 
                   spawnCount++;
                   agentLog.info(` Spawning: ${label}${(isVague || isWishList) ? " (grounded)" : ""}`);
-                  stream.writeSSE({ data: JSON.stringify({ agentSpawned: { label } }) }).catch(() => {});
-                  submitTask({
-                    label,
-                    prompt: finalPrompt,
-                    origin: "ai",
-                    sessionId,
-                    boardTaskId: req.taskId,
-                  }).then((task) => {
+                  // Await task submission so we can send the real task ID to the client
+                  try {
+                    const task = await submitTask({
+                      label,
+                      prompt: finalPrompt,
+                      origin: "ai",
+                      sessionId,
+                      boardTaskId: req.taskId,
+                    });
+                    stream.writeSSE({ data: JSON.stringify({ agentSpawned: { label, taskId: task.id } }) }).catch(() => {});
                     logActivity({ source: "agent", summary: `AI-triggered agent: ${task.label}`, detail: `Task ${task.id}, PID ${task.pid}`, actionLabel: "PROMPTED", reason: "user chat triggered agent" });
-                  }).catch((err) => {
+                  } catch (err: any) {
                     agentLog.error(`Spawn failed for "${label}": ${err.message}`);
                     logActivity({ source: "agent", summary: `AI agent spawn failed: ${err.message}`, actionLabel: "PROMPTED", reason: "user chat triggered agent spawn failed" });
                     stream.writeSSE({ data: JSON.stringify({ agentError: { label, error: err.message } }) }).catch(() => {});
-                  });
+                  }
                 } else {
                   agentLog.warn(`Parsed JSON but missing "prompt" field: ${jsonMatch[0].slice(0, 200)}`);
                 }
@@ -6182,7 +6276,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   log.info(`${getInstanceName()} email handler registered — emails with '${getInstanceName()}' in subject will be auto-replied`);
 
   await new Promise<void>((resolve) => {
-    const server = serve({ fetch: app.fetch, port: PORT }, () => {
+    function onListening(server: ReturnType<typeof serve>) {
       const addr = server.address();
       if (typeof addr === "object" && addr) {
         actualPort = addr.port;
@@ -6218,7 +6312,27 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
       }
 
       resolve();
-    });
+    }
+
+    try {
+      const server = serve({ fetch: app.fetch, port: PORT }, () => onListening(server));
+      server.on("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE" && PORT !== 0) {
+          log.warn(`Port ${PORT} in use, falling back to random port`);
+          const fallback = serve({ fetch: app.fetch, port: 0 }, () => onListening(fallback));
+        } else {
+          throw err;
+        }
+      });
+    } catch (err) {
+      // If serve() throws synchronously (unlikely but safe)
+      if (PORT !== 0) {
+        log.warn(`Port ${PORT} failed, falling back to random port`);
+        const fallback = serve({ fetch: app.fetch, port: 0 }, () => onListening(fallback));
+      } else {
+        throw err;
+      }
+    }
   });
 }
 

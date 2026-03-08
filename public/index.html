@@ -3515,8 +3515,20 @@
               messagesEl.scrollTop = messagesEl.scrollHeight;
             }
             if (data.agentSpawned) {
-              // Server spawned an agent — poll for status, render inline in assistant message
+              // Server spawned an agent — render block immediately with real task ID
+              console.log("[agent] SSE agentSpawned:", data.agentSpawned);
+              var spawnLabel = data.agentSpawned.label || "Agent";
+              var spawnId = data.agentSpawned.taskId || ("sse-" + Date.now());
               startAgentPoll();
+              // Create block immediately inside the assistant message div (sibling of .content)
+              var spawnAnchor = contentEl ? contentEl.parentElement : messagesEl;
+              if (spawnAnchor) {
+                var spawnBlock = createAgentBlock(spawnId, spawnLabel);
+                spawnAnchor.appendChild(spawnBlock);
+                agentElements[spawnId] = spawnBlock;
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+                console.log("[agent] Created block:", spawnId, "in", spawnAnchor.className);
+              }
             }
             if (data.agentError) {
               console.error("[agent] Spawn failed:", data.agentError);
@@ -3652,6 +3664,7 @@
   async function pollAgentTasks() {
     try {
       var data = await api("/api/agents/tasks");
+      console.log("[agent-poll] tasks:", data.tasks?.length || 0, "since:", agentPollSince, "anchor:", agentAnchorEl?.className);
       if (!data.tasks || data.tasks.length === 0) return;
 
       var hasRunning = false;
@@ -3660,7 +3673,10 @@
       for (var i = 0; i < data.tasks.length; i++) {
         var task = data.tasks[i];
         if (!task || !task.id) continue;
-        if (agentPollSince && task.createdAt < agentPollSince) continue;
+        if (agentPollSince && task.createdAt < agentPollSince) {
+          console.log("[agent-poll] skip old task:", task.id, "created:", task.createdAt, "since:", agentPollSince);
+          continue;
+        }
 
         var block = agentElements[task.id];
         var taskLabel = task.label || task.id.slice(0, 8);

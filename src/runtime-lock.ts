@@ -123,6 +123,16 @@ export function discoverRunning(): RuntimeLock | null {
 }
 
 /**
+ * Get the port from the last runtime lock, regardless of whether
+ * the process is still alive. Used for sticky port on restart.
+ * Returns 0 if no previous lock found.
+ */
+export function getLastPort(): number {
+  const lock = readLock();
+  return lock?.port ?? 0;
+}
+
+/**
  * Discover running instances across multiple brain directories.
  * Useful for finding all Core instances on this machine.
  */

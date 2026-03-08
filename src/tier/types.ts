@@ -54,7 +54,7 @@ export const TIER_CAPS: Record<TierName, TierCapabilities> = {
     ui: true,
     mesh: true,
     alerting: true,
-    spawning: false,
+    spawning: true,
     governance: false,
     vault: true,
     voice: true,
