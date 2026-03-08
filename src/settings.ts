@@ -101,6 +101,8 @@ export interface CoreSettings {
   visualMemory?: VisualMemoryConfig;
   /** Integration gate — master switch + per-service toggles. */
   integrations?: IntegrationSettings;
+  /** Opt-in: send anonymized self-reported issues to runcore.sh for backlog aggregation. */
+  issueReporting?: boolean;
 }
 
 /** @deprecated Use CoreSettings instead. */

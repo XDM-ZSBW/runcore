@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { BRAIN_DIR } from "../lib/paths.js";
 import { createLogger } from "../utils/logger.js";
 import { getInstanceName } from "../instance.js";
+import { getSettings } from "../settings.js";
 import type { SelfReportedIssue } from "./types.js";
 
 const log = createLogger("agents.issue-reporter");
@@ -50,17 +51,10 @@ async function saveReportedIds(): Promise<void> {
 
 /**
  * Check if issue reporting is enabled.
- * Reads from brain settings — opt-in only.
+ * Uses CoreSettings — opt-in only.
  */
-async function isReportingEnabled(): Promise<boolean> {
-  try {
-    const settingsPath = join(BRAIN_DIR, "settings", "settings.yaml");
-    const content = await readFile(settingsPath, "utf-8");
-    // Simple YAML check — look for issueReporting: true
-    return /issueReporting:\s*true/i.test(content);
-  } catch {
-    return false;
-  }
+function isReportingEnabled(): boolean {
+  return getSettings().issueReporting === true;
 }
 
 /**
@@ -72,7 +66,7 @@ export async function reportIssuesUpstream(issues: SelfReportedIssue[]): Promise
   if (issues.length === 0) return;
 
   // Check opt-in
-  if (!(await isReportingEnabled())) {
+  if (!isReportingEnabled()) {
     log.debug("Issue reporting disabled (opt-in via settings.yaml: issueReporting: true)");
     return;
   }
