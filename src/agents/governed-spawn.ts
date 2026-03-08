@@ -20,6 +20,7 @@ import type { SpawnRequest, AgentInstance } from "./runtime/types.js";
 import {
   governanceGate,
   revokeGovernanceVoucher,
+  narrowScopeCeiling,
   type GovernanceOptions,
   type GovernanceDecision,
   type GovernanceAuditEntry,
@@ -68,6 +69,12 @@ export interface GovernedSpawnRequest {
   currentAgentCount?: number;
   /** Current running count of this specific agent type. */
   currentTypeCount?: number;
+  /**
+   * Scope ceiling — the outermost directory this agent (and its children)
+   * may operate in. Inherited from parent, can only narrow downward.
+   * If omitted on a root spawn, defaults to cwd (or process.cwd()).
+   */
+  scopeCeiling?: string;
 }
 
 /** Result of a governed spawn — includes governance metadata. */
@@ -84,6 +91,12 @@ export interface GovernedSpawnResult {
   traceId: string;
   /** Denial reason (if not allowed). */
   deniedReason?: string;
+  /**
+   * Effective scope ceiling for this agent. Pass this as
+   * `scopeCeiling` when spawning child agents to enforce
+   * the narrowing constraint.
+   */
+  scopeCeiling?: string;
 }
 
 /** Dependencies injected into the governed spawn system. */
@@ -122,7 +135,7 @@ export async function governedSpawn(
     traceId,
   });
 
-  // 1. Run governance gate
+  // 1. Run governance gate (scope ceiling validated here)
   const govOpts: GovernanceOptions = {
     taskId: request.taskId,
     label: request.label,
@@ -134,6 +147,8 @@ export async function governedSpawn(
     agentType: request.agentType,
     currentAgentCount: request.currentAgentCount,
     currentTypeCount: request.currentTypeCount,
+    cwd: request.cwd,
+    scopeCeiling: request.scopeCeiling,
   };
 
   const governance = await governanceGate(govOpts);
@@ -172,8 +187,12 @@ export async function governedSpawn(
     };
   }
 
+  // Compute effective scope ceiling for this agent and its children
+  const effectiveCeiling = narrowScopeCeiling(request.scopeCeiling, request.cwd);
+
   let instance: AgentInstance;
   try {
+
     const spawnRequest: SpawnRequest = {
       taskId: request.taskId,
       label: request.label,
@@ -184,6 +203,7 @@ export async function governedSpawn(
         ...(request.tags ?? []),
         "governed",
         governance.voucherToken ? `voucher:${governance.voucherToken}` : "voucher:none",
+        `scope-ceiling:${effectiveCeiling}`,
       ],
       parentId: request.parentId,
     };
@@ -285,5 +305,6 @@ export async function governedSpawn(
     governance,
     heartbeat,
     traceId,
+    scopeCeiling: effectiveCeiling,
   };
 }

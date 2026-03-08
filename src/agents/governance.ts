@@ -14,7 +14,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, relative } from "node:path";
 import { issueVoucher, checkVoucher, revokeVoucher } from "../voucher.js";
 import { getLockedPaths, loadLockedPaths } from "../lib/locked.js";
 import { checkSpawnPolicy, loadSpawnPolicy } from "./spawn-policy.js";
@@ -72,6 +72,14 @@ export interface GovernanceOptions {
   currentAgentCount?: number;
   /** Current running count of this specific agent type. */
   currentTypeCount?: number;
+  /** Working directory requested for this agent. */
+  cwd?: string;
+  /**
+   * Scope ceiling — outermost directory this spawn chain may access.
+   * If cwd falls outside this boundary, governance denies the spawn.
+   * Inherited from parent and can only narrow, never widen.
+   */
+  scopeCeiling?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +131,50 @@ ${keyPrinciples.map((p) => `- ${p}`).join("\n")}
 }
 
 // ---------------------------------------------------------------------------
+// Scope ceiling validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Check that a working directory falls within the scope ceiling.
+ * Both paths are resolved to absolute before comparison.
+ * Returns null if valid, or a denial reason string if out of scope.
+ */
+function validateScopeCeiling(cwd: string | undefined, ceiling: string | undefined): string | null {
+  if (!ceiling) return null; // No ceiling = no constraint
+  if (!cwd) return null;     // No cwd = will default to process.cwd(), checked at spawn time
+
+  const resolvedCwd = resolve(cwd).replace(/\\/g, "/").toLowerCase();
+  const resolvedCeiling = resolve(ceiling).replace(/\\/g, "/").toLowerCase();
+
+  // cwd must be equal to or a subdirectory of the ceiling
+  if (resolvedCwd === resolvedCeiling) return null;
+  if (resolvedCwd.startsWith(resolvedCeiling + "/")) return null;
+
+  return `Scope violation: cwd "${cwd}" escapes ceiling "${ceiling}". Agents cannot widen their parent's scope.`;
+}
+
+/**
+ * Compute the effective scope ceiling for a child agent.
+ * Takes the narrower of: parent's ceiling vs requested cwd.
+ * If no parent ceiling exists, the cwd itself becomes the ceiling.
+ */
+export function narrowScopeCeiling(parentCeiling: string | undefined, cwd: string | undefined): string {
+  const effectiveCwd = cwd || process.cwd();
+  if (!parentCeiling) return resolve(effectiveCwd);
+
+  const resolvedCwd = resolve(effectiveCwd).replace(/\\/g, "/").toLowerCase();
+  const resolvedCeiling = resolve(parentCeiling).replace(/\\/g, "/").toLowerCase();
+
+  // Return whichever is deeper (more specific)
+  if (resolvedCwd.startsWith(resolvedCeiling + "/") || resolvedCwd === resolvedCeiling) {
+    return resolve(effectiveCwd); // cwd is inside ceiling — use cwd (narrower)
+  }
+  // cwd is outside ceiling — this shouldn't happen if validation runs first,
+  // but return ceiling as the safe fallback
+  return resolve(parentCeiling);
+}
+
+// ---------------------------------------------------------------------------
 // Main governance gate
 // ---------------------------------------------------------------------------
 
@@ -146,6 +198,37 @@ export async function governanceGate(
 
   const scope = scopeOverride ?? `agent:spawn:${taskId}`;
   const timestamp = new Date().toISOString();
+
+  // 0. Scope ceiling check — before anything else
+  const scopeViolation = validateScopeCeiling(opts.cwd, opts.scopeCeiling);
+  if (scopeViolation) {
+    log.warn(scopeViolation, { taskId, cwd: opts.cwd, ceiling: opts.scopeCeiling });
+
+    const auditEntry: GovernanceAuditEntry = {
+      timestamp,
+      taskId,
+      label,
+      decision: "deny",
+      lockedPathCount: 0,
+      reason: scopeViolation,
+    };
+
+    logActivity({
+      source: "agent",
+      summary: `Governance DENIED (scope ceiling): ${label}`,
+      detail: scopeViolation,
+      actionLabel: origin === "ai" ? "AUTONOMOUS" : "PROMPTED",
+      reason: "governance-gate",
+    });
+
+    return {
+      allowed: false,
+      deniedReason: scopeViolation,
+      governedPrompt: prompt,
+      lockedPaths: [],
+      auditEntry,
+    };
+  }
 
   // 1. Load locked paths
   const lockedPaths = await loadLockedPaths();
@@ -230,6 +313,10 @@ export async function governanceGate(
   const principlesSection = await loadPrinciples();
 
   // 4. Build governed prompt
+  const scopeSection = opts.scopeCeiling
+    ? `\n## Scope Ceiling\nYou may only operate within: \`${resolve(opts.scopeCeiling)}\`\nDo NOT read, write, or access files outside this directory. Sub-agents\nyou spawn inherit this ceiling and cannot widen it.\n`
+    : "";
+
   const governancePreamble = [
     "## Governance Context",
     "This agent session is governed by the Core orchestration system.",
@@ -238,6 +325,7 @@ export async function governanceGate(
     "controls will terminate your session.",
     "",
     voucherToken ? buildVoucherSection(voucherToken, scope) : "",
+    scopeSection,
     buildLockedPathsSection(lockedPaths),
     principlesSection,
     "## Heartbeat Requirement",
