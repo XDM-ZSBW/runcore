@@ -2945,16 +2945,26 @@
     if (hdr) hdr.textContent = agentName;
     document.title = agentName;
 
-    // First-run: simplified UI — just chat, settings, share
+    // First-run: simplified UI — hide advanced nav, keep settings accessible
     if (isFirstRun) {
+      // Hide advanced pages — newbies don't need these yet
       const nav = document.getElementById("header-nav");
-      const tabs = document.getElementById("tab-group");
+      if (nav) {
+        nav.querySelectorAll("a").forEach(a => {
+          const href = a.getAttribute("href");
+          // Keep Chat visible, hide everything else in nav
+          if (href && href !== "/") a.style.display = "none";
+        });
+        // Hide the divider too
+        nav.querySelectorAll(".nav-divider").forEach(d => d.style.display = "none");
+      }
+      // Hide threads (no threads yet on first run)
       const threadBtn = document.getElementById("thread-toggle-btn");
       const threadLabel = document.getElementById("thread-current-label");
-      if (nav) nav.style.display = "none";
-      if (tabs) tabs.style.display = "none";
       if (threadBtn) threadBtn.style.display = "none";
       if (threadLabel) threadLabel.style.display = "none";
+      // Keep tabs — Activity stream is useful from day one
+      // Keep settings gear — newbie needs it to add API keys
     }
 
     showScreen("chat-screen");
