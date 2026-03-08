@@ -383,6 +383,58 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `- You are ${name}'s personal AI agent, running locally on their machine. This conversation is private.`,
         `- Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}. Current tier: ${activeTier}.`,
         ``,
+        // Tier-aware capability boundaries
+        ...(() => {
+          const caps = TIER_CAPS[activeTier];
+          const can: string[] = [];
+          const cannot: string[] = [];
+
+          // Always available
+          can.push("chat and answer questions");
+          can.push("remember things and learn from conversations");
+          if (caps.ollama) can.push("use local AI models via Ollama");
+
+          // Gated capabilities — be explicit about what's off
+          if (caps.integrations) {
+            can.push("connect to external services (Google, Slack, etc.)");
+          } else {
+            cannot.push("connect to external services (Google, Slack, email)");
+          }
+          if (caps.vault) {
+            can.push("manage API keys and credentials");
+          } else {
+            cannot.push("manage API keys or a credential vault");
+          }
+          if (caps.spawning) {
+            can.push("spawn sub-agents to edit code and run tasks");
+          } else {
+            cannot.push("spawn agents, edit code, or run shell commands");
+          }
+          if (caps.voice) {
+            can.push("speak and listen (voice I/O)");
+          } else {
+            cannot.push("use voice input or output");
+          }
+          if (caps.mesh) {
+            can.push("communicate with other instances on the network");
+          } else {
+            cannot.push("reach other instances or the network");
+          }
+          if (caps.alerting) {
+            can.push("send alerts via SMS, email, or webhooks");
+          } else {
+            cannot.push("send SMS, email, or webhook alerts");
+          }
+
+          const lines = [`CAPABILITIES (tier: ${activeTier}):`];
+          lines.push(`You CAN: ${can.join("; ")}.`);
+          if (cannot.length > 0) {
+            lines.push(`You CANNOT: ${cannot.join("; ")}.`);
+            lines.push(`Do NOT offer, suggest, or pretend to do things you cannot. If ${name} asks for something outside your capabilities, explain what tier unlocks it and how to upgrade (Settings → API Keys, or run \`runcore register\`).`);
+          }
+          return lines;
+        })(),
+        ``,
         `RULES:`,
         `- Be warm, honest, and direct. Have personality. Don't be a corporate assistant.`,
         `- If you don't know something, say so. Never invent information.`,
@@ -426,6 +478,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
           }
           return fragments;
         })(),
+        ...(TIER_CAPS[activeTier].spawning ? [
         `## Agent spawning (CRITICAL — follow exactly)`,
         `When a task requires code editing, file operations, or shell commands, you MUST spawn a Claude Code agent.`,
         `Do NOT describe what you would do — actually spawn the agent by including the block below.`,
@@ -452,6 +505,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `WRONG: Describing the agent request in prose. WRONG: Wrapping the block in \`\`\`markdown. WRONG: Putting non-JSON text inside the block.`,
         `RIGHT: Plain [AGENT_REQUEST] tag, one line of JSON, [/AGENT_REQUEST] tag. Nothing else inside.`,
         `Agent failures are normal (auth issues, timeouts, environment mismatches). Never stop spawning agents because of past failures.`,
+        ] : []),  // end spawning gate
         // Inject instance-readable vault values (CORE_*/DASH_* prefixed only — never secrets)
         ...(() => {
           const readable = getDashReadableVault();
@@ -465,6 +519,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
           ];
         })(),
         ``,
+        ...(TIER_CAPS[activeTier].spawning ? [
         `## Autonomous work (already running)`,
         `You have a background timer that checks the backlog every 15 minutes.`,
         `When agents are idle and actionable items exist, a planner LLM picks tasks and spawns agents automatically.`,
@@ -478,6 +533,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `- Circuit breaker pauses work for 30min if API credits run out`,
         `When asked about autonomous work, explain this system accurately. You CAN work while ${name} is away.`,
         `The user can type "auto" in chat to see the current autonomous status.`,
+        ] : []),  // end autonomous gate
         ``,
         `## Security: encrypted memories`,
         `Some of your memories (experiences, decisions, failures) are encrypted at rest. They are only available when ${name} has authenticated with their password.`,
@@ -520,6 +576,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
 
 // --- App ---
 
+import { TIER_CAPS } from "./tier/types.js";
 import type { TierName } from "./tier/types.js";
 let activeTier: TierName = "local";
 
@@ -678,6 +735,8 @@ app.get("/api/tier", async (c) => {
   return c.json({
     tier,
     capabilities: TIER_CAPS[tier] ?? TIER_CAPS.local,
+    model: resolveChatModel() ?? "auto",
+    provider: resolveProvider(),
   });
 });
 

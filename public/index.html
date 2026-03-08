@@ -2980,10 +2980,25 @@
       console.log("No history to restore:", err.message);
     }
 
-    // First-run: agent introduces itself (persisted so it shows in all tabs)
+    // First-run: agent introduces itself with tier-aware welcome
     if (isFirstRun) {
       isFirstRun = false;
-      const intro = `Hey ${userName || "there"} — I'm ${agentName}. Everything we talk about stays right here on your machine. Nobody else sees it.\n\nI'd love to get to know you. What are you working on these days?`;
+      let intro = `Hey ${userName || "there"} — I'm ${agentName}. Everything we talk about stays right here on your machine. Nobody else sees it.`;
+      // Fetch tier to customize the welcome
+      try {
+        const tierData = await api("/api/tier");
+        const tier = tierData.tier || "local";
+        if (tier === "local") {
+          const model = tierData.model || "a local model";
+          intro += `\n\nI'm running on ${model} — fully local, no cloud. I can chat, remember things, and learn from our conversations.`;
+          intro += `\n\nTo unlock cloud models, integrations, and more — open Settings and add an API key, or run \`runcore register\` in your terminal.`;
+        } else if (tier === "byok") {
+          intro += `\n\nYou're on BYOK tier — I can use your API keys for cloud models, connect to services like Google and Slack, and manage credentials.`;
+        } else if (tier === "spawn" || tier === "hosted") {
+          intro += `\n\nFull capabilities active — I can spawn agents, run background tasks, and work while you're away.`;
+        }
+      } catch {}
+      intro += `\n\nWhat are you working on?`;
       addMessage("assistant", intro);
       // Persist to server history so other tabs/devices see it
       api("/api/history/intro", {
