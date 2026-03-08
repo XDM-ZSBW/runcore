@@ -2712,6 +2712,7 @@
     if (!res.ok) throw new Error(data.error || "Request failed");
     return data;
   }
+  window.__coreApi = api;
 
   // --- Init ---
   async function init() {
@@ -5472,7 +5473,7 @@ async function generateMobileQR() {
   expiresEl.textContent = "";
 
   try {
-    var data = await api("/api/mobile/voucher", { method: "POST", body: {} });
+    var data = await window.__coreApi("/api/mobile/voucher", { method: "POST", body: {} });
     var qrData = data.qrData;
 
     // Draw QR code
@@ -5501,7 +5502,7 @@ async function generateMobileQR() {
 async function loadPairedDevices() {
   var container = document.getElementById("mobile-devices");
   try {
-    var data = await api("/api/mobile/devices");
+    var data = await window.__coreApi("/api/mobile/devices");
     var devices = data.devices || [];
     if (devices.length === 0) {
       container.innerHTML = '<p style="font-size:12px;color:var(--text-dim);margin:0;">No paired devices yet.</p>';

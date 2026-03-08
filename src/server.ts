@@ -1086,6 +1086,103 @@ app.delete("/api/mobile/devices/:label", async (c) => {
   return c.json({ error: "Device not found" }, 404);
 });
 
+// --- Relay polling (receive messages from paired phones) ---
+
+let relayPollInterval: ReturnType<typeof setInterval> | null = null;
+
+function startRelayPoll(instanceHash: string): void {
+  if (relayPollInterval) return;
+
+  const POLL_MS = 5_000; // 5 seconds
+
+  relayPollInterval = setInterval(async () => {
+    try {
+      const res = await fetch(
+        `https://runcore.sh/api/relay/envelope?recipient=${encodeURIComponent(instanceHash)}`,
+        { signal: AbortSignal.timeout(8_000) },
+      );
+      if (!res.ok) return;
+
+      const data = await res.json() as { envelopes: Array<{ id: string; from: string; deviceToken?: string; payload: string; timestamp: string }> };
+      if (!data.envelopes || data.envelopes.length === 0) return;
+
+      for (const env of data.envelopes) {
+        try {
+          const decoded = JSON.parse(Buffer.from(env.payload, "base64").toString("utf-8"));
+          if (decoded.type === "chat" && decoded.sessionId && decoded.message) {
+            // Process as a chat message — find or create chat session
+            log.info("Relay message received", { from: env.from, messageLen: decoded.message.length });
+            await handleRelayChat(decoded.sessionId, decoded.message, env.from, instanceHash);
+          }
+        } catch (err) {
+          log.debug("Failed to process relay envelope", { error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+    } catch {
+      // Network error — will retry on next poll
+    }
+  }, POLL_MS);
+}
+
+/**
+ * Handle a chat message received via relay from a paired phone.
+ * Processes through the same LLM pipeline as a local chat, sends response back through relay.
+ */
+async function handleRelayChat(sid: string, message: string, senderHash: string, instanceHash: string): Promise<void> {
+  // Get the user name from the session, or fall back to "User"
+  const session = validateSession(sid);
+  const userName = session?.name || "User";
+  const cs = await getOrCreateChatSession(sid, userName);
+
+  // Add user message to history
+  cs.history.push({ role: "user", content: message });
+
+  try {
+    const llmProvider = getProvider(resolveProvider());
+    const model = resolveChatModel() ?? undefined;
+
+    const response = await llmProvider.completeChat(cs.history, model);
+
+    // Add response to history
+    cs.history.push({ role: "assistant", content: response });
+    cs.turnCount++;
+
+    // Send response back through relay to the phone
+    await fetch("https://runcore.sh/api/relay/envelope", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipientHash: senderHash,
+        senderHash: instanceHash,
+        payload: Buffer.from(JSON.stringify({
+          type: "chat_response",
+          message: response,
+          timestamp: new Date().toISOString(),
+        })).toString("base64"),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (err) {
+    log.warn("Relay chat failed", { error: err instanceof Error ? err.message : String(err) });
+
+    // Send error back to phone
+    await fetch("https://runcore.sh/api/relay/envelope", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipientHash: senderHash,
+        senderHash: instanceHash,
+        payload: Buffer.from(JSON.stringify({
+          type: "status",
+          message: "Error: " + (err instanceof Error ? err.message : String(err)),
+          timestamp: new Date().toISOString(),
+        })).toString("base64"),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    }).catch(() => {});
+  }
+}
+
 // --- Vault routes ---
 
 // List vault keys (names + labels only, no values)
@@ -6032,6 +6129,9 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
         signal: AbortSignal.timeout(10_000),
       });
       log.info("Registered with runcore.sh relay", { instanceHash });
+
+      // Start polling relay for incoming phone messages
+      startRelayPoll(instanceHash);
     } catch {
       log.debug("Relay registration skipped (offline or unreachable)");
     }
