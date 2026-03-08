@@ -29,6 +29,8 @@ const PUBLIC_PREFIXES = [
   "/api/slack/",
   "/api/whatsapp/",
   "/api/twilio/",
+  "/api/mobile/info/",   // voucher info (display only, no secrets)
+  "/api/mobile/redeem",  // voucher redemption (auth via safe word)
 ];
 
 function isPublic(path: string): boolean {

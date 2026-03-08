@@ -677,6 +677,7 @@ app.use("/api/*", metricsMiddleware());
 app.use("/api/pair", rateLimit({ windowMs: 15 * 60_000, max: 10 }));
 app.use("/api/auth", rateLimit({ windowMs: 15 * 60_000, max: 10 }));
 app.use("/api/recover", rateLimit({ windowMs: 15 * 60_000, max: 5 }));
+app.use("/api/mobile/redeem", rateLimit({ windowMs: 15 * 60_000, max: 5 }));
 
 // Dashboard endpoints get a separate, more generous limit — they poll frequently.
 app.use("/api/ops/*", rateLimit({ windowMs: 60_000, max: 300 }));
@@ -899,6 +900,189 @@ app.post("/api/recover", async (c) => {
   cacheSessionKey(result.sessionKey);
   await loadVault(result.sessionKey);
   return c.json({ sessionId: result.session.id, name: result.name });
+});
+
+// --- Mobile pairing (device voucher + QR) ---
+
+/** In-memory store for device vouchers (short-lived, cleared on restart). */
+interface DeviceVoucher {
+  token: string;
+  instanceHash: string;
+  instanceName: string;
+  createdAt: number;
+  expiresAt: number;
+  consumed: boolean;
+}
+const deviceVouchers = new Map<string, DeviceVoucher>();
+
+/** In-memory store for paired devices. */
+interface PairedDevice {
+  deviceToken: string;
+  label: string;
+  pairedAt: string;
+  lastSeen: string;
+}
+const pairedDevices = new Map<string, PairedDevice>();
+
+// Load paired devices from brain on startup (called later in init)
+async function loadPairedDevices(): Promise<void> {
+  try {
+    const raw = await readFile(join(BRAIN_DIR, "identity", "devices.json"), "utf-8");
+    const devices = JSON.parse(raw) as PairedDevice[];
+    for (const d of devices) pairedDevices.set(d.deviceToken, d);
+  } catch { /* no devices yet */ }
+}
+async function savePairedDevices(): Promise<void> {
+  try {
+    await mkdir(join(BRAIN_DIR, "identity"), { recursive: true });
+    await writeFile(
+      join(BRAIN_DIR, "identity", "devices.json"),
+      JSON.stringify([...pairedDevices.values()], null, 2),
+      "utf-8",
+    );
+  } catch { /* best effort */ }
+}
+
+// Issue a device voucher (requires active session — you're on the PC)
+app.post("/api/mobile/voucher", async (c) => {
+  const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
+  if (!sessionId || !validateSession(sessionId)) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const { randomBytes: rng } = await import("node:crypto");
+  const { createHash } = await import("node:crypto");
+  const token = `dv_${rng(8).toString("hex")}`;
+  const instanceHash = createHash("sha256")
+    .update(getInstanceName() + BRAIN_DIR)
+    .digest("hex")
+    .slice(0, 16);
+
+  const voucher: DeviceVoucher = {
+    token,
+    instanceHash,
+    instanceName: getInstanceName(),
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+    consumed: false,
+  };
+  deviceVouchers.set(token, voucher);
+
+  // Clean expired vouchers
+  for (const [k, v] of deviceVouchers) {
+    if (v.expiresAt < Date.now()) deviceVouchers.delete(k);
+  }
+
+  // The QR payload — phone opens this URL
+  const qrPayload = JSON.stringify({
+    relay: "https://runcore.sh",
+    token,
+    instance: instanceHash,
+    name: voucher.instanceName,
+  });
+
+  return c.json({
+    token,
+    expiresIn: 600,
+    qrData: qrPayload,
+    instanceName: voucher.instanceName,
+  });
+});
+
+// Get voucher info (phone hits this to personalize before asking for safe word)
+// Public — returns only display info, nothing secret
+app.get("/api/mobile/info/:token", async (c) => {
+  const token = c.req.param("token");
+  const voucher = deviceVouchers.get(token);
+
+  if (!voucher || voucher.consumed || voucher.expiresAt < Date.now()) {
+    return c.json({ error: "Invalid or expired voucher" }, 404);
+  }
+
+  return c.json({
+    instanceName: voucher.instanceName,
+    expiresIn: Math.max(0, Math.round((voucher.expiresAt - Date.now()) / 1000)),
+  });
+});
+
+// Redeem voucher with safe word → device token
+app.post("/api/mobile/redeem", async (c) => {
+  const body = await c.req.json();
+  const { token, password } = body;
+
+  if (!token || !password) {
+    return c.json({ error: "Voucher token and password required" }, 400);
+  }
+
+  const voucher = deviceVouchers.get(token);
+  if (!voucher || voucher.consumed || voucher.expiresAt < Date.now()) {
+    return c.json({ error: "Invalid or expired voucher" }, 404);
+  }
+
+  // Validate safe word via existing auth
+  const authResult = await authenticate(password);
+  if ("error" in authResult) {
+    return c.json({ error: "Invalid safe word" }, 401);
+  }
+
+  // Consume voucher
+  voucher.consumed = true;
+
+  // Issue device token
+  const { randomBytes: rng } = await import("node:crypto");
+  const deviceToken = `dt_${rng(16).toString("hex")}`;
+  const label = body.label || "Phone";
+
+  const device: PairedDevice = {
+    deviceToken,
+    label,
+    pairedAt: new Date().toISOString(),
+    lastSeen: new Date().toISOString(),
+  };
+  pairedDevices.set(deviceToken, device);
+  await savePairedDevices();
+
+  // Return session + device token
+  sessionKeys.set(authResult.session.id, authResult.sessionKey);
+  setEncryptionKey(authResult.sessionKey);
+
+  return c.json({
+    deviceToken,
+    sessionId: authResult.session.id,
+    instanceName: getInstanceName(),
+  });
+});
+
+// List paired devices (requires session)
+app.get("/api/mobile/devices", async (c) => {
+  const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
+  if (!sessionId || !validateSession(sessionId)) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  return c.json({
+    devices: [...pairedDevices.values()].map((d) => ({
+      label: d.label,
+      pairedAt: d.pairedAt,
+      lastSeen: d.lastSeen,
+    })),
+  });
+});
+
+// Revoke a device (requires session)
+app.delete("/api/mobile/devices/:label", async (c) => {
+  const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
+  if (!sessionId || !validateSession(sessionId)) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  const label = c.req.param("label");
+  for (const [token, d] of pairedDevices) {
+    if (d.label === label) {
+      pairedDevices.delete(token);
+      await savePairedDevices();
+      return c.json({ ok: true });
+    }
+  }
+  return c.json({ error: "Device not found" }, 404);
 });
 
 // --- Vault routes ---
@@ -5825,6 +6009,9 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   ]);
   const code = pairingCode;
   const [searchAvailable, ttsAvailable, sttAvailable] = sidecarResults;
+
+  // Load paired mobile devices
+  await loadPairedDevices();
 
   // Pre-warm notification queue from disk (encryption key is set by now)
   const notifCount = await initNotifications();
