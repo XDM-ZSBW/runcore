@@ -3782,6 +3782,7 @@ app.get("/api/roadmap", async (c) => {
 });
 
 // Roadmap rearview API — recent git commits grouped by hour
+// Git is an optional signal source — returns empty when unavailable.
 app.get("/api/roadmap/recent", async (c) => {
   const hours = parseInt(c.req.query("hours") || "24", 10);
   if (isNaN(hours) || hours < 1 || hours > 168) {
@@ -3789,6 +3790,10 @@ app.get("/api/roadmap/recent", async (c) => {
   }
 
   try {
+    const { gitAvailable } = await import("./utils/git.js");
+    if (!gitAvailable()) {
+      return c.json({ commits: [], groups: [], hours, total: 0 });
+    }
     const { execSync } = await import("child_process");
     const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
     const raw = execSync(

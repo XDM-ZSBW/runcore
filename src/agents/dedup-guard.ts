@@ -8,10 +8,10 @@
  *   3. Recent git commits touching related files (~50ms, shell out to git)
  */
 
-import { execSync } from "node:child_process";
 import { activeProcesses } from "./spawn.js";
 import { listTasks } from "./store.js";
 import { createLogger } from "../utils/logger.js";
+import { gitAvailable } from "../utils/git.js";
 
 const log = createLogger("dedup-guard");
 
@@ -113,7 +113,9 @@ export async function checkDedup(label: string, prompt: string): Promise<DedupRe
   // Check 3: Recent agent git commits touching related files (~50ms)
   // Only blocks on commits made by autonomous agents (contains "Auto-committed"
   // in the git log). Human/manual commits should not prevent agents from working.
-  try {
+  // Git is an optional signal source — skip silently if unavailable.
+  if (gitAvailable()) try {
+    const { execSync } = await import("node:child_process");
     const paths = extractFilePaths(prompt);
     if (paths.length > 0) {
       const pathArgs = paths.map((p) => `"${p}"`).join(" ");

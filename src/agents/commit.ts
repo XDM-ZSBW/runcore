@@ -6,27 +6,19 @@
  * Never throws — returns { ok, message }.
  */
 
-import { execSync } from "node:child_process";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { logActivity } from "../activity/log.js";
 import { createLogger } from "../utils/logger.js";
+import { git, gitAvailable } from "../utils/git.js";
 
 const log = createLogger("agent-commit");
 
 const CWD = process.cwd();
 
-/** Run a git command, return stdout or null on failure. */
-function git(cmd: string): string | null {
-  try {
-    return execSync(`git ${cmd}`, { cwd: CWD, encoding: "utf-8", timeout: 15_000 }).trim();
-  } catch {
-    return null;
-  }
-}
-
 /** Check if there are uncommitted changes (staged or unstaged, including untracked). */
 export function hasUncommittedChanges(): boolean {
+  if (!gitAvailable()) return false;
   const status = git("status --porcelain");
   return !!status && status.length > 0;
 }

@@ -1,5 +1,5 @@
 /**
- * Resolution Scanner — detects HEALING in resonant open loops.
+ * Resolution Scanner — detects resolution in resonant open loops.
  * Mirror of scanner.ts (resonance detection), but transitions resonant → expired
  * when git commits or activity entries resolve the underlying tension.
  *
@@ -8,13 +8,13 @@
  * Output: loop transition to expired with resolvedBy, plus activity entry.
  */
 
-import { execSync } from "node:child_process";
 import { getActivities, logActivity } from "../activity/log.js";
 import type { ActivityEntry } from "../activity/log.js";
 import { completeChat } from "../llm/complete.js";
 import { resolveProvider, resolveUtilityModel } from "../settings.js";
 import { VectorIndex } from "../memory/vector-index.js";
 import { createLogger } from "../utils/logger.js";
+import { git, gitAvailable } from "../utils/git.js";
 import { loadLoops, transitionLoop } from "./store.js";
 import type { OpenLoopPacket, ResolutionMatch, ResolutionScanSummary } from "./types.js";
 import { getInstanceName } from "../instance.js";
@@ -74,20 +74,9 @@ let signalEmbedCache = new Map<string, Float32Array>();
 
 // ─── Git helpers ────────────────────────────────────────────────────────────
 
-function git(cmd: string): string | null {
-  try {
-    return execSync(`git ${cmd}`, {
-      cwd: process.cwd(),
-      encoding: "utf-8",
-      timeout: 15_000,
-    }).trim();
-  } catch {
-    return null;
-  }
-}
-
 /** Collect git commits since a given ISO timestamp or hash. */
 function collectGitCommits(sinceHash: string): CommitInfo[] {
+  if (!gitAvailable()) return [];
   let raw: string | null;
 
   if (sinceHash) {
