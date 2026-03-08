@@ -172,7 +172,7 @@ flowchart LR
 
 ---
 
-## 4. Pulse System — Full Voltage Configuration
+## 4. Activation System — Full Pressure Configuration
 
 ```mermaid
 flowchart TD
@@ -191,25 +191,25 @@ flowchart TD
 
     subgraph Config["Configuration"]
         Theta["Θ = 60mV (threshold)"]
-        Refractory["Absolute: 60s<br/>Relative: 300s (2Θ)"]
+        CooldownCfg["Cooldown: 60s abs<br/>300s relative (2Θ)"]
         DecayRate["λ = 0.000001/ms<br/>half-life ≈ 11.5 min"]
         Basal["Basal leak: 10mV/hr"]
     end
 
     Config --> Integrator
-    Integrator --> Voltage["Current Voltage"]
-    Voltage --> Check{"V ≥ Θ?"}
+    Integrator --> Pressure["Current Pressure"]
+    Pressure --> Check{"V ≥ Θ?"}
     Check -->|Yes| Fire["triggerPulse()<br/>→ continueAfterBatch()"]
     Check -->|No| Accumulate["Wait + Decay"]
 
-    Fire --> AbsRef["Absolute Refractory<br/>(60s, no firing)"]
-    AbsRef --> RelRef["Relative Refractory<br/>(300s, need 2Θ)"]
-    RelRef --> Ready["Ready State"]
+    Fire --> AbsCooldown["Absolute Cooldown<br/>(60s, no firing)"]
+    AbsCooldown --> RelCooldown["Relative Cooldown<br/>(300s, need 2Θ)"]
+    RelCooldown --> Ready["Ready State"]
     Ready --> Check
 
     subgraph Listeners["Activation Listeners"]
         CDT["CDT Events<br/>(contextual data trigger)"]
-        VoltageEvt["Voltage Events<br/>(standard fire)"]
+        PressureEvt["Pressure Events<br/>(standard fire)"]
         ActivationLog["activation-log.ts<br/>brain/ops/activations.jsonl"]
     end
 
@@ -472,7 +472,7 @@ flowchart TD
     subgraph Effects["Side Effects"]
         Notify["Push Notification"]
         Activity["Log Activity"]
-        Voltage["Add Voltage<br/>(pressure integrator)"]
+        AddPressure["Add Pressure<br/>(pressure integrator)"]
         StateChange["State Transitions<br/>(blocks, tasks)"]
         Compact["JSONL Compaction"]
     end
@@ -485,14 +485,14 @@ flowchart TD
     T5 --> StateChange
     T5 --> Compact
     T6 --> Notify
-    T6 --> Voltage
+    T6 --> AddPressure
     T6 --> StateChange
-    T7 --> Voltage
+    T7 --> AddPressure
     T8 --> Activity
     T9 --> Notify
     T10 --> Activity
     T11 --> Activity
-    T11 --> Voltage
+    T11 --> AddPressure
     T12 --> Activity
 
     subgraph Shutdown["Graceful Shutdown"]

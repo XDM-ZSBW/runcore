@@ -127,7 +127,7 @@ flowchart LR
 
 ---
 
-## 4. Pulse System — Tension / Voltage / Activation
+## 4. Activation System — Pressure Accumulation
 
 ```mermaid
 flowchart TD
@@ -140,24 +140,24 @@ flowchart TD
         UserChat["User Chat<br/>(direct interaction)"]
     end
 
-    Sources --> Weights["Voltage Weight Resolution<br/>(source → base mV)"]
-    Weights --> Accumulator["Voltage Accumulator"]
+    Sources --> Weights["Pressure Weight Resolution<br/>(source → base mV)"]
+    Weights --> Accumulator["Pressure Accumulator"]
     Accumulator --> Decay["Exponential Decay<br/>(half-life ~12 min)"]
     Decay --> Threshold{"V ≥ Θ?"}
 
     Threshold -->|Yes| Pulse["FIRE PULSE<br/>(Check for Work)"]
     Threshold -->|No| Wait["Continue Accumulating"]
 
-    Pulse --> Refractory["Refractory Period<br/>(Absolute → Relative)"]
-    Refractory --> Accumulator
+    Pulse --> Cooldown["Cooldown Period<br/>(Absolute → Relative)"]
+    Cooldown --> Accumulator
 
-    subgraph Legend["Metaphor: Action Potential"]
+    subgraph Legend["Key"]
         direction LR
-        L1["Events = Stimuli"]
-        L2["Voltage = Tension"]
-        L3["Threshold = Breaking Point"]
-        L4["Pulse = Response"]
-        L5["Refractory = Cooldown"]
+        L1["Events = Inputs"]
+        L2["Pressure = Accumulated weight"]
+        L3["Threshold = Activation point"]
+        L4["Pulse = Work cycle"]
+        L5["Cooldown = Recovery window"]
     end
 ```
 

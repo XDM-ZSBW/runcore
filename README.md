@@ -14,7 +14,7 @@ They remember you. They don't *act* on what they remember without being prompted
 
 They're brilliant assistants with good memories. But they only move when you push them.
 
-Most AI agents are event-driven executors: prompt in, response out, wait for the next prompt. Core is a **metabolic** system — it digests experience into strategy so it doesn't drown in its own history. The gap isn't memory. It's autonomous agency with structured learning.
+Most AI agents are event-driven executors: prompt in, response out, wait for the next prompt. Core is an **adaptive** system — it processes experience into strategy so it doesn't drown in its own history. The gap isn't memory. It's autonomous agency with structured learning.
 
 If you've ever watched an agent burn tokens repeating the same mistake three times in a row, Core is for you.
 
@@ -62,7 +62,7 @@ Here's what that looks like concretely:
 
 > On Monday, Core tries to refactor a module and fails three times — the import paths keep breaking. By Wednesday, it has compressed those failures into one root cause ("module paths in this area drift on every merge"). It updates its strategy to always verify import paths against the actual file tree before writing them. By Friday, it stops suggesting the broken pattern entirely. A stateless agent would still be failing the same way on Friday that it failed on Monday.
 
-The technical term we use is **Metabolic AI** — an architecture modeled on how biological systems process experience. Your body doesn't just accumulate food. It digests it: extracts nutrients, discards waste, converts what's useful into energy. Core does the same thing with information. Raw experiences go in. Structured knowledge comes out. Entropy goes down.
+We call this **Adaptive Processing** — an architecture that treats experience as raw input to be refined, not just stored. Raw experiences go in. Structured knowledge comes out. What's not useful gets discarded. Entropy goes down.
 
 This document covers the four pillars of that architecture, compares it honestly against existing approaches, and tells you exactly where the trade-offs are. No hand-waving.
 
@@ -137,7 +137,7 @@ Without this, long-running AI systems drift. They revisit the same ground, fragm
 
 ---
 
-## Pillar 2: Cognitive Metabolism
+## Pillar 2: Structured Learning
 
 ### Reflection as a System Primitive
 
@@ -178,21 +178,21 @@ Five capabilities that stateless systems can't match:
 
 **How this feels as a user:** Instead of a growing pile of transcripts and logs, you get a compact history of what the system tried, why it failed, and what changed next time. You can read the decision log and trace exactly why the system made a particular choice on a particular day.
 
-The one-liner: **without reflection, autonomy produces entropy. With reflection, autonomy produces learning.** This is the digestive core of the architecture — raw activity metabolized into structured strategy.
+The one-liner: **without reflection, autonomy produces entropy. With reflection, autonomy produces learning.** This is the processing core of the architecture — raw activity refined into structured strategy.
 
 ---
 
 ## Pillar 3: Governed Autonomy
 
-### The Metabolic Pulse
+### The Activation System
 
 How does an autonomous AI decide when to work?
 
 The naive answer: a timer. Run every 15 minutes. But that's wasteful when nothing is happening and too slow when something urgent hits.
 
-Core uses a **voltage-accumulation model** borrowed from computational neuroscience — specifically, the integrate-and-fire neuron model. Every meaningful system event deposits voltage into a pressure integrator:
+Core uses a **pressure-accumulation model** inspired by the integrate-and-fire pattern from computational neuroscience. Every meaningful system event deposits pressure into an integrator:
 
-| Event | Voltage |
+| Event | Pressure (mV) |
 |---|---|
 | Agent failure | 50 mV |
 | User message | 30 mV |
@@ -200,11 +200,11 @@ Core uses a **voltage-accumulation model** borrowed from computational neuroscie
 | Code commit | 20 mV |
 | Board state change | 15 mV |
 
-Voltage decays exponentially between events. When accumulated voltage crosses a configurable threshold (default: 60 mV), the system fires — it wakes up and runs a full work cycle: plan, spawn agents, collect results, reflect.
+Pressure decays exponentially between events. When accumulated pressure crosses a configurable threshold (default: 60 mV), the system fires — it wakes up and runs a full work cycle: plan, spawn agents, collect results, reflect.
 
-After firing, a **refractory period** kicks in: 60 seconds of absolute lockout, followed by 5 minutes where the threshold doubles. This mimics biological neural recovery and prevents rapid re-firing.
+After firing, a **cooldown period** kicks in: 60 seconds of absolute lockout, followed by 5 minutes where the threshold doubles. This prevents rapid re-firing.
 
-**In practice:** A burst of agent failures or a flurry of commits will wake Core up. A quiet repo on a Sunday lets it go idle. The system's arousal level is proportional to unresolved tension — a measurable voltage you can observe on the dashboard.
+**In practice:** A burst of agent failures or a flurry of commits will wake Core up. A quiet repo on a Sunday lets it go idle. The system's activity level is proportional to accumulated pressure — a measurable value you can observe on the dashboard.
 
 Three modes are configurable: **Anxious** (low threshold, fires frequently — responsive but token-expensive), **Balanced** (default — fires when meaningful signals accumulate), and **Stoic** (high threshold — conservative with resources, accepts longer latency).
 
@@ -230,7 +230,7 @@ Under-specified prompts are an agent failure factory. If the planner generates a
 
 **How this feels as a user:** Core doesn't run your API bill up at 3am chasing its own tail. It works when there's reason to work, stops when it should stop, and backs off from problems it can't currently solve. The governance isn't a limitation — it's what makes unsupervised autonomy safe to leave running.
 
-This is metabolic regulation — the system's activity level governed by tension, not timers, with hard limits that prevent runaway consumption.
+This is adaptive regulation — the system's activity level governed by accumulated pressure, not timers, with hard limits that prevent runaway consumption.
 
 ---
 
@@ -269,11 +269,11 @@ This keeps self-observation cost-effective. The system watches itself, but intel
 |---|---|---|
 | Stateless agents | None beyond a session | Repeats the same mistakes on day 30 as day 1 |
 | RAG-based agents | Ever-growing warehouse of documents | Retrieval gets noisier as the pile grows |
-| Core (metabolic) | Structured, compressed, self-pruning | Fewer mistakes, clearer strategy, bounded state |
+| Core (adaptive) | Structured, compressed, self-pruning | Fewer mistakes, clearer strategy, bounded state |
 
 ### The Timeline Difference
 
-Core doesn't outperform these systems on any single task. It's not faster, and for one-shot questions, the metabolic overhead is pure waste.
+Core doesn't outperform these systems on any single task. It's not faster, and for one-shot questions, the processing overhead is pure waste.
 
 The difference shows up over time:
 
@@ -281,13 +281,13 @@ The difference shows up over time:
 - **Week 1**: Core has compressed 50 failures into 12 root causes, resolved 15 open loops, and adjusted its strategy 8 times
 - **Month 1**: Core's planning context includes institutional knowledge from hundreds of execution cycles. The stateless agent is still starting fresh every time
 
-The metabolic architecture is an investment in compounding returns. The cost is latency and complexity. The payoff is a system that gets more focused over time instead of more confused.
+The adaptive architecture is an investment in compounding returns. The cost is latency and complexity. The payoff is a system that gets more focused over time instead of more confused.
 
 ---
 
 ## The Honest Trade-Offs
 
-No architecture is free. Here's what the metabolic approach costs:
+No architecture is free. Here's what the adaptive approach costs:
 
 **Latency**: Reflection adds seconds to tens of seconds between execution rounds. Systems that skip consolidation and proceed directly feel snappier for individual tasks. Core trades per-task speed for cross-session stability.
 
@@ -295,7 +295,7 @@ No architecture is free. Here's what the metabolic approach costs:
 
 **Token cost**: Every reflection, every resonance confirmation, every resolution evaluation consumes tokens. For a personal agent on a modest budget, these costs are manageable (utility tasks use smaller, cheaper models). At scale, the reflection overhead becomes a meaningful line item.
 
-**This is not for you if** you only ever ask one-shot questions. If your use case is "ask a question, get an answer, move on," you're paying for metabolic overhead you won't use. Core is built for continuous, autonomous work over days, weeks, and months — not single interactions.
+**This is not for you if** you only ever ask one-shot questions. If your use case is "ask a question, get an answer, move on," you're paying for processing overhead you won't use. Core is built for continuous, autonomous work over days, weeks, and months — not single interactions.
 
 These are not deficiencies. They're the price of the architecture. The question is whether semantic continuity, failure compression, strategic adaptation, and long-horizon stability justify those costs for your use case.
 
@@ -315,7 +315,7 @@ These are not deficiencies. They're the price of the architecture. The question 
 
 ## The Architectural Claim
 
-Core is a **metabolic** system. It digests experience into strategy so it doesn't drown in its own history.
+Core is an **adaptive** system. It processes experience into strategy so it doesn't drown in its own history.
 
 Six mechanisms make that concrete:
 
@@ -323,10 +323,10 @@ Six mechanisms make that concrete:
 2. **Reflection as a causal primitive** — structured analysis between execution rounds that changes what happens next
 3. **Task-level memory bridging** — every task completion writes episodic memory, keeping transactional and associative records synchronized
 4. **Lifecycle compression** — four entropy sinks prevent the information space from growing without bound
-5. **Tension-gated autonomy** — a metabolic pulse that fires work proportional to accumulated stress
+5. **Pressure-gated autonomy** — an activation system that fires work proportional to accumulated pressure
 6. **Ambient self-observation** — a trace engine that discovers behavioral patterns across the system's own activity
 
-The key innovation is not autonomy — many systems are autonomous. It's **digestion** — and the self-awareness to know when digestion is needed. That combination prevents intelligence from collapsing under its own complexity.
+The key innovation is not autonomy — many systems are autonomous. It's **adaptive processing** — and the self-awareness to know when processing is needed. That combination prevents intelligence from collapsing under its own complexity.
 
 ---
 
