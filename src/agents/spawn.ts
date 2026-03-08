@@ -20,7 +20,7 @@ import { completeChat } from "../llm/complete.js";
 import { resolveProvider, resolveUtilityModel } from "../settings.js";
 import { createLogger } from "../utils/logger.js";
 import { resolveEnv, getInstanceName, getInstanceNameLower, getAlertEmailFrom } from "../instance.js";
-import { getSkillRegistry } from "../skills/registry.js";
+import { skillRegistry as _skillRegistry } from "../skills/registry.js";
 import { getBoardProvider } from "../board/provider.js";
 import { BRAIN_DIR } from "../lib/paths.js";
 
@@ -86,31 +86,17 @@ function recordSpawn(): void {
  * original prompt unchanged.
  */
 async function enrichPromptWithSkills(task: AgentTask): Promise<string> {
-  const registry = getSkillRegistry();
-  if (!registry) return task.prompt;
-
   try {
-    const matches = registry.matchSkills({ description: task.label });
-    if (matches.length === 0) return task.prompt;
+    const matched = await _skillRegistry.findByTrigger(task.label);
+    if (!matched) return task.prompt;
 
-    // Load bodies and collect formatted prompts (cap at 3 to avoid bloat)
-    const skillPrompts: string[] = [];
-    for (const match of matches.slice(0, 3)) {
-      await registry.loadBody(match.skill.meta.name);
-      const formatted = registry.getSkillPrompt(match.skill.meta.name);
-      if (formatted) {
-        skillPrompts.push(formatted);
-      }
-    }
+    const content = await _skillRegistry.getContent(matched.id);
+    if (!content) return task.prompt;
 
-    if (skillPrompts.length === 0) return task.prompt;
+    const skillPrompts = [`<skill name="${matched.name}" type="${matched.type}">\n${content}\n</skill>`];
+    const skillNames = [matched.name];
 
-    const skillNames = matches.slice(0, 3).filter((m) => {
-      const s = registry.getSkillPrompt(m.skill.meta.name);
-      return s !== null;
-    }).map((m) => m.skill.meta.name);
-
-    log.info(`Enriching agent "${task.label}" with ${skillPrompts.length} skill(s): ${skillNames.join(", ")}`, { taskId: task.id });
+    log.info(`Enriching agent "${task.label}" with skill: ${skillNames.join(", ")}`, { taskId: task.id });
 
     return [
       task.prompt,

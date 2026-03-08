@@ -179,7 +179,7 @@ import {
   defaultAlertConfig,
 } from "./health/index.js";
 import { NotificationDispatcher, EmailChannel, PhoneChannel } from "./notifications/index.js";
-import { createSkillRegistry, getSkillRegistry } from "./skills/index.js";
+import { skillRegistry as _skillRegistry, type SkillEntry } from "./skills/index.js";
 import { createModuleRegistry, getModuleRegistry } from "./modules/index.js";
 import { createCapabilityRegistry, getCapabilityRegistry, calendarCapability, emailCapability, docsCapability, boardCapability, browserCapability, closeBrowser, taskDoneCapability, calendarContextProvider, emailContextProvider, createWebSearchContextProvider, vaultContextProvider } from "./capabilities/index.js";
 import {
@@ -524,12 +524,15 @@ let activeTier: TierName = "local";
 
 const app = new Hono();
 
-// Global error handler — return JSON with details instead of plain "Internal Server Error"
+// Global error handler — structured JSON errors
+import { errorHandler, notFoundHandler, ApiError } from "./middleware/error-handler.js";
 app.onError((err, c) => {
+  // Use structured handler for ApiErrors; preserve original behavior for others
+  if (err instanceof ApiError) return errorHandler(err, c);
   const msg = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
   log.error("Unhandled route error", { error: msg, stack, path: c.req.path, method: c.req.method });
-  return c.json({ error: msg }, 500);
+  return c.json({ error: msg, code: "INTERNAL_ERROR", status: 500 }, 500);
 });
 
 // Serve static files from UI directory (CDN-synced or bundled fallback)
@@ -3025,92 +3028,58 @@ app.post("/api/board/review/trigger", async (c) => {
 
 // List all registered skills (metadata only)
 app.get("/api/skills", async (c) => {
-  const registry = getSkillRegistry();
-  if (!registry) return c.json({ error: "Skills registry not initialized" }, 503);
+  const typeFilter = c.req.query("type") as "reference" | "task" | undefined;
+  const skills = await _skillRegistry.list();
+  const filtered = typeFilter ? skills.filter((s) => s.type === typeFilter) : skills;
 
-  const stateFilter = c.req.query("state") as import("./skills/types.js").SkillState | undefined;
-  const slotFilter = c.req.query("slot") as import("./skills/types.js").SkillSlot | undefined;
-
-  const skills = registry.list({
-    state: stateFilter,
-    slot: slotFilter,
-  });
-
-  return c.json(skills.map((s) => ({
-    name: s.meta.name,
-    description: s.meta.description,
-    slot: s.meta.slot,
-    state: s.state,
-    userInvocable: s.meta.userInvocable,
-    source: s.meta.source.type,
-    version: s.meta.version,
-    registeredAt: s.registeredAt,
+  return c.json(filtered.map((s) => ({
+    id: s.id,
+    name: s.name,
+    type: s.type,
+    description: s.description,
+    triggers: s.triggers,
+    loads: s.loads,
   })));
 });
 
-// Get a single skill (metadata + body)
+// Get a single skill (metadata + full content)
 app.get("/api/skills/:name", async (c) => {
-  const registry = getSkillRegistry();
-  if (!registry) return c.json({ error: "Skills registry not initialized" }, 503);
-
   const name = c.req.param("name");
-  const skill = registry.get(name);
+  const skill = await _skillRegistry.get(name);
   if (!skill) return c.json({ error: "Skill not found" }, 404);
 
-  // Load body on demand
-  await registry.loadBody(name);
+  const content = await _skillRegistry.getContent(name);
 
   return c.json({
-    name: skill.meta.name,
-    description: skill.meta.description,
-    slot: skill.meta.slot,
-    state: skill.state,
-    userInvocable: skill.meta.userInvocable,
-    disableModelInvocation: skill.meta.disableModelInvocation,
-    source: skill.meta.source,
-    version: skill.meta.version,
-    body: skill.body,
-    referencedFiles: skill.referencedFiles,
-    registeredAt: skill.registeredAt,
-    refreshedAt: skill.refreshedAt,
+    ...skill,
+    content,
   });
 });
 
-// Resolve intent → matching skills
+// Resolve trigger → matching skill
 app.post("/api/skills/resolve", async (c) => {
-  const registry = getSkillRegistry();
-  if (!registry) return c.json({ error: "Skills registry not initialized" }, 503);
+  const { trigger } = await c.req.json<{ trigger: string }>();
+  if (!trigger) return c.json({ error: "trigger is required" }, 400);
 
-  const { intent, includeReference, limit } = await c.req.json<{
-    intent: string;
-    includeReference?: boolean;
-    limit?: number;
-  }>();
+  const skill = await _skillRegistry.findByTrigger(trigger);
+  if (!skill) return c.json({ error: "No matching skill" }, 404);
 
-  if (!intent) return c.json({ error: "intent is required" }, 400);
-
-  const results = registry.resolve(intent, { includeReference, limit });
-  return c.json(results.map((r) => ({
-    name: r.skill.meta.name,
-    description: r.skill.meta.description,
-    slot: r.skill.meta.slot,
-    reason: r.reason,
-    confidence: r.confidence,
-    priority: r.priority,
-  })));
+  return c.json({
+    id: skill.id,
+    name: skill.name,
+    type: skill.type,
+    description: skill.description,
+    triggers: skill.triggers,
+  });
 });
 
-// Validate a skill file
-app.post("/api/skills/:name/validate", async (c) => {
-  const registry = getSkillRegistry();
-  if (!registry) return c.json({ error: "Skills registry not initialized" }, 503);
+// --- Plugin status routes ---
 
-  const { content } = await c.req.json<{ content: string }>();
-  if (!content) return c.json({ error: "content is required" }, 400);
+import { getPluginStatusSummary } from "./plugins/status.js";
+import { initPlugins, shutdownPlugins } from "./plugins/index.js";
 
-  const name = c.req.param("name");
-  const result = registry.validate(name, content);
-  return c.json(result);
+app.get("/api/plugins", (c) => {
+  return c.json(getPluginStatusSummary());
 });
 
 // --- Module discovery routes ---
@@ -4714,34 +4683,31 @@ app.post("/api/chat", async (c) => {
     }
   }
 
-  // Inject resolved skill content (reference skills auto-load by intent match)
+  // Inject resolved skill content (reference skills auto-load by trigger match)
   try {
-    const registry = getSkillRegistry();
-    if (registry) {
-      const resolved = registry.resolve(chatMessage, { includeReference: true });
-      for (const res of resolved) {
-        const body = await registry.loadBody(res.skill.meta.name);
-        if (body) {
-          // Load files referenced by the skill (brain/ paths)
-          const refPaths = body.match(/(?:brain|docs)\/[\w\-\/]+\.\w+/g) ?? [];
-          const refContents: string[] = [];
-          for (const refPath of refPaths) {
-            try {
-              const content = await readBrainFile(join(process.cwd(), refPath));
-              refContents.push(`--- ${refPath} ---\n${content}\n--- end ${refPath} ---`);
-            } catch { /* skip missing files */ }
-          }
-
-          const skillSection = [
-            `--- Skill: ${res.skill.meta.name} (${res.reason}, confidence ${res.confidence.toFixed(2)}) ---`,
-            body,
-            ...refContents,
-            `--- end skill ---`,
-          ].join("\n");
-
-          ctx.messages.splice(1, 0, { role: "system" as const, content: skillSection });
-          logActivity({ source: "system", summary: `Loaded skill: ${res.skill.meta.name} (${res.reason})` });
+    const matched = await _skillRegistry.findByTrigger(chatMessage);
+    if (matched) {
+      const body = await _skillRegistry.getContent(matched.id);
+      if (body) {
+        // Load files referenced by the skill (brain/ paths)
+        const refPaths = body.match(/(?:brain|docs)\/[\w\-\/]+\.\w+/g) ?? [];
+        const refContents: string[] = [];
+        for (const refPath of refPaths) {
+          try {
+            const content = await readBrainFile(join(process.cwd(), refPath));
+            refContents.push(`--- ${refPath} ---\n${content}\n--- end ${refPath} ---`);
+          } catch { /* skip missing files */ }
         }
+
+        const skillSection = [
+          `--- Skill: ${matched.name} (${matched.type}) ---`,
+          body,
+          ...refContents,
+          `--- end skill ---`,
+        ].join("\n");
+
+        ctx.messages.splice(1, 0, { role: "system" as const, content: skillSection });
+        logActivity({ source: "system", summary: `Loaded skill: ${matched.name} (${matched.type})` });
       }
     }
   } catch (err) {
@@ -5628,12 +5594,13 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   // of skills/module init, so running them concurrently improves startup time (DASH-60).
   // Note: initAgents() only creates directories — recovery runs after the runtime
   // is ready so the monitor can skip runtime-managed tasks (DASH-82 fix).
-  const [skillRegistry, moduleRegistry, , runtime] = await Promise.all([
-    createSkillRegistry({ skillsDir: SKILLS_DIR, brainDir: BRAIN_DIR }),
+  const [, moduleRegistry, , runtime] = await Promise.all([
+    _skillRegistry.refresh(),
     Promise.resolve(createModuleRegistry(BRAIN_DIR)),
     initAgents(),
     createRuntime(),
   ]);
+  const skillRegistry = _skillRegistry;
 
   // Recover tasks from previous session AFTER runtime is initialized.
   // The monitor checks the runtime registry to skip tasks that RuntimeManager
@@ -5717,6 +5684,11 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
     });
   }
   if (isTasksAvailable()) startTasksTimer();
+
+  // Initialize plugin registry (authenticate + start all registered plugins)
+  await initPlugins().catch((err) => {
+    log.warn("Plugin init failed", { error: err instanceof Error ? err.message : String(err) });
+  });
 
   // Wire batch continuation: when all agents finish, commit + decide what's next (direct LLM, no HTTP)
   setOnBatchComplete(async (sessionId, results) => {
@@ -5893,9 +5865,9 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   }
 
   // Show skills registry status
-  if (skillRegistry) {
-    const counts = skillRegistry.countByState();
-    log.info(`Skills: ${skillRegistry.size} registered (${counts.registered} active)`);
+  {
+    const allSkills = await skillRegistry.list();
+    log.info(`Skills: ${allSkills.length} registered`);
   }
 
   // Show module registry status
@@ -6195,6 +6167,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   stopSidecar();
   await closeBrowser();
   shutdownAgents();
+  await shutdownPlugins().catch(() => {});
   await shutdownLLMCache();
   await shutdownTracing();
   process.exit(0);

@@ -24,11 +24,10 @@ export {
   parseFrontmatter,
 } from "./validator.js";
 
-// Registry
+// Registry (YAML-based brain skills)
 export {
   SkillRegistry,
-  createSkillRegistry,
-  getSkillRegistry,
   skillRegistry,
+  scanSkills,
 } from "./registry.js";
-export type { SkillMatchContext } from "./registry.js";
+export type { SkillEntry } from "./registry.js";
