@@ -2005,19 +2005,9 @@
           <span class="settings-saved" id="mesh-save-status">Saved</span>
         </div>
       </div>
-      <!-- LLM Provider section -->
-      <div class="settings-section" id="llm-settings-section" data-requires="vault">
-        <h3 class="settings-section-title">LLM Provider</h3>
-        <div class="toggle-row">
-          <div>
-            <div class="toggle-label">Airplane Mode</div>
-            <div class="toggle-sublabel">ON = Ollama (local) &middot; OFF = OpenRouter (cloud)<br><span style="opacity:0.6;font-size:11px;">Key: <code style="font-size:11px;background:var(--bg);padding:1px 4px;border-radius:3px;">OPENROUTER_API_KEY</code> &middot; <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener" style="color:var(--accent);">Get one</a></span></div>
-          </div>
-          <label class="toggle">
-            <input type="checkbox" id="airplane-toggle">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
+      <!-- Model selection (always visible — local tier needs this) -->
+      <div class="settings-section" id="llm-settings-section">
+        <h3 class="settings-section-title">Model <a href="https://ollama.com/library" target="_blank" rel="noopener" style="font-size:11px;font-weight:400;color:var(--accent);text-decoration:none;margin-left:6px;">Browse models &rarr;</a></h3>
         <div class="model-field">
           <label>Chat model</label>
           <select id="model-chat" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;">
@@ -2029,6 +2019,16 @@
           <select id="model-utility" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;">
             <option value="auto">Auto (best available)</option>
           </select>
+        </div>
+        <div class="toggle-row" data-requires="vault">
+          <div>
+            <div class="toggle-label">Airplane Mode</div>
+            <div class="toggle-sublabel">ON = Ollama (local) &middot; OFF = OpenRouter (cloud)<br><span style="opacity:0.6;font-size:11px;">Key: <code style="font-size:11px;background:var(--bg);padding:1px 4px;border-radius:3px;">OPENROUTER_API_KEY</code> &middot; <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener" style="color:var(--accent);">Get one</a></span></div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="airplane-toggle">
+            <span class="toggle-track"></span>
+          </label>
         </div>
         <div class="prompt-actions" style="margin-top: 10px;">
           <button class="vault-add-btn" id="llm-save-btn">Save</button>
