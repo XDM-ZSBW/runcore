@@ -117,7 +117,7 @@ async function handleRestore(config: BackupConfig, args: string[]) {
 
   if (result.ok) {
     console.log(`Restore completed: ${result.message}`);
-    console.log("IMPORTANT: Enter your safe word to decrypt episodic memory files.");
+    console.log("IMPORTANT: Enter your password to decrypt episodic memory files.");
   } else {
     console.error(`Restore failed: ${result.message}`);
     process.exit(1);

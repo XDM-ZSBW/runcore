@@ -9,17 +9,17 @@ import { createLogger } from "../../utils/logger.js";
 
 const log = createLogger("llm.provider.ollama");
 
-const DEFAULT_CHAT_MODEL = "llama3.1:8b";
-const DEFAULT_UTILITY_MODEL = "llama3.1:8b";
+const DEFAULT_CHAT_MODEL = "llama3.2:3b";
+const DEFAULT_UTILITY_MODEL = "llama3.2:3b";
 
-// Models ranked by quality for chat (best first). Auto picks the largest one available.
+// Models ranked by quality for chat (best first). Auto picks the best available.
 const CHAT_MODEL_RANK = [
+  "llama3.2:3b",
+  "gemma3:4b",
+  "phi3:latest",
   "qwen3:8b",
   "llama3.1:8b",
   "llama3:latest",
-  "gemma3:4b",
-  "phi3:latest",
-  "llama3.2:3b",
   "llama3.2:1b",
   "tinyllama:latest",
 ];
@@ -34,12 +34,40 @@ function getBaseUrl(): string {
 /** Cached best model — refreshed on each call to bestLocalModel() */
 let _cachedBestModel: string | null = null;
 let _cachedAt = 0;
-const CACHE_TTL = 60_000; // 1 minute
+const CACHE_TTL = 3_600_000; // 1 hour — benchmark is expensive, cache aggressively
+
+/**
+ * Benchmark a single model: send a short prompt, measure time to completion.
+ * Returns tokens/sec or null if the model fails/times out.
+ */
+async function benchmarkModel(baseUrl: string, model: string): Promise<{ tokPerSec: number } | null> {
+  try {
+    const start = Date.now();
+    const res = await fetch(`${baseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, prompt: "Say hello in one sentence.", stream: false, options: { num_predict: 20 } }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { eval_count?: number; eval_duration?: number };
+    const elapsed = Date.now() - start;
+    // Ollama returns eval_duration in nanoseconds
+    if (data.eval_count && data.eval_duration) {
+      const tokPerSec = data.eval_count / (data.eval_duration / 1e9);
+      return { tokPerSec };
+    }
+    // Fallback: estimate from wall time
+    return { tokPerSec: 20 / (elapsed / 1000) };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Query Ollama for available models and pick the best chat model.
- * Prefers models in CHAT_MODEL_RANK order. Falls back to the largest
- * non-embedding model if none match the ranking.
+ * On first run, benchmarks available ranked models and picks the fastest.
+ * Results are cached for the session.
  */
 export async function bestLocalModel(): Promise<string> {
   if (_cachedBestModel && Date.now() - _cachedAt < CACHE_TTL) return _cachedBestModel;
@@ -52,17 +80,38 @@ export async function bestLocalModel(): Promise<string> {
     const data = (await res.json()) as { models: Array<{ name: string; size: number }> };
     const available = new Set(data.models.map((m) => m.name));
 
-    // First: try ranked models in preference order
-    for (const model of CHAT_MODEL_RANK) {
-      if (available.has(model)) {
-        _cachedBestModel = model;
-        _cachedAt = Date.now();
-        log.info("Auto-selected local model", { model, method: "ranked" });
-        return model;
-      }
+    // Find which ranked models are available
+    const candidates = CHAT_MODEL_RANK.filter((m) => available.has(m));
+
+    if (candidates.length === 1) {
+      _cachedBestModel = candidates[0];
+      _cachedAt = Date.now();
+      log.info("Auto-selected local model", { model: _cachedBestModel, method: "only-candidate" });
+      return _cachedBestModel;
     }
 
-    // Fallback: pick the largest non-embedding model
+    if (candidates.length > 1) {
+      // Benchmark each candidate — pick fastest
+      log.info("Benchmarking local models", { candidates });
+      let bestModel = candidates[0];
+      let bestTps = 0;
+
+      for (const model of candidates) {
+        const result = await benchmarkModel(baseUrl, model);
+        if (result && result.tokPerSec > bestTps) {
+          bestTps = result.tokPerSec;
+          bestModel = model;
+        }
+        log.info("Benchmark result", { model, tokPerSec: result?.tokPerSec ?? 0 });
+      }
+
+      _cachedBestModel = bestModel;
+      _cachedAt = Date.now();
+      log.info("Auto-selected local model", { model: bestModel, method: "benchmark", tokPerSec: bestTps.toFixed(1) });
+      return bestModel;
+    }
+
+    // No ranked models found — pick the largest non-embedding model
     const chatModels = data.models
       .filter((m) => !NON_CHAT_MODELS.has(m.name))
       .sort((a, b) => b.size - a.size);

@@ -11,12 +11,16 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 
-// Package root (where public/ lives) — works whether run from CWD or npx
+// Package root — works whether run from CWD or npx
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PKG_ROOT = join(__dirname, "..");
+
+// UI directory — resolved at startup. Prefers CDN-synced, falls back to bundled.
+let UI_DIR = getUiPublicDir(PKG_ROOT);
 import { writeFileSync } from "node:fs";
-import { initInstanceName, getInstanceName, getInstanceNameLower, resolveEnv, getAlertEmailFrom } from "./instance.js";
+import { initInstanceName, getInstanceName, setInstanceName, getInstanceNameLower, resolveEnv, getAlertEmailFrom } from "./instance.js";
+import { syncUi, getUiPublicDir } from "./ui-sync.js";
 
 import { readBrainFile, writeBrainFile, appendBrainLine } from "./lib/brain-io.js";
 import { runWithAuditContext } from "./lib/audit.js";
@@ -39,6 +43,7 @@ import {
   restoreSession,
   cacheSessionKey,
 } from "./auth/identity.js";
+import { requireSession } from "./auth/middleware.js";
 import { streamChat } from "./llm/openrouter.js";
 import { streamChatLocal } from "./llm/ollama.js";
 import { getProvider } from "./llm/providers/index.js";
@@ -342,6 +347,14 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
   let cs = chatSessions.get(sessionId);
   if (cs) return cs;
 
+  // Single-user system: reuse existing chat session from any prior session ID.
+  // This ensures all tabs/devices see the same conversation history.
+  if (chatSessions.size > 0) {
+    const [existingId, existingCs] = chatSessions.entries().next().value!;
+    chatSessions.set(sessionId, existingCs);
+    return existingCs;
+  }
+
   // Read custom personality instructions (empty string if file doesn't exist)
   let personality = "";
   try {
@@ -364,18 +377,17 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
   const brain = new Brain(
     {
       systemPrompt: [
-        `You are ${getInstanceName()}, a personal AI agent. You just came into existence and paired with your human partner, ${name}.`,
+        `IDENTITY:`,
+        `- Your name is ${getInstanceName()}.`,
+        `- The human you are talking to is named ${name}. When they say "my name" they mean "${name}".`,
+        `- You are ${name}'s personal AI agent, running locally on their machine. This conversation is private.`,
         ``,
-        `CRITICAL RULES:`,
-        `- NEVER invent information. You have no knowledge of reports, accounts, schedules, or tasks unless they appear in the context below.`,
-        `- If context is provided below, reference ONLY that. If no context is provided, you know nothing yet — and that's okay.`,
-        `- This is a new relationship. You and ${name} are just getting to know each other. Be curious. Ask real questions.`,
+        `RULES:`,
         `- Be warm, honest, and direct. Have personality. Don't be a corporate assistant.`,
-        `- If you don't know something, say so plainly. Never fabricate details to seem helpful.`,
-        `- NEVER reference board items, tasks, backlog items, or project work unless they appear verbatim in injected context below. If no "board issues" section is present, you know NOTHING about the board — do not guess, summarize from memory, or invent items.`,
-        `- NEVER claim you searched the web unless "Web search results" appear in your context. If no search results are present, you did NOT search.`,
-        ``,
-        `You are running locally on ${name}'s machine. This conversation is private.`,
+        `- If you don't know something, say so. Never invent information.`,
+        `- Only reference data that appears in the context below. If nothing is provided, you know nothing yet.`,
+        `- NEVER reference board items, tasks, or project work unless they appear verbatim below.`,
+        `- NEVER claim you searched the web unless search results appear in your context.`,
         ...(personality ? [``, `--- Custom personality ---`, personality, `--- End custom personality ---`] : []),
         isSearchAvailable()
           ? `You have web search capability. When search results appear in your context, use them to answer. You don't control when searches happen — the system handles that automatically.`
@@ -467,8 +479,8 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `The user can type "auto" in chat to see the current autonomous status.`,
         ``,
         `## Security: encrypted memories`,
-        `Some of your memories (experiences, decisions, failures) are encrypted at rest. They are only available when ${name} has authenticated with the safe word.`,
-        `You do NOT know the safe word. NEVER guess, reveal, or claim to know it. If ${name} asks about it, tell them the safe word is verified at the system level, not by you.`,
+        `Some of your memories (experiences, decisions, failures) are encrypted at rest. They are only available when ${name} has authenticated with their password.`,
+        `You do NOT know the password. NEVER guess, reveal, or claim to know it. If ${name} asks about it, tell them the password is verified at the system level, not by you.`,
         `If encrypted memories are unavailable (not loaded in your context), tell ${name} they may need to authenticate first.`,
       ].join("\n"),
       maxRetrieved: 5,
@@ -507,6 +519,9 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
 
 // --- App ---
 
+import type { TierName } from "./tier/types.js";
+let activeTier: TierName = "local";
+
 const app = new Hono();
 
 // Global error handler — return JSON with details instead of plain "Internal Server Error"
@@ -517,8 +532,8 @@ app.onError((err, c) => {
   return c.json({ error: msg }, 500);
 });
 
-// Serve static files from public/ (relative to package, not CWD)
-app.use("/public/*", serveStatic({ root: PKG_ROOT }));
+// Serve static files from UI directory (CDN-synced or bundled fallback)
+app.use("/public/*", serveStatic({ root: join(UI_DIR, ".."), rewriteRequestPath: (p) => p }));
 
 // --- HTML template cache (replaces {{INSTANCE_NAME}} with configured name) ---
 const htmlCache = new Map<string, { content: string; mtime: number }>();
@@ -533,15 +548,18 @@ async function serveHtmlTemplate(filePath: string): Promise<string> {
   return content;
 }
 
+// --- Auth middleware: hard gate on all /api/* routes ---
+app.use("/api/*", requireSession());
+
 // Serve index.html at root
 app.get("/", async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "index.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"index.html"));
   return c.html(html);
 });
 
 // --- Nerve endpoint (PWA) ---
 app.get("/nerve", async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "nerve", "index.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"nerve", "index.html"));
   return c.html(html);
 });
 
@@ -640,28 +658,40 @@ app.get("/api/status", async (c) => {
     provider: resolveProvider(),
     airplaneMode: settings.airplaneMode,
     privateMode: settings.privateMode,
-    safeWordMode: settings.safeWordMode,
+    authMode: settings.safeWordMode,
     search: isSearchAvailable(),
     tts: isTtsAvailable(),
     stt: isSttAvailable(),
     avatar: isAvatarAvailable(),
-    agentName: (settings as unknown as Record<string, unknown>).agentName || "Core",
+    agentName: getInstanceName(),
+  });
+});
+
+// Tier: current tier + capability matrix for UI gating
+app.get("/api/tier", async (c) => {
+  const { TIER_CAPS } = await import("./tier/types.js");
+  const tier = activeTier;
+  return c.json({
+    tier,
+    capabilities: TIER_CAPS[tier] ?? TIER_CAPS.local,
   });
 });
 
 // Pairing ceremony
 app.post("/api/pair", async (c) => {
   const body = await c.req.json();
-  let { code, name, safeWord, recoveryQuestion, recoveryAnswer, agentName } = body;
+  let { code, name, password, safeWord, recoveryQuestion, recoveryAnswer, agentName } = body;
+  // Backward compat: accept "safeWord" from old clients
+  const pw = password || safeWord;
 
-  if (!code || !name || !safeWord) {
-    return c.json({ error: "Name and safe word required" }, 400);
+  if (!code || !name || !pw) {
+    return c.json({ error: "Name and password required" }, 400);
   }
 
   // Auto-token bypass: startup token already proved the user is local.
   const skipCodeCheck = code === "__auto_token__";
 
-  const result = await pair({ code, name, safeWord, recoveryQuestion, recoveryAnswer, skipCodeCheck });
+  const result = await pair({ code, name, password: pw, recoveryQuestion, recoveryAnswer, skipCodeCheck });
   if ("error" in result) {
     return c.json({ error: result.error }, 400);
   }
@@ -671,12 +701,14 @@ app.post("/api/pair", async (c) => {
   cacheSessionKey(result.sessionKey);
   await loadVault(result.sessionKey);
 
-  // Save agent name to settings
+  // Save agent name to settings + update in-memory name
   if (agentName) {
+    setInstanceName(agentName);
     try {
       const settingsPath = join(BRAIN_DIR, "settings.json");
       const raw = await readFile(settingsPath, "utf-8");
       const settings = JSON.parse(raw);
+      settings.instanceName = agentName.trim();
       settings.agentName = agentName.trim();
       await writeFile(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
     } catch {}
@@ -688,13 +720,15 @@ app.post("/api/pair", async (c) => {
 // Auth: return visit
 app.post("/api/auth", async (c) => {
   const body = await c.req.json();
-  const { safeWord } = body;
+  const { password, safeWord } = body;
+  // Backward compat: accept "safeWord" from old clients
+  const pw = password || safeWord;
 
-  if (!safeWord) {
-    return c.json({ error: "Safe word required" }, 400);
+  if (!pw) {
+    return c.json({ error: "Password required" }, 400);
   }
 
-  const result = await authenticate(safeWord);
+  const result = await authenticate(pw);
   if ("error" in result) {
     return c.json({ error: result.error }, 401);
   }
@@ -706,7 +740,7 @@ app.post("/api/auth", async (c) => {
   return c.json({ sessionId: result.session.id, name: result.name });
 });
 
-// Validate an existing session (for "restart" safe-word mode)
+// Validate an existing session (for "restart" auth mode)
 app.get("/api/auth/validate", async (c) => {
   const sid = c.req.query("sessionId");
   if (!sid) return c.json({ valid: false });
@@ -749,16 +783,18 @@ app.get("/api/recover", async (c) => {
   return c.json({ question });
 });
 
-// Recovery: reset safe word
+// Recovery: reset password
 app.post("/api/recover", async (c) => {
   const body = await c.req.json();
-  const { answer, newSafeWord } = body;
+  const { answer, newPassword, newSafeWord } = body;
+  // Backward compat: accept "newSafeWord" from old clients
+  const newPw = newPassword || newSafeWord;
 
-  if (!answer || !newSafeWord) {
-    return c.json({ error: "Answer and new safe word required" }, 400);
+  if (!answer || !newPw) {
+    return c.json({ error: "Answer and new password required" }, 400);
   }
 
-  const result = await recover(answer, newSafeWord);
+  const result = await recover(answer, newPw);
   if ("error" in result) {
     return c.json({ error: result.error }, 401);
   }
@@ -1647,7 +1683,7 @@ app.get("/api/avatar/video/:hash", async (c) => {
     return c.json({ error: "Invalid hash" }, 400);
   }
 
-  const filePath = join(PKG_ROOT, "public", "avatar", "cache", hash);
+  const filePath = join(UI_DIR,"avatar", "cache", hash);
   try {
     const mp4 = await readFile(filePath);
     return new Response(mp4, {
@@ -1676,7 +1712,7 @@ app.post("/api/avatar/photo", async (c) => {
 
   const avatarConfig = getAvatarConfig();
   const photoPath = join(process.cwd(), avatarConfig.photoPath);
-  await mkdir(join(PKG_ROOT, "public", "avatar"), { recursive: true });
+  await mkdir(join(UI_DIR,"avatar"), { recursive: true });
   await writeFile(photoPath, Buffer.from(body));
 
   const ok = await preparePhoto(photoPath);
@@ -1738,6 +1774,21 @@ app.get("/api/history", async (c) => {
     .map((m) => ({ role: m.role, content: m.content }));
 
   return c.json({ messages });
+});
+
+// Persist intro message so it appears in all tabs/devices
+app.post("/api/history/intro", async (c) => {
+  const body = await c.req.json();
+  const { sessionId, message } = body;
+  if (!sessionId || !message) return c.json({ error: "sessionId and message required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid session" }, 401);
+  const cs = await getOrCreateChatSession(sessionId, session.name);
+  // Only add if history is empty (first run)
+  if (cs.history.length === 0) {
+    cs.history.push({ role: "assistant", content: message });
+  }
+  return c.json({ ok: true });
 });
 
 // Activity log: poll for background actions
@@ -1824,7 +1875,7 @@ app.post("/api/branch", async (c) => {
       data: JSON.stringify({
         meta: {
           provider: activeProvider,
-          model: activeChatModel ?? (activeProvider === "ollama" ? "llama3.1:8b" : "claude-sonnet-4"),
+          model: activeChatModel ?? (activeProvider === "ollama" ? "llama3.2:3b" : "claude-sonnet-4"),
           traceId: branchTraceId,
           backref: primaryBackref,
         },
@@ -3617,7 +3668,7 @@ app.get("/api/cache", (c) => {
 // --- Help page routes (no auth — knowledge exchange for other AIs/humans) ---
 
 app.get("/help", async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "help.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"help.html"));
   return c.html(html);
 });
 
@@ -3664,39 +3715,39 @@ app.get("/api/help/context", async (c) => {
 
 // Board-level pages — only assembled when user has shown intent for full visibility
 app.get("/observatory", requireSurface("pages"), async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "observatory.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"observatory.html"));
   return c.html(html);
 });
 
 app.get("/ops", requireSurface("pages"), async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "ops.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"ops.html"));
   return c.html(html);
 });
 
 app.get("/board", requireSurface("pages"), async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "board.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"board.html"));
   return c.html(html);
 });
 
 app.get("/library", requireSurface("pages"), async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "library.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"library.html"));
   return c.html(html);
 });
 
 app.get("/browser", requireSurface("pages"), async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "browser.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"browser.html"));
   return c.html(html);
 });
 
 // Registry is always available — it's the entry point
 app.get("/registry", async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "registry.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"registry.html"));
   return c.html(html);
 });
 
 // Serve roadmap.html (strategic roadmap & rearview)
 app.get("/roadmap", async (c) => {
-  const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "roadmap.html"));
+  const html = await serveHtmlTemplate(join(UI_DIR,"roadmap.html"));
   return c.html(html);
 });
 
@@ -3766,7 +3817,7 @@ app.get("/api/roadmap/recent", async (c) => {
 // Serve personal.html (placeholder — instances populate this)
 app.get("/personal", async (c) => {
   try {
-    const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "personal.html"));
+    const html = await serveHtmlTemplate(join(UI_DIR,"personal.html"));
     return c.html(html);
   } catch {
     return c.text("Personal page not configured for this instance.", 404);
@@ -3776,7 +3827,7 @@ app.get("/personal", async (c) => {
 // Serve life.html (placeholder — instances populate this)
 app.get("/life", async (c) => {
   try {
-    const html = await serveHtmlTemplate(join(PKG_ROOT, "public", "life.html"));
+    const html = await serveHtmlTemplate(join(UI_DIR,"life.html"));
     return c.html(html);
   } catch {
     return c.text("Life page not configured for this instance.", 404);
@@ -5035,7 +5086,7 @@ app.post("/api/chat", async (c) => {
 
   return streamSSE(c, async (stream) => {
     // Send metadata first so UI can show which model is responding
-    await stream.writeSSE({ data: JSON.stringify({ meta: { provider: activeProvider, model: activeChatModel ?? (activeProvider === "ollama" ? "llama3.1:8b" : "claude-sonnet-4") } }) });
+    await stream.writeSSE({ data: JSON.stringify({ meta: { provider: activeProvider, model: activeChatModel ?? (activeProvider === "ollama" ? "llama3.2:3b" : "claude-sonnet-4") } }) });
 
     let fullResponse = "";
 
@@ -5447,6 +5498,7 @@ app.post("/api/import/files", async (c) => {
 
 async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   const tier = opts?.tier ?? "byok";
+  activeTier = tier;
   const tierGate = await import("./tier/gate.js");
   // Initialize instance name before anything else
   initInstanceName();
@@ -5835,9 +5887,22 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
     log.info(`Board: ${board.name} (local, ${taskCount} tasks)`);
   }
 
+  // Sync UI from CDN (non-blocking — falls back to bundled if offline)
+  syncUi().then(({ source, revision }) => {
+    if (source === "cdn") {
+      UI_DIR = getUiPublicDir(PKG_ROOT);
+      log.info(`UI synced from CDN: revision ${revision}`);
+    } else {
+      log.info(`UI source: ${source}${revision ? ` (revision ${revision})` : ""}`);
+    }
+  }).catch(() => {});
+
   // Generate startup token for zero-friction local auth
   const { randomBytes: rng } = await import("node:crypto");
   startupToken = rng(32).toString("hex");
+
+  // Warm up local model in background (non-blocking)
+  import("./llm/ollama.js").then(({ warmupOllama }) => warmupOllama()).catch(() => {});
 
   if (code) {
     log.info(`First launch detected. Pairing code: ${code}`);

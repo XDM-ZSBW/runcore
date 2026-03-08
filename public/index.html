@@ -428,15 +428,20 @@
   }
 
   .composer-actions button {
-    padding: 8px;
+    padding: 6px;
     background: transparent;
     color: var(--text-dim);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    font-size: 16px;
     cursor: pointer;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
   }
+  .composer-actions button svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
   .composer-actions button:hover { background: var(--surface); color: var(--text); }
   #incognito-btn.active { color: #ef4444; background: var(--surface); }
@@ -1504,45 +1509,29 @@
   .thread-current-label:hover { color: var(--text); }
 
   .mic-btn {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text-dim);
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.15s;
-    flex-shrink: 0;
   }
-
-  .mic-btn:hover { border-color: var(--accent); color: var(--text); }
 
   .mic-btn.listening {
     border-color: #ef4444;
-    background: rgba(239,68,68,0.1);
     color: #ef4444;
     animation: mic-listen 2s ease-in-out infinite;
   }
 
   @keyframes mic-listen {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); }
-    50% { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.2); }
+    50% { box-shadow: 0 0 0 3px rgba(239,68,68,0); }
   }
 
   .mic-btn.recording {
     border-color: #f59e0b;
-    background: rgba(245,158,11,0.1);
     color: #f59e0b;
     animation: mic-pulse 1.2s ease-in-out infinite;
   }
 
   @keyframes mic-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.3); }
-    50% { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.2); }
+    50% { box-shadow: 0 0 0 3px rgba(245,158,11,0); }
   }
 
   .mic-btn.hidden { display: none; }
@@ -1659,8 +1648,8 @@
       min-height: 38px;
     }
     .composer button { padding: 8px 12px; font-size: 13px; }
-    .composer-actions button { padding: 6px; font-size: 14px; }
-    .mic-btn { width: 34px; height: 34px; font-size: 16px; }
+    .composer-actions button { padding: 5px; width: 28px; height: 28px; }
+    .composer-actions button svg { width: 14px; height: 14px; }
 
     /* Settings panel: full width on mobile */
     .vault-panel { width: 100vw; max-width: 100vw; }
@@ -1728,14 +1717,14 @@
         <button class="btn" id="pair-name-btn">Continue</button>
       </div>
 
-      <!-- Step 2b: Safe word -->
+      <!-- Step 2b: Password -->
       <div id="pair-step-2b" class="step">
         <h1 id="pair-greeting">Nice to meet you.</h1>
-        <p>Choose a safe word — something only we'll know. This encrypts your data.</p>
+        <p>Choose a password — something only we'll know. This encrypts your data.</p>
         <div id="pair-error-2b" class="error-msg"></div>
-        <label for="pair-safeword">Safe Word</label>
+        <label for="pair-safeword">Password</label>
         <input type="password" id="pair-safeword" placeholder="Something memorable">
-        <label for="pair-safeword-confirm">Confirm Safe Word</label>
+        <label for="pair-safeword-confirm">Confirm Password</label>
         <input type="password" id="pair-safeword-confirm" placeholder="Type it again">
         <button class="btn" id="pair-sw-btn">Continue</button>
       </div>
@@ -1743,7 +1732,7 @@
       <!-- Step 3: Recovery -->
       <div id="pair-step-3" class="step">
         <h1>Almost there.</h1>
-        <p>Set a recovery question in case you forget the safe word. Make it something personal.</p>
+        <p>Set a recovery question in case you forget the password. Make it something personal.</p>
         <div id="pair-error-3" class="error-msg"></div>
         <label for="pair-question">Recovery Question</label>
         <input type="text" id="pair-question" placeholder="What was the name of...?">
@@ -1777,12 +1766,12 @@
     <div class="card">
       <div id="auth-main" class="step active">
         <h1>Welcome back.</h1>
-        <p>What's the word?</p>
+        <p>Enter your password.</p>
         <div id="auth-error" class="error-msg"></div>
-        <label for="auth-safeword">Safe Word</label>
-        <input type="password" id="auth-safeword" placeholder="Enter safe word">
+        <label for="auth-safeword">Password</label>
+        <input type="password" id="auth-safeword" placeholder="Enter password">
         <button class="btn" id="auth-btn">Enter</button>
-        <button class="link-btn" id="forgot-btn">Forgot the safe word?</button>
+        <button class="link-btn" id="forgot-btn">Forgot your password?</button>
       </div>
 
       <div id="auth-recover" class="step">
@@ -1791,9 +1780,9 @@
         <div id="recover-error" class="error-msg"></div>
         <label for="recover-answer">Your Answer</label>
         <input type="text" id="recover-answer" placeholder="Answer the question">
-        <label for="recover-new-sw">New Safe Word</label>
-        <input type="password" id="recover-new-sw" placeholder="Choose a new safe word">
-        <button class="btn" id="recover-btn">Reset Safe Word</button>
+        <label for="recover-new-sw">New Password</label>
+        <input type="password" id="recover-new-sw" placeholder="Choose a new password">
+        <button class="btn" id="recover-btn">Reset Password</button>
         <button class="link-btn" id="back-to-auth-btn">Back</button>
       </div>
     </div>
@@ -1865,11 +1854,11 @@
         <div class="incognito-label">incognito — local only, no memory</div>
         <div class="attachment-preview" id="attachment-preview"></div>
         <div class="composer-inner">
-          <button class="mic-btn" id="mic-btn" title="Click to speak">&#127908;</button>
           <div class="composer-actions">
-            <button id="attach-btn" title="Attach image">&#128206;</button>
-            <button id="screenshot-btn" title="Screen capture">&#128247;</button>
-            <button id="incognito-btn" title="Incognito — local only, no memory, plain text">&#128373;</button>
+            <button id="mic-btn" class="mic-btn" title="Click to speak"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+            <button id="attach-btn" title="Attach file"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+            <button id="screenshot-btn" title="Screen capture"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+            <button id="incognito-btn" title="Incognito — local only, no memory"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
           </div>
           <input type="file" id="file-input" accept="image/*,.pdf,.docx,.doc,.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.xml,.yaml,.yml,.toml,.log,.sh,.bat,.c,.cpp,.java,.go,.rs,.rb,.php,.sql,.r,.swift" multiple style="display:none;" />
           <textarea id="chat-input" placeholder="Say something..." rows="1"></textarea>
@@ -1896,7 +1885,7 @@
     </div>
     <div class="vault-body" id="vault-body">
       <div style="text-align:center;margin-bottom:12px;">
-        <a href="/registry" style="color:var(--accent);font-size:13px;text-decoration:none;">Manage Services &amp; Capabilities &rarr;</a>
+        <a href="/registry" style="color:var(--accent);font-size:13px;text-decoration:none;" data-requires="integrations">Manage Services &amp; Capabilities &rarr;</a>
       </div>
       <!-- Identity section -->
       <div class="settings-section">
@@ -1973,8 +1962,8 @@
         <h3 class="settings-section-title">Security</h3>
         <div class="toggle-row">
           <div>
-            <div class="toggle-label">Safe Word Mode</div>
-            <div class="toggle-sublabel" id="safeword-mode-label">Require safe word on every page load</div>
+            <div class="toggle-label">Auth Mode</div>
+            <div class="toggle-sublabel" id="safeword-mode-label">Require password on every page load</div>
           </div>
           <select id="safeword-mode-select" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;outline:none;">
             <option value="always">Every load</option>
@@ -1987,7 +1976,7 @@
         </div>
       </div>
       <!-- Network / Mesh section -->
-      <div class="settings-section" id="mesh-settings-section">
+      <div class="settings-section" id="mesh-settings-section" data-requires="mesh">
         <h3 class="settings-section-title">Network</h3>
         <div class="toggle-row">
           <div>
@@ -2015,7 +2004,7 @@
         </div>
       </div>
       <!-- LLM Provider section -->
-      <div class="settings-section" id="llm-settings-section">
+      <div class="settings-section" id="llm-settings-section" data-requires="vault">
         <h3 class="settings-section-title">LLM Provider</h3>
         <div class="toggle-row">
           <div>
@@ -2041,7 +2030,7 @@
         </div>
       </div>
       <!-- Voice section -->
-      <div class="settings-section" id="voice-settings-section">
+      <div class="settings-section" id="voice-settings-section" data-requires="voice">
         <h3 class="settings-section-title">Voice</h3>
         <div class="toggle-row">
           <div>
@@ -2079,7 +2068,7 @@
         </div>
       </div>
       <!-- Google Workspace section -->
-      <div class="settings-section" id="google-settings-section">
+      <div class="settings-section" id="google-settings-section" data-requires="integrations">
         <h3 class="settings-section-title">Google Workspace</h3>
         <div class="toggle-row">
           <div>
@@ -2093,7 +2082,7 @@
       </div>
 
       <!-- Task Board section -->
-      <div class="settings-section" id="board-settings-section">
+      <div class="settings-section" id="board-settings-section" data-requires="integrations">
         <h3 class="settings-section-title">Task Board</h3>
         <div class="toggle-row">
           <div>
@@ -2105,7 +2094,7 @@
         <p class="settings-hint" id="board-hint">Add <code>LINEAR_API_KEY</code> in the vault below to connect your Linear workspace. Use <code>issues</code> or <code>todo &lt;title&gt;</code> in chat.</p>
       </div>
       <!-- Key Vault section -->
-      <div class="settings-section">
+      <div class="settings-section" data-requires="vault">
         <h3 class="settings-section-title">Key Vault</h3>
         <div class="vault-empty" id="vault-empty">No keys stored yet.</div>
         <div id="vault-list"></div>
@@ -2197,7 +2186,7 @@
   // --- Incognito mode state ---
   let incognitoMode = false;
   let incognitoHistory = [];
-  let incognitoModel = "llama3.1:8b"; // updated on toggle via /api/local-model
+  let incognitoModel = "llama3.2:3b"; // updated on toggle via /api/local-model
   const defaultPlaceholder = "Say something...";
   const incognitoPlaceholder = "incognito — local only...";
 
@@ -2419,7 +2408,7 @@
     try {
       const data = await fetch("/api/threads", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ sessionId }),
       }).then(r => r.json());
 
@@ -2465,7 +2454,7 @@
         const formData = new FormData();
         formData.append("file", file);
         try {
-          const res = await fetch("/api/extract", { method: "POST", body: formData });
+          const res = await fetch("/api/extract", { method: "POST", headers: authHeaders(), body: formData });
           const data = await res.json();
           if (data.text) {
             pendingFiles.push({ name: file.name, text: data.text });
@@ -2572,12 +2561,29 @@
   }
 
   // --- API helpers ---
+  /** Returns auth header object to spread into any fetch call. */
+  function authHeaders() {
+    return sessionId ? { "x-session-id": sessionId } : {};
+  }
+
   async function api(path, opts = {}) {
+    const headers = {};
+    if (opts.body) headers["Content-Type"] = "application/json";
+    // Always send session ID if we have one — middleware requires it
+    if (sessionId) headers["x-session-id"] = sessionId;
     const res = await fetch(path, {
       method: opts.method || "GET",
-      headers: opts.body ? { "Content-Type": "application/json" } : {},
+      headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
+    // Global 401 handler: session expired or invalid → back to auth screen
+    if (res.status === 401 && sessionId && !path.includes("/api/auth")) {
+      sessionId = null;
+      sessionStorage.removeItem("dash_sid");
+      showScreen("auth-screen");
+      showStep("auth-screen", "auth-main");
+      throw new Error("Session expired — please log in again");
+    }
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
     return data;
@@ -2598,7 +2604,7 @@
           const tokenResult = await api("/api/auth/token?t=" + encodeURIComponent(token));
           if (tokenResult.valid) {
             if (tokenResult.needsPairing) {
-              // First run: skip code entry, go straight to name + safe word
+              // First run: skip code entry, go straight to name + password
               showScreen("pair-screen");
               showStep("pair-screen", "pair-step-2");
               pairCode = "__auto_token__";
@@ -2607,6 +2613,8 @@
               return;
             }
             // Already paired — try to resume session
+            const statusCheck = await api("/api/status");
+            if (statusCheck.agentName) agentName = statusCheck.agentName;
             const check = await api("/api/auth/active-session");
             if (check.valid) {
               sessionId = check.sessionId;
@@ -2624,7 +2632,7 @@
       if (status.agentName) agentName = status.agentName;
       if (status.paired) {
         // "restart" mode: try to resume session
-        if (status.safeWordMode === "restart") {
+        if (status.authMode === "restart") {
           // First try sessionStorage (set by enterChat on previous visit)
           const storedSid = sessionStorage.getItem("dash_sid");
           if (storedSid) {
@@ -2701,13 +2709,13 @@
     if (e.key === "Enter") document.getElementById("pair-name-btn").click();
   });
 
-  // Step 2b: Safe word with confirmation
+  // Step 2b: Password with confirmation
   document.getElementById("pair-sw-btn").addEventListener("click", () => {
     clearError("pair-error-2b");
     const sw = document.getElementById("pair-safeword").value.trim();
     const confirm = document.getElementById("pair-safeword-confirm").value.trim();
-    if (!sw) { showError("pair-error-2b", "Choose a safe word"); return; }
-    if (sw !== confirm) { showError("pair-error-2b", "Safe words don't match"); return; }
+    if (!sw) { showError("pair-error-2b", "Choose a password"); return; }
+    if (sw !== confirm) { showError("pair-error-2b", "Passwords don't match"); return; }
     pairSafeWord = sw;
     document.getElementById("pair-agent-greeting").textContent = `Thanks, ${pairName}.`;
     showStep("pair-screen", "pair-step-4");
@@ -2737,9 +2745,9 @@
   // Step 4: Name the agent → submit all
   document.getElementById("pair-finish-btn").addEventListener("click", async () => {
     clearError("pair-error-4");
-    const agentName = document.getElementById("pair-agent-name").value.trim();
-    if (!agentName) { showError("pair-error-4", "Give me a name"); return; }
-    pairAgentName = agentName;
+    const chosenName = document.getElementById("pair-agent-name").value.trim();
+    if (!chosenName) { showError("pair-error-4", "Give me a name"); return; }
+    pairAgentName = chosenName;
 
     const btn = document.getElementById("pair-finish-btn");
     btn.disabled = true;
@@ -2751,12 +2759,13 @@
         body: {
           code: pairCode,
           name: pairName,
-          safeWord: pairSafeWord,
+          password: pairSafeWord,
           agentName: pairAgentName,
         },
       });
       sessionId = result.sessionId;
       userName = result.name;
+      agentName = result.agentName || pairAgentName;
 
       // Transition moment
       showStep("pair-screen", "pair-step-5");
@@ -2785,7 +2794,7 @@
   document.getElementById("auth-btn").addEventListener("click", async () => {
     clearError("auth-error");
     const sw = document.getElementById("auth-safeword").value.trim();
-    if (!sw) { showError("auth-error", "Enter your safe word"); return; }
+    if (!sw) { showError("auth-error", "Enter your password"); return; }
 
     const btn = document.getElementById("auth-btn");
     btn.disabled = true;
@@ -2793,7 +2802,7 @@
     try {
       const result = await api("/api/auth", {
         method: "POST",
-        body: { safeWord: sw },
+        body: { password: sw },
       });
       sessionId = result.sessionId;
       userName = result.name;
@@ -2831,7 +2840,7 @@
     const answer = document.getElementById("recover-answer").value.trim();
     const newSw = document.getElementById("recover-new-sw").value.trim();
     if (!answer) { showError("recover-error", "Enter your answer"); return; }
-    if (!newSw) { showError("recover-error", "Choose a new safe word"); return; }
+    if (!newSw) { showError("recover-error", "Choose a new password"); return; }
 
     const btn = document.getElementById("recover-btn");
     btn.disabled = true;
@@ -2839,7 +2848,7 @@
     try {
       const result = await api("/api/recover", {
         method: "POST",
-        body: { answer, newSafeWord: newSw },
+        body: { answer, newPassword: newSw },
       });
       sessionId = result.sessionId;
       userName = result.name;
@@ -2854,6 +2863,71 @@
   document.getElementById("recover-new-sw").addEventListener("keydown", (e) => {
     if (e.key === "Enter") document.getElementById("recover-btn").click();
   });
+
+  // --- Tier gating ---
+
+  // Remove UI sections the current tier can't support
+  async function applyTierGating() {
+    try {
+      const { tier, capabilities } = await api('/api/tier');
+      window.__TIER__ = tier;
+      window.__CAPS__ = capabilities;
+
+      // Remove settings sections that require unavailable capabilities
+      document.querySelectorAll('[data-requires]').forEach(el => {
+        const cap = el.dataset.requires;
+        if (!capabilities[cap]) el.remove();
+      });
+
+      // Gate navigation links by tier
+      const NAV_TIERS = {
+        library: 'vault',
+        personal: 'spawning',
+        life: 'vault',
+        registry: 'integrations',
+        observatory: 'spawning',
+        ops: 'spawning',
+        board: 'integrations',
+        roadmap: 'spawning',
+      };
+
+      document.querySelectorAll('.header-nav a, nav a').forEach(link => {
+        const href = link.getAttribute('href') || '';
+        for (const [page, cap] of Object.entries(NAV_TIERS)) {
+          if (href.includes(page) && !capabilities[cap]) {
+            link.remove();
+            break;
+          }
+        }
+      });
+
+      // Hide elements that don't belong at local tier
+      if (tier === 'local') {
+        // Stream tab — not useful without cloud/spawning
+        const streamTab = document.getElementById('tab-activity');
+        if (streamTab) streamTab.remove();
+        // Tab group itself if only Chat remains
+        const tabGroup = document.getElementById('tab-group');
+        if (tabGroup && tabGroup.children.length <= 1) tabGroup.style.display = 'none';
+        // Share button — no sharing at local tier
+        const shareBtn = document.querySelector('.gear-btn[onclick*="Share"]');
+        if (shareBtn) shareBtn.remove();
+      }
+
+      // Show upgrade hint for local tier
+      if (tier === 'local') {
+        const settingsPanel = document.querySelector('.vault-body');
+        if (settingsPanel) {
+          const hint = document.createElement('p');
+          hint.style.cssText = 'font-size:13px;color:var(--text-dim,#666);margin-top:20px;text-align:center;';
+          hint.innerHTML = 'Unlock cloud models, voice, and integrations &rarr; <code>runcore register</code>';
+          settingsPanel.appendChild(hint);
+        }
+      }
+    } catch (e) {
+      // Tier check failed — show everything (graceful degradation)
+    }
+  }
 
   // --- Chat ---
 
@@ -2880,6 +2954,9 @@
     showScreen("chat-screen");
     chatInput.focus();
 
+    // Apply tier-based UI gating (non-blocking)
+    applyTierGating();
+
     // Load stored conversation history
     try {
       const data = await api("/api/history?sessionId=" + encodeURIComponent(sessionId));
@@ -2897,11 +2974,16 @@
       console.log("No history to restore:", err.message);
     }
 
-    // First-run: agent introduces itself
+    // First-run: agent introduces itself (persisted so it shows in all tabs)
     if (isFirstRun) {
       isFirstRun = false;
-      const intro = `Hey ${userName || "there"}! I'm ${agentName}. I'm your personal AI — everything stays local on your machine. No cloud, no tracking, just us.\n\nHere's what I can help with:\n- **Chat** about anything — I'll remember our conversations\n- **Settings** (gear icon) to customize my personality\n- **Share** (envelope icon) to invite someone to run their own instance\n\nWhat would you like to talk about first?`;
+      const intro = `Hey ${userName || "there"} — I'm ${agentName}. Everything we talk about stays right here on your machine. Nobody else sees it.\n\nI'd love to get to know you. What are you working on these days?`;
       addMessage("assistant", intro);
+      // Persist to server history so other tabs/devices see it
+      api("/api/history/intro", {
+        method: "POST",
+        body: { sessionId, message: intro },
+      }).catch(() => {});
     }
 
     startActivityPolling();
@@ -2938,7 +3020,7 @@
     const chipsEl = document.getElementById("question-chips");
     if (!greetingEl || !chipsEl) return;
 
-    fetch("/api/pending-questions")
+    fetch("/api/pending-questions", { headers: authHeaders() })
       .then(r => r.json())
       .then(data => {
         const questions = data.questions;
@@ -2969,7 +3051,7 @@
             e.stopPropagation();
             fetch("/api/dismiss-question", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...authHeaders() },
               body: JSON.stringify({ questionId: q.id }),
             });
             chip.remove();
@@ -3284,7 +3366,7 @@
 
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify(payload),
         signal: abortController.signal,
       });
@@ -3358,7 +3440,7 @@
             if (data.boardItems && data.boardItems.issues) {
               if (data.boardItems.issues.length > 0) {
                 renderBoardCards(data.boardItems.issues);
-              } else if (data.boardItems.empty) {
+              } else if (data.boardItems.empty && window.__TIER__ !== "local") {
                 addMessage("system", "No items found for that view.");
               }
             }
@@ -3810,8 +3892,8 @@
 
   function updateSafewordLabel() {
     safewordModeLabel.textContent = safewordModeSelect.value === "always"
-      ? "Require safe word on every page load"
-      : "Skip safe word until server or browser restarts";
+      ? "Require password on every page load"
+      : "Skip password until server or browser restarts";
   }
   safewordModeSelect.addEventListener("change", updateSafewordLabel);
 
@@ -3832,7 +3914,7 @@
         method: "PUT",
         body: { safeWordMode: safewordModeSelect.value },
       });
-      // If switching to "always", clear stored session so next load requires safe word
+      // If switching to "always", clear stored session so next load requires password
       if (safewordModeSelect.value === "always") {
         sessionStorage.removeItem("dash_sid");
       }
@@ -4216,7 +4298,7 @@
     try {
       const res = await fetch("/api/branch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           sessionId,
           entryIds: activeBranchEntryIds,
@@ -4382,7 +4464,7 @@
     if (!voiceStatus.tts || !text) return;
     const ttsText = text.slice(0, 2000);
     try {
-      const res = await fetch("/api/tts?text=" + encodeURIComponent(ttsText));
+      const res = await fetch("/api/tts?text=" + encodeURIComponent(ttsText), { headers: authHeaders() });
       if (!res.ok) return;
       const arrayBuf = await res.arrayBuffer();
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -4489,7 +4571,7 @@
       const wavBlobFinal = new Blob([wavBuf], { type: "audio/wav" });
 
       // Send to local Whisper for transcription
-      const res = await fetch("/api/stt", { method: "POST", body: wavBlobFinal });
+      const res = await fetch("/api/stt", { method: "POST", headers: authHeaders(), body: wavBlobFinal });
       if (!res.ok) {
         sttBackoff = Math.min((sttBackoff || 1000) * 2, 10000);
         console.log("[listen] STT error", res.status, "— backing off", sttBackoff, "ms");
@@ -4619,7 +4701,7 @@
         micRecording = false;
         try {
           const wavBlob = await blobToWav(webmBlob);
-          const res = await fetch("/api/stt", { method: "POST", body: wavBlob });
+          const res = await fetch("/api/stt", { method: "POST", headers: authHeaders(), body: wavBlob });
           if (res.ok) {
             const data = await res.json();
             if (data.text && data.text.trim()) {

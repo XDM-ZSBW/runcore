@@ -4,7 +4,7 @@
  * Brain files are already encrypted at rest (DASH-148), so backup is just file sync.
  * Safe word never leaves the local machine.
  *
- * Recovery process: clone repo → pull backup → enter safe word → brain reconstituted.
+ * Recovery process: clone repo → pull backup → enter password → brain reconstituted.
  */
 
 import { readFile, readdir, stat, mkdir, writeFile, rm } from "node:fs/promises";
@@ -208,7 +208,7 @@ export async function runBackup(
 
 /**
  * Restore brain/ from a backup archive.
- * After restore, user must enter safe word to decrypt episodic files.
+ * After restore, user must enter password to decrypt episodic files.
  */
 export async function restoreBackup(
   provider: BackupProvider,
@@ -236,10 +236,10 @@ export async function restoreBackup(
     log.info("backup restored", { backupId, provider });
     logActivity({
       source: "system",
-      summary: `Brain restored from backup ${backupId} (${provider}). Enter safe word to decrypt episodic files.`,
+      summary: `Brain restored from backup ${backupId} (${provider}). Enter password to decrypt episodic files.`,
     });
 
-    return { ok: true, message: `Restored from ${provider}. Enter safe word to decrypt episodic files.` };
+    return { ok: true, message: `Restored from ${provider}. Enter password to decrypt episodic files.` };
   } catch (err: any) {
     log.error("restore failed", { backupId, error: err.message });
     return { ok: false, message: `Restore failed: ${err.message}` };

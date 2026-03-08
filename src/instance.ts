@@ -18,8 +18,9 @@ export function initInstanceName(): void {
   try {
     const raw = readFileSync(join(BRAIN_DIR, "settings.json"), "utf-8");
     const parsed = JSON.parse(raw);
-    if (typeof parsed.instanceName === "string" && parsed.instanceName.trim()) {
-      instanceName = parsed.instanceName.trim();
+    const name = parsed.agentName ?? parsed.instanceName;
+    if (typeof name === "string" && name.trim()) {
+      instanceName = name.trim();
     }
   } catch {
     // Missing or malformed — keep default "Core"
@@ -29,6 +30,11 @@ export function initInstanceName(): void {
 /** Returns the instance name (e.g. "Core", "Dash", "TestBot"). */
 export function getInstanceName(): string {
   return instanceName;
+}
+
+/** Update the instance name at runtime (e.g. after pairing). */
+export function setInstanceName(name: string): void {
+  if (name.trim()) instanceName = name.trim();
 }
 
 /** Returns the instance name in lowercase (e.g. "core", "dash"). */

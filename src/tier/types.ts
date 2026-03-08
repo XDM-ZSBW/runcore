@@ -26,6 +26,9 @@ export interface TierCapabilities {
   alerting: boolean;
   spawning: boolean;
   governance: boolean;
+  vault: boolean;
+  voice: boolean;
+  integrations: boolean;
 }
 
 export const TIER_CAPS: Record<TierName, TierCapabilities> = {
@@ -39,6 +42,9 @@ export const TIER_CAPS: Record<TierName, TierCapabilities> = {
     alerting: false,
     spawning: false,
     governance: false,
+    vault: false,
+    voice: false,
+    integrations: false,
   },
   byok: {
     brain: true,
@@ -50,6 +56,9 @@ export const TIER_CAPS: Record<TierName, TierCapabilities> = {
     alerting: true,
     spawning: false,
     governance: false,
+    vault: true,
+    voice: true,
+    integrations: true,
   },
   spawn: {
     brain: true,
@@ -61,6 +70,9 @@ export const TIER_CAPS: Record<TierName, TierCapabilities> = {
     alerting: true,
     spawning: true,
     governance: true,
+    vault: true,
+    voice: true,
+    integrations: true,
   },
   hosted: {
     brain: true,
@@ -72,6 +84,9 @@ export const TIER_CAPS: Record<TierName, TierCapabilities> = {
     alerting: true,
     spawning: true,
     governance: true,
+    vault: true,
+    voice: true,
+    integrations: true,
   },
 };
 

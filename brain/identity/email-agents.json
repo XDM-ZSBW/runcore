@@ -1,9 +1,0 @@
-{
-  "agents": {
-    "core": { "address": "core@pqrsystems.com", "label": "Core" },
-    "wendy": { "address": "wendy@pqrsystems.com", "label": "Wendy" },
-    "agent": { "address": "agent@pqrsystems.com", "label": "Agent" }
-  },
-  "catchAll": "core",
-  "humanNotifyEmail": null
-}

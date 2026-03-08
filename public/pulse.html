@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Core Pulse</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #c9d1d9;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  .pulse-container {
+    position: relative;
+    width: 600px;
+    height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  svg { width: 100%; height: 100%; }
+
+  .controls {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 30px;
+    width: 600px;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .control-group label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 0.5;
+  }
+
+  .control-group .value {
+    font-size: 24px;
+    font-weight: 200;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: #1a1a2e;
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #c9d1d9;
+    cursor: pointer;
+  }
+
+  .pain-control {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+  }
+
+  .pain-control label { color: #f0883e; }
+
+  .state-label {
+    margin-top: 24px;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0.4;
+    height: 20px;
+  }
+
+  .presets {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .preset-btn {
+    background: #12121a;
+    border: 1px solid #2a2a3e;
+    color: #8b949e;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+  }
+
+  .preset-btn:hover {
+    border-color: #4a4a6e;
+    color: #c9d1d9;
+  }
+</style>
+</head>
+<body>
+
+<div class="pulse-container">
+  <svg viewBox="0 0 600 500" id="pulse-svg">
+    <defs>
+      <filter id="glow-sense" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="12" result="blur"/>
+        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+      <filter id="glow-work" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="12" result="blur"/>
+        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+      <filter id="glow-joy" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="12" result="blur"/>
+        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+      <filter id="glow-center" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="20" result="blur"/>
+        <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+      </filter>
+
+      <radialGradient id="field-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" id="field-center" stop-color="rgba(88,166,255,0.06)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </radialGradient>
+
+      <radialGradient id="center-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" id="center-glow-inner" stop-color="rgba(255,255,255,0.08)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </radialGradient>
+    </defs>
+
+    <!-- Ambient field -->
+    <ellipse cx="300" cy="250" rx="260" ry="220" fill="url(#field-glow)" id="field"/>
+
+    <!-- Triangle connection lines -->
+    <line id="conn-sw" stroke="rgba(88,166,255,0.12)" stroke-width="1" opacity="0.3"/>
+    <line id="conn-wj" stroke="rgba(63,185,80,0.12)" stroke-width="1" opacity="0.3"/>
+    <line id="conn-js" stroke="rgba(88,166,255,0.12)" stroke-width="1" opacity="0.3"/>
+
+    <!-- Triangle fill (the space between — the focus zone) -->
+    <polygon id="tri-fill" points="0,0 0,0 0,0" fill="rgba(255,255,255,0.01)"/>
+
+    <!-- Center convergence point (the eye / focus) -->
+    <circle id="center-glow-circle" cx="300" cy="250" r="0" fill="url(#center-glow)" opacity="0"/>
+    <circle id="center-dot" cx="300" cy="250" r="0" fill="rgba(255,255,255,0.15)" opacity="0" filter="url(#glow-center)"/>
+
+    <!-- Sense dot (top-left) -->
+    <g id="sense-group">
+      <circle r="0" id="sense-aura"/>
+      <circle r="24" id="sense-dot" fill="#58a6ff" opacity="0.9" filter="url(#glow-sense)"/>
+      <circle r="6" id="sense-pupil" fill="#0a0a0f" opacity="0"/>
+    </g>
+
+    <!-- Work dot (top-right) -->
+    <g id="work-group">
+      <circle r="0" id="work-aura"/>
+      <circle r="24" id="work-dot" fill="#3fb950" opacity="0.9" filter="url(#glow-work)"/>
+      <circle r="6" id="work-pupil" fill="#0a0a0f" opacity="0"/>
+    </g>
+
+    <!-- Joy dot (bottom-center) -->
+    <g id="joy-group">
+      <circle r="0" id="joy-aura"/>
+      <circle r="24" id="joy-dot" fill="#58a6ff" opacity="0.9" filter="url(#glow-joy)"/>
+      <circle r="6" id="joy-pupil" fill="#0a0a0f" opacity="0"/>
+    </g>
+
+    <!-- Tick sweep arc -->
+    <path id="tick-arc" d="" stroke="rgba(255,255,255,0.04)" stroke-width="1.5" fill="none"/>
+  </svg>
+</div>
+
+<div class="state-label" id="state-label">breathing</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Sense</label>
+    <div class="value" id="sense-value">0.3</div>
+    <input type="range" id="sense-slider" min="0" max="100" value="30">
+  </div>
+  <div class="control-group">
+    <label>Work</label>
+    <div class="value" id="work-value">0.5</div>
+    <input type="range" id="work-slider" min="0" max="100" value="50">
+  </div>
+  <div class="control-group">
+    <label>Joy</label>
+    <div class="value" id="joy-value">0.7</div>
+    <input type="range" id="joy-slider" min="0" max="100" value="70">
+  </div>
+  <div class="control-group pain-control">
+    <label>Pain</label>
+    <div class="value" id="pain-value">0.0</div>
+    <input type="range" id="pain-slider" min="0" max="100" value="0">
+  </div>
+</div>
+
+<div class="presets">
+  <button class="preset-btn" onclick="setPreset(0.2, 0.1, 0.8, 0)">Content</button>
+  <button class="preset-btn" onclick="setPreset(0.3, 0.9, 0.6, 0)">Building</button>
+  <button class="preset-btn" onclick="setPreset(0.8, 0.3, 0.5, 0)">Alert</button>
+  <button class="preset-btn" onclick="setPreset(0.1, 0.1, 0.9, 0)">Joyful</button>
+  <button class="preset-btn" onclick="setPreset(0.5, 0.7, 0.2, 0.3)">Struggling</button>
+  <button class="preset-btn" onclick="setPreset(0.9, 0.8, 0.1, 0.7)">Crisis</button>
+  <button class="preset-btn" onclick="setPreset(0.05, 0.02, 0.4, 0)">Resting</button>
+  <button class="preset-btn" onclick="setPreset(0.3, 0.5, 0.5, 0.9)">Dehydrating</button>
+  <button class="preset-btn" onclick="setPreset(1.0, 1.0, 1.0, 0)">Converge</button>
+  <button class="preset-btn" onclick="setPreset(0.9, 0.9, 0.2, 0.5)">Focus</button>
+</div>
+
+<script>
+// --- State ---
+const state = {
+  sense: 0.3,
+  work: 0.5,
+  joy: 0.7,
+  pain: 0,
+  breathPhase: 0,
+  tickPhase: 0,
+  tickProgress: 0,
+};
+
+// --- Triangle geometry ---
+// Resting positions: equilateral triangle, point down
+// Sense = top-left, Work = top-right, Joy = bottom-center
+const CX = 300, CY = 250;
+const REST_RADIUS = 120; // distance from center at rest
+
+// Angles: sense at 210deg, work at 330deg, joy at 90deg (point-down triangle)
+const SENSE_ANGLE = (210 * Math.PI) / 180;
+const WORK_ANGLE  = (330 * Math.PI) / 180;
+const JOY_ANGLE   = (90  * Math.PI) / 180;
+
+function restPos(angle) {
+  return { x: CX + REST_RADIUS * Math.cos(angle), y: CY + REST_RADIUS * Math.sin(angle) };
+}
+
+// --- Color palette ---
+function signalColor(value, pain) {
+  const effectiveValue = Math.min(1, value + pain * 0.5);
+  const blue  = { r: 88,  g: 166, b: 255 };
+  const green = { r: 63,  g: 185, b: 80  };
+  const amber = { r: 240, g: 136, b: 62  };
+
+  let r, g, b;
+  if (effectiveValue < 0.4) {
+    const t = effectiveValue / 0.4;
+    r = blue.r + (green.r - blue.r) * t;
+    g = blue.g + (green.g - blue.g) * t;
+    b = blue.b + (green.b - blue.b) * t;
+  } else {
+    const t = (effectiveValue - 0.4) / 0.6;
+    r = green.r + (amber.r - green.r) * t;
+    g = green.g + (amber.g - green.g) * t;
+    b = green.b + (amber.b - green.b) * t;
+  }
+
+  const dimFactor = 1 - pain * 0.4;
+  r = Math.round(r * dimFactor);
+  g = Math.round(g * dimFactor);
+  b = Math.round(b * dimFactor);
+
+  return { r, g, b, css: `rgb(${r},${g},${b})` };
+}
+
+// --- Urgency: how much the dots need to converge ---
+// High activity + high pain = maximum convergence (myopia)
+// Low everything = wide triangle (peripheral, relaxed)
+function urgency() {
+  const { sense, work, joy, pain } = state;
+  const activity = (sense + work + joy) / 3;
+  // Convergence driven by: pain, high uniform activity, low joy with high sense/work
+  const painPull = pain * 0.7;
+  const activityPull = Math.pow(activity, 1.5) * 0.4;
+  const stressPull = (sense > 0.5 && work > 0.5 && joy < 0.3) ? 0.3 : 0;
+  return Math.min(1, painPull + activityPull + stressPull);
+}
+
+// --- DOM refs ---
+const senseDot = document.getElementById('sense-dot');
+const workDot = document.getElementById('work-dot');
+const joyDot = document.getElementById('joy-dot');
+const senseAura = document.getElementById('sense-aura');
+const workAura = document.getElementById('work-aura');
+const joyAura = document.getElementById('joy-aura');
+const sensePupil = document.getElementById('sense-pupil');
+const workPupil = document.getElementById('work-pupil');
+const joyPupil = document.getElementById('joy-pupil');
+const senseGroup = document.getElementById('sense-group');
+const workGroup = document.getElementById('work-group');
+const joyGroup = document.getElementById('joy-group');
+const connSW = document.getElementById('conn-sw');
+const connWJ = document.getElementById('conn-wj');
+const connJS = document.getElementById('conn-js');
+const triFill = document.getElementById('tri-fill');
+const centerDot = document.getElementById('center-dot');
+const centerGlowCircle = document.getElementById('center-glow-circle');
+const tickArc = document.getElementById('tick-arc');
+const stateLabel = document.getElementById('state-label');
+
+// --- Sliders ---
+function bindSlider(id, key) {
+  const slider = document.getElementById(id + '-slider');
+  const display = document.getElementById(id + '-value');
+  slider.addEventListener('input', () => {
+    state[key] = slider.value / 100;
+    display.textContent = state[key].toFixed(2);
+  });
+}
+bindSlider('sense', 'sense');
+bindSlider('work', 'work');
+bindSlider('joy', 'joy');
+bindSlider('pain', 'pain');
+
+function setPreset(s, w, j, p) {
+  const targets = { sense: s, work: w, joy: j, pain: p };
+  const starts = { sense: state.sense, work: state.work, joy: state.joy, pain: state.pain };
+  const duration = 1200;
+  const startTime = performance.now();
+
+  function easeInOut(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function animatePreset(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(1, elapsed / duration);
+    const e = easeInOut(t);
+
+    for (const key of ['sense', 'work', 'joy', 'pain']) {
+      state[key] = starts[key] + (targets[key] - starts[key]) * e;
+      document.getElementById(key + '-slider').value = state[key] * 100;
+      document.getElementById(key + '-value').textContent = state[key].toFixed(2);
+    }
+
+    if (t < 1) requestAnimationFrame(animatePreset);
+  }
+  requestAnimationFrame(animatePreset);
+}
+
+// --- Expression engine ---
+function getExpression() {
+  const { sense, work, joy, pain } = state;
+  const avg = (sense + work + joy) / 3;
+  const u = urgency();
+
+  if (u > 0.8) return 'converging';
+  if (pain > 0.7) return 'surviving';
+  if (pain > 0.4 && joy < 0.3) return 'hurting';
+  if (pain > 0.4) return 'dimming';
+  if (u > 0.5) return 'focusing';
+  if (joy > 0.7 && work < 0.3 && sense < 0.3) return 'content';
+  if (joy > 0.7 && work > 0.6) return 'in flow';
+  if (joy < 0.2) return 'uneasy';
+  if (sense > 0.7 && work < 0.3) return 'watching';
+  if (sense > 0.7) return 'alert';
+  if (work > 0.8) return 'building';
+  if (work > 0.5 && joy > 0.5) return 'creating';
+  if (avg < 0.1) return 'sleeping';
+  if (avg < 0.25) return 'resting';
+  if (avg > 0.7) return 'alive';
+  return 'breathing';
+}
+
+// --- Render loop ---
+let lastTime = 0;
+
+function render(now) {
+  const dt = lastTime ? (now - lastTime) / 1000 : 0.016;
+  lastTime = now;
+
+  const { sense, work, joy, pain } = state;
+  const activity = (sense + work + joy) / 3;
+  const u = urgency();
+
+  // Breath: slower when resting, faster when active, sluggish in pain
+  const breathSpeed = (0.25 + activity * 0.6) * (1 - pain * 0.5);
+  state.breathPhase = (state.breathPhase + dt * breathSpeed) % 1;
+  const breath = Math.sin(state.breathPhase * Math.PI * 2);
+
+  // Tick cycle
+  const tickSpeed = 0.12 + activity * 0.25;
+  state.tickProgress += dt * tickSpeed;
+  if (state.tickProgress >= 1) {
+    state.tickProgress = 0;
+    state.tickPhase = (state.tickPhase + 1) % 3;
+  }
+
+  // --- Convergence geometry ---
+  // At rest (u=0): full triangle, wide spread
+  // At urgency (u=1): dots collapse toward center, triangle becomes a point
+  const convergeFactor = u;
+  const currentRadius = REST_RADIUS * (1 - convergeFactor * 0.85);
+
+  // Individual signal pulls: a high signal dot pulls slightly toward center independently
+  const sensePull = sense * 0.15;
+  const workPull = work * 0.15;
+  const joyPull = joy * 0.15;
+
+  const senseR = currentRadius * (1 - sensePull);
+  const workR = currentRadius * (1 - workPull);
+  const joyR = currentRadius * (1 - joyPull);
+
+  // Breathing offsets: dots orbit slightly, more at rest, less when converged
+  const orbitAmp = (1 - convergeFactor) * 6;
+  const breathX = Math.cos(state.breathPhase * Math.PI * 2) * orbitAmp;
+  const breathY = Math.sin(state.breathPhase * Math.PI * 2) * orbitAmp;
+
+  // Compute positions
+  const senseX = CX + senseR * Math.cos(SENSE_ANGLE) + breathX;
+  const senseY = CY + senseR * Math.sin(SENSE_ANGLE) + breathY * 0.7;
+  const workX  = CX + workR * Math.cos(WORK_ANGLE) - breathX;
+  const workY  = CY + workR * Math.sin(WORK_ANGLE) + breathY * 0.7;
+  const joyX   = CX + joyR * Math.cos(JOY_ANGLE) + breathY * 0.3;
+  const joyY   = CY + joyR * Math.sin(JOY_ANGLE) - breathX * 0.5;
+
+  // --- Colors ---
+  const senseColor = signalColor(sense, pain);
+  const workColor = signalColor(work, pain);
+  const joyColor = signalColor(joy, pain);
+
+  // --- Dot sizes ---
+  const breathAmp = 3 * (1 - pain * 0.5);
+  const sensePhaseBoost = state.tickPhase === 0 ? 5 * state.tickProgress : 0;
+  const workPhaseBoost = state.tickPhase === 1 ? 5 * state.tickProgress : 0;
+  const joyPhaseBoost = state.tickPhase === 2 ? 5 * state.tickProgress : 0;
+
+  // Dots grow slightly as they converge (becoming the focus)
+  const convergeGrow = convergeFactor * 8;
+  const baseDotR = 20;
+
+  const senseDotR = baseDotR + sense * 8 + breath * breathAmp + sensePhaseBoost + convergeGrow;
+  const workDotR = baseDotR + work * 8 + breath * breathAmp + workPhaseBoost + convergeGrow;
+  const joyDotR = baseDotR + joy * 8 + breath * breathAmp * 0.9 + joyPhaseBoost + convergeGrow;
+
+  const painShrink = 1 - pain * 0.2;
+
+  senseDot.setAttribute('r', senseDotR * painShrink);
+  workDot.setAttribute('r', workDotR * painShrink);
+  joyDot.setAttribute('r', joyDotR * painShrink);
+
+  senseDot.setAttribute('fill', senseColor.css);
+  workDot.setAttribute('fill', workColor.css);
+  joyDot.setAttribute('fill', joyColor.css);
+
+  // Opacity: brighter as they converge
+  const baseOpacity = (0.75 + convergeFactor * 0.2) - pain * 0.3;
+  senseDot.setAttribute('opacity', Math.max(0.2, baseOpacity));
+  workDot.setAttribute('opacity', Math.max(0.2, baseOpacity));
+  joyDot.setAttribute('opacity', Math.max(0.2, baseOpacity));
+
+  // --- Auras ---
+  const auraBreath = Math.max(0, breath) * 0.5;
+  const auraScale = 1 + convergeFactor * 0.5; // auras bloom when converged
+
+  senseAura.setAttribute('r', (40 + sense * 30 + auraBreath * 15) * auraScale * painShrink);
+  workAura.setAttribute('r', (40 + work * 30 + auraBreath * 15) * auraScale * painShrink);
+  joyAura.setAttribute('r', (40 + joy * 30 + auraBreath * 15) * auraScale * painShrink);
+
+  senseAura.setAttribute('fill', `rgba(${senseColor.r},${senseColor.g},${senseColor.b},${(0.02 + sense * 0.02) * (1 + convergeFactor)})`);
+  workAura.setAttribute('fill', `rgba(${workColor.r},${workColor.g},${workColor.b},${(0.02 + work * 0.02) * (1 + convergeFactor)})`);
+  joyAura.setAttribute('fill', `rgba(${joyColor.r},${joyColor.g},${joyColor.b},${(0.02 + joy * 0.02) * (1 + convergeFactor)})`);
+
+  // --- Pupils (eyes open when active, more visible when converged) ---
+  const pupilThreshold = 0.4 - convergeFactor * 0.2; // easier to trigger when converged
+  const sensePupilR = sense > pupilThreshold ? (sense - pupilThreshold) * 14 : 0;
+  const workPupilR = work > pupilThreshold ? (work - pupilThreshold) * 14 : 0;
+  const joyPupilR = joy > pupilThreshold ? (joy - pupilThreshold) * 14 : 0;
+
+  sensePupil.setAttribute('r', sensePupilR * painShrink);
+  workPupil.setAttribute('r', workPupilR * painShrink);
+  joyPupil.setAttribute('r', joyPupilR * painShrink);
+
+  sensePupil.setAttribute('opacity', sensePupilR > 0 ? 0.6 + convergeFactor * 0.3 : 0);
+  workPupil.setAttribute('opacity', workPupilR > 0 ? 0.6 + convergeFactor * 0.3 : 0);
+  joyPupil.setAttribute('opacity', joyPupilR > 0 ? 0.6 + convergeFactor * 0.3 : 0);
+
+  // --- Position groups ---
+  senseGroup.setAttribute('transform', `translate(${senseX}, ${senseY})`);
+  workGroup.setAttribute('transform', `translate(${workX}, ${workY})`);
+  joyGroup.setAttribute('transform', `translate(${joyX}, ${joyY})`);
+
+  // --- Triangle connections ---
+  connSW.setAttribute('x1', senseX); connSW.setAttribute('y1', senseY);
+  connSW.setAttribute('x2', workX);  connSW.setAttribute('y2', workY);
+  connWJ.setAttribute('x1', workX);  connWJ.setAttribute('y1', workY);
+  connWJ.setAttribute('x2', joyX);   connWJ.setAttribute('y2', joyY);
+  connJS.setAttribute('x1', joyX);   connJS.setAttribute('y1', joyY);
+  connJS.setAttribute('x2', senseX); connJS.setAttribute('y2', senseY);
+
+  // Connections brighten as triangle tightens
+  const connOpacity = 0.06 + convergeFactor * 0.35 + activity * 0.1;
+  const connW = 0.5 + convergeFactor * 2.5 + activity * 0.5;
+  [connSW, connWJ, connJS].forEach(c => {
+    c.setAttribute('opacity', Math.max(0.03, connOpacity - pain * 0.2));
+    c.setAttribute('stroke-width', connW);
+  });
+
+  // Color the connections with blended neighbor colors
+  connSW.setAttribute('stroke', `rgba(${(senseColor.r+workColor.r)/2},${(senseColor.g+workColor.g)/2},${(senseColor.b+workColor.b)/2},0.5)`);
+  connWJ.setAttribute('stroke', `rgba(${(workColor.r+joyColor.r)/2},${(workColor.g+joyColor.g)/2},${(workColor.b+joyColor.b)/2},0.5)`);
+  connJS.setAttribute('stroke', `rgba(${(joyColor.r+senseColor.r)/2},${(joyColor.g+senseColor.g)/2},${(joyColor.b+senseColor.b)/2},0.5)`);
+
+  // --- Triangle fill (the space between becomes visible as they converge) ---
+  triFill.setAttribute('points', `${senseX},${senseY} ${workX},${workY} ${joyX},${joyY}`);
+  const triFillOpacity = convergeFactor * 0.08 + (convergeFactor > 0.6 ? (convergeFactor - 0.6) * 0.15 : 0);
+  const avgR = Math.round((senseColor.r + workColor.r + joyColor.r) / 3);
+  const avgG = Math.round((senseColor.g + workColor.g + joyColor.g) / 3);
+  const avgB = Math.round((senseColor.b + workColor.b + joyColor.b) / 3);
+  triFill.setAttribute('fill', `rgba(${avgR},${avgG},${avgB},${triFillOpacity})`);
+
+  // --- Center convergence point ---
+  // Appears when dots are close enough — the "eye" opens in the middle
+  const centerR = convergeFactor > 0.3 ? (convergeFactor - 0.3) * 25 : 0;
+  const centerOpacity = convergeFactor > 0.3 ? (convergeFactor - 0.3) * 1.2 : 0;
+
+  centerDot.setAttribute('r', centerR + breath * 2);
+  centerDot.setAttribute('opacity', Math.min(0.8, centerOpacity));
+  centerDot.setAttribute('fill', `rgba(${avgR},${avgG},${avgB},${0.3 + convergeFactor * 0.5})`);
+
+  // Center glow blooms
+  const glowR = convergeFactor > 0.4 ? (convergeFactor - 0.4) * 120 + breath * 10 : 0;
+  centerGlowCircle.setAttribute('r', glowR);
+  centerGlowCircle.setAttribute('opacity', convergeFactor > 0.4 ? (convergeFactor - 0.4) * 0.6 : 0);
+
+  const centerGlowInner = document.getElementById('center-glow-inner');
+  centerGlowInner.setAttribute('stop-color', `rgba(${avgR},${avgG},${avgB},${0.06 + convergeFactor * 0.08})`);
+
+  // --- Field glow ---
+  const fieldCenter = document.getElementById('field-center');
+  fieldCenter.setAttribute('stop-color', `rgba(${avgR},${avgG},${avgB},${0.03 + activity * 0.03 + convergeFactor * 0.04})`);
+
+  // --- Tick arc (orbits the triangle) ---
+  const arcAngles = [SENSE_ANGLE, WORK_ANGLE, JOY_ANGLE];
+  const arcStart = arcAngles[state.tickPhase];
+  const arcEnd = arcAngles[(state.tickPhase + 1) % 3];
+  const arcT = state.tickProgress;
+  const arcAngle = arcStart + (arcEnd - arcStart + (arcEnd < arcStart ? Math.PI * 2 : 0)) * arcT;
+  const arcDist = currentRadius + 30;
+  const ax = CX + arcDist * Math.cos(arcAngle);
+  const ay = CY + arcDist * Math.sin(arcAngle);
+  // Draw a small arc segment
+  const arcLen = 0.3;
+  const ax2 = CX + arcDist * Math.cos(arcAngle - arcLen);
+  const ay2 = CY + arcDist * Math.sin(arcAngle - arcLen);
+  tickArc.setAttribute('d', `M ${ax2} ${ay2} A ${arcDist} ${arcDist} 0 0 1 ${ax} ${ay}`);
+  tickArc.setAttribute('opacity', 0.02 + activity * 0.06 + convergeFactor * 0.04);
+
+  // --- Glow filter intensity ---
+  ['glow-sense', 'glow-work', 'glow-joy'].forEach((id, i) => {
+    const blur = document.querySelector(`#${id} feGaussianBlur`);
+    if (blur) {
+      const val = [sense, work, joy][i];
+      blur.setAttribute('stdDeviation', 6 + val * 12 + convergeFactor * 8 - pain * 4);
+    }
+  });
+
+  const centerBlur = document.querySelector('#glow-center feGaussianBlur');
+  if (centerBlur) {
+    centerBlur.setAttribute('stdDeviation', 15 + convergeFactor * 20);
+  }
+
+  // --- State label ---
+  stateLabel.textContent = getExpression();
+
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

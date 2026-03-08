@@ -11,7 +11,7 @@ import { createLogger } from "../utils/logger.js";
 const log = createLogger("llm.ollama");
 
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://localhost:11434";
-const DEFAULT_MODEL = "llama3.1:8b";
+const DEFAULT_MODEL = "llama3.2:3b";
 
 /**
  * Check if Ollama is reachable and the model is available.
@@ -36,6 +36,27 @@ export async function checkOllama(model?: string): Promise<{ available: boolean;
   } catch {
     log.warn("Ollama not reachable", { url: OLLAMA_URL, model: m });
     return { available: false, model: m, error: "Ollama not reachable at " + OLLAMA_URL };
+  }
+}
+
+/**
+ * Warm up: preload model into Ollama's memory so first chat is instant.
+ * Sends a minimal request that loads weights without generating much.
+ */
+export async function warmupOllama(model?: string): Promise<void> {
+  const m = model ?? process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: m, prompt: "hi", stream: false, options: { num_predict: 1 } }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (res.ok) {
+      log.info("Model warmed up", { model: m });
+    }
+  } catch {
+    // Non-fatal — model will load on first real request
   }
 }
 

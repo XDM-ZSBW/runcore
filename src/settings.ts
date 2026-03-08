@@ -89,7 +89,7 @@ export interface CoreSettings {
   /** Encrypt all brain files at rest (JSONL, YAML, MD, JSON).
    *  When false, files are written as plaintext even if an encryption key is available. */
   encryptBrainFiles: boolean;
-  /** When to require safe word entry.
+  /** When to require password entry.
    *  "always" — every page load (default). "restart" — only after server/browser restart. */
   safeWordMode: "always" | "restart";
   tts: TtsConfig;

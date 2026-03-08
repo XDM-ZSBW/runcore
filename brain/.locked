@@ -1,8 +1,0 @@
-# Locked paths — these files are off-limits via MCP.
-# One path per line, relative to brain/.
-# Directories lock everything inside them.
-# Ask Dash to unlock if needed.
-
-# Identity secrets
-identity/.session-key
-identity/human.json

@@ -17,10 +17,10 @@ const DIGEST = "sha256";
 const IV_LENGTH = 12;  // 96 bits for GCM
 
 /**
- * Derive a 256-bit AES key from a safe word and salt via PBKDF2.
+ * Derive a 256-bit AES key from a password and salt via PBKDF2.
  */
-export function deriveKey(safeWord: string, salt: Buffer): Buffer {
-  return pbkdf2Sync(safeWord.trim().toLowerCase(), salt, ITERATIONS, KEY_LENGTH, DIGEST);
+export function deriveKey(password: string, salt: Buffer): Buffer {
+  return pbkdf2Sync(password.trim().toLowerCase(), salt, ITERATIONS, KEY_LENGTH, DIGEST);
 }
 
 /**

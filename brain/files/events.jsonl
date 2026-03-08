@@ -1,1 +1,0 @@
-{"_schema":"file_event","version":1,"fields":["id","fileId","action","actor","detail","timestamp"]}

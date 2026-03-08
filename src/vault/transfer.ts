@@ -80,7 +80,7 @@ export interface VerifyResult {
 
 export type ConflictStrategy = "overwrite" | "skip" | "rename";
 
-// ── Key derivation (case-sensitive, unlike safe word) ────────────────────────
+// ── Key derivation (case-sensitive, unlike password) ─────────────────────────
 
 function deriveExportKey(passphrase: string, salt: Buffer): Buffer {
   return pbkdf2Sync(passphrase, salt, ITERATIONS, KEY_LENGTH, "sha256");

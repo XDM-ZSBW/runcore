@@ -121,8 +121,8 @@ export function getVaultEntries(): Array<{ name: string; value: string; label?: 
  * Only keys starting with "CORE_" or "DASH_" are returned — these are non-secret values
  * the user explicitly wants the agent to reference (e.g. preferences, nicknames).
  *
- * SECURITY: Authentication secrets (SAFE_WORD, RECOVERY_QUESTION) are NEVER
- * exposed to the LLM. The safe word is verified at the crypto layer via its
+ * SECURITY: Authentication secrets (PASSWORD, RECOVERY_QUESTION) are NEVER
+ * exposed to the LLM. The password is verified at the crypto layer via its
  * SHA-256 hash in human.json — the LLM must never know or repeat it.
  */
 const NEVER_EXPOSE = new Set(["SAFE_WORD", "RECOVERY_QUESTION"]);

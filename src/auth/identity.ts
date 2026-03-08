@@ -1,6 +1,6 @@
 /**
  * Pairing ceremony + auth for Core's human partner.
- * Handles: pairing code generation, safe word hashing, recovery, session management.
+ * Handles: pairing code generation, password hashing, recovery, session management.
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -13,7 +13,8 @@ import { BRAIN_DIR } from "../lib/paths.js";
 
 export interface HumanIdentity {
   name: string;
-  safeWordHash: string;
+  /** SHA256 hash of password. Also reads legacy "safeWordHash" from disk. */
+  passwordHash: string;
   pbkdf2Salt?: string; // hex, 16 bytes — added for session encryption
   recovery: {
     question: string;
@@ -51,12 +52,12 @@ function generateSessionId(): string {
 }
 
 /**
- * Deterministic session ID derived from safe word hash.
- * Same safe word always produces the same session ID, so encrypted
- * session files survive server restarts. Changes on recovery (new safe word).
+ * Deterministic session ID derived from password hash.
+ * Same password always produces the same session ID, so encrypted
+ * session files survive server restarts. Changes on recovery (new password).
  */
-function stableSessionId(safeWordHash: string): string {
-  return createHash("sha256").update(safeWordHash + ":session").digest("hex").slice(0, 48);
+function stableSessionId(passwordHash: string): string {
+  return createHash("sha256").update(passwordHash + ":session").digest("hex").slice(0, 48);
 }
 
 const WORD_LIST = [
@@ -114,10 +115,19 @@ async function ensureDir(): Promise<void> {
   await mkdir(IDENTITY_DIR, { recursive: true });
 }
 
+/**
+ * Read human identity from disk. Handles backward compatibility:
+ * legacy files use "safeWordHash", new files use "passwordHash".
+ */
 export async function readHuman(): Promise<HumanIdentity | null> {
   try {
     const raw = await readFile(HUMAN_PATH, "utf-8");
-    return JSON.parse(raw) as HumanIdentity;
+    const parsed = JSON.parse(raw);
+    // Backward compat: read legacy "safeWordHash" if "passwordHash" not present
+    if (!parsed.passwordHash && parsed.safeWordHash) {
+      parsed.passwordHash = parsed.safeWordHash;
+    }
+    return parsed as HumanIdentity;
   } catch {
     return null;
   }
@@ -159,7 +169,7 @@ function generateSalt(): string {
 /** Ensure human has a salt (backward compat). Returns the salt and derived key. */
 async function ensureSaltAndDeriveKey(
   human: HumanIdentity,
-  safeWord: string
+  password: string
 ): Promise<{ salt: string; sessionKey: Buffer }> {
   let salt = human.pbkdf2Salt;
   if (!salt) {
@@ -167,7 +177,7 @@ async function ensureSaltAndDeriveKey(
     human.pbkdf2Salt = salt;
     await writeHuman(human);
   }
-  const sessionKey = deriveKey(safeWord, Buffer.from(salt, "hex"));
+  const sessionKey = deriveKey(password, Buffer.from(salt, "hex"));
   return { salt, sessionKey };
 }
 
@@ -197,7 +207,7 @@ async function loadCachedSessionKey(): Promise<Buffer | null> {
 export async function restoreSession(): Promise<{ session: Session; sessionKey: Buffer } | null> {
   const human = await readHuman();
   if (!human) return null;
-  const id = stableSessionId(human.safeWordHash);
+  const id = stableSessionId(human.passwordHash);
   // Only restore if not already in memory
   const existing = sessions.get(id);
   const session = existing ?? createSession(human.name, id);
@@ -241,7 +251,7 @@ export async function ensurePairingCode(): Promise<string | null> {
 export async function pair(input: {
   code: string;
   name: string;
-  safeWord: string;
+  password: string;
   recoveryQuestion?: string;
   recoveryAnswer?: string;
   skipCodeCheck?: boolean;
@@ -263,7 +273,7 @@ export async function pair(input: {
   const salt = generateSalt();
   const identity: HumanIdentity = {
     name: input.name.trim(),
-    safeWordHash: sha256(input.safeWord),
+    passwordHash: sha256(input.password),
     pbkdf2Salt: salt,
     recovery: input.recoveryQuestion && input.recoveryAnswer ? {
       question: input.recoveryQuestion.trim(),
@@ -275,24 +285,24 @@ export async function pair(input: {
   await writeHuman(identity);
   await consumePairingCode();
 
-  const sessionKey = deriveKey(input.safeWord, Buffer.from(salt, "hex"));
-  const session = createSession(identity.name, stableSessionId(identity.safeWordHash));
+  const sessionKey = deriveKey(input.password, Buffer.from(salt, "hex"));
+  const session = createSession(identity.name, stableSessionId(identity.passwordHash));
   return { session, sessionKey };
 }
 
 /**
- * Authenticate with safe word on return visits.
+ * Authenticate with password on return visits.
  */
-export async function authenticate(safeWord: string): Promise<{ session: Session; name: string; sessionKey: Buffer } | { error: string }> {
+export async function authenticate(password: string): Promise<{ session: Session; name: string; sessionKey: Buffer } | { error: string }> {
   const human = await readHuman();
   if (!human) return { error: "Not paired yet" };
 
-  if (sha256(safeWord) !== human.safeWordHash) {
-    return { error: "Wrong safe word" };
+  if (sha256(password) !== human.passwordHash) {
+    return { error: "Wrong password" };
   }
 
-  const { sessionKey } = await ensureSaltAndDeriveKey(human, safeWord);
-  const session = createSession(human.name, stableSessionId(human.safeWordHash));
+  const { sessionKey } = await ensureSaltAndDeriveKey(human, password);
+  const session = createSession(human.name, stableSessionId(human.passwordHash));
   return { session, name: human.name, sessionKey };
 }
 
@@ -305,9 +315,9 @@ export async function getRecoveryQuestion(): Promise<string | null> {
 }
 
 /**
- * Recover: verify recovery answer, set new safe word.
+ * Recover: verify recovery answer, set new password.
  */
-export async function recover(answer: string, newSafeWord: string): Promise<{ session: Session; name: string; sessionKey: Buffer } | { error: string }> {
+export async function recover(answer: string, newPassword: string): Promise<{ session: Session; name: string; sessionKey: Buffer } | { error: string }> {
   const human = await readHuman();
   if (!human) return { error: "Not paired yet" };
 
@@ -315,13 +325,13 @@ export async function recover(answer: string, newSafeWord: string): Promise<{ se
     return { error: "Wrong answer" };
   }
 
-  // Update safe word and regenerate salt (old sessions unreadable — intentional)
-  human.safeWordHash = sha256(newSafeWord);
+  // Update password and regenerate salt (old sessions unreadable — intentional)
+  human.passwordHash = sha256(newPassword);
   const salt = generateSalt();
   human.pbkdf2Salt = salt;
   await writeHuman(human);
 
-  const sessionKey = deriveKey(newSafeWord, Buffer.from(salt, "hex"));
-  const session = createSession(human.name, stableSessionId(human.safeWordHash));
+  const sessionKey = deriveKey(newPassword, Buffer.from(salt, "hex"));
+  const session = createSession(human.name, stableSessionId(human.passwordHash));
   return { session, name: human.name, sessionKey };
 }

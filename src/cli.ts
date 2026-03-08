@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env node --max-old-space-size=4096
 /**
  * Core CLI — boot a local-first AI agent from any directory.
  *
@@ -9,8 +9,9 @@
  *   core --help                    Show help
  */
 
-import { mkdir, writeFile, access, readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { mkdir, writeFile, access, readFile, cp, readdir, stat } from "node:fs/promises";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { exec } from "node:child_process";
 import { createServer } from "node:net";
 
@@ -29,6 +30,7 @@ https://runcore.sh
 
 Usage:
   runcore                     Start your agent (auto-inits if needed)
+  runcore init                Scaffold a fresh brain from template
   runcore --port <n>          Start on a specific port (default: random available)
   runcore --dir <path>        Use a specific directory
   runcore status              Check if running
@@ -79,6 +81,29 @@ async function ensureBrain(root: string): Promise<boolean> {
   // Check if brain already exists
   try {
     await access(brainDir);
+
+    // Existing brain found — check if this is an upgrade (new package version)
+    let existingVersion = "";
+    try {
+      const sRaw = await readFile(join(brainDir, "settings.json"), "utf-8");
+      const s = JSON.parse(sRaw);
+      existingVersion = s._coreVersion ?? "";
+    } catch {}
+
+    if (existingVersion && existingVersion !== VERSION) {
+      console.log(`\n  Existing brain found (v${existingVersion}).`);
+      console.log(`  Upgrading to v${VERSION}.\n`);
+    } else if (!existingVersion) {
+      // First run with versioning — stamp current version
+      try {
+        const sPath = join(brainDir, "settings.json");
+        const sRaw = await readFile(sPath, "utf-8");
+        const s = JSON.parse(sRaw);
+        s._coreVersion = VERSION;
+        await writeFile(sPath, JSON.stringify(s, null, 2), "utf-8");
+      } catch {}
+    }
+
     return false; // already exists
   } catch {
     // needs init
@@ -86,57 +111,41 @@ async function ensureBrain(root: string): Promise<boolean> {
 
   console.log("First run — setting up brain...");
 
-  const dirs = [
-    "brain/memory",
-    "brain/identity",
-    "brain/knowledge/notes",
-    "brain/knowledge/research",
-    "brain/knowledge/protocols",
-    "brain/content/templates",
-    "brain/content/drafts",
-    "brain/operations",
-    "brain/agents/logs",
-    "brain/agents/tasks",
-    "brain/agents/runtime",
-    "brain/calendar",
-    "brain/contacts",
-    "brain/files/storage",
-    "brain/metrics",
-    "brain/ops",
-    "brain/sessions",
-    "brain/training",
-    "brain/skills",
-    "brain/library",
-    "brain/scheduling",
-    "brain/vault",
-  ];
+  // Copy brain-template shipped with the package
+  const pkgRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const templateDir = join(pkgRoot, "brain-template");
 
-  for (const dir of dirs) {
-    await mkdir(join(root, dir), { recursive: true });
-  }
-
-  const seeds: Record<string, string> = {
-    "brain/memory/README.md":
-      "# Memory\n\nAppend-only JSONL files: experiences, decisions, failures, semantic, procedural.\nNever delete or rewrite — use `\"status\": \"archived\"` to deprecate.\n",
-    "brain/knowledge/README.md":
-      "# Knowledge\n\nResearch, notes, protocols, bookmarks.\n",
-    "brain/operations/OPERATIONS.md":
-      "# Operations\n\nGoals, todos, changelog, backlog, insights.\n",
-    "brain/content/CONTENT.md":
-      "# Content\n\nDrafts and templates for content creation.\n",
-    "brain/identity/personality.md":
-      "Be concise. Be helpful. Read the room.\n",
-  };
-
-  for (const [rel, content] of Object.entries(seeds)) {
-    const fullPath = join(root, rel);
-    try {
-      await access(fullPath);
-    } catch {
-      await writeFile(fullPath, content, "utf-8");
+  try {
+    await access(templateDir);
+    await cp(templateDir, brainDir, { recursive: true });
+  } catch {
+    // Fallback: create minimal structure if template not found (dev mode)
+    const dirs = [
+      "brain/memory", "brain/identity", "brain/knowledge/notes",
+      "brain/knowledge/research", "brain/content/templates",
+      "brain/content/drafts", "brain/operations", "brain/agents",
+      "brain/calendar", "brain/contacts", "brain/files",
+      "brain/metrics", "brain/ops", "brain/sessions",
+      "brain/training", "brain/skills", "brain/library",
+      "brain/scheduling", "brain/vault",
+    ];
+    for (const dir of dirs) {
+      await mkdir(join(root, dir), { recursive: true });
     }
   }
 
+  // Ensure runtime directories exist (not in template — created at boot)
+  const runtimeDirs = [
+    "brain/agents/logs", "brain/agents/tasks", "brain/agents/runtime",
+    "brain/knowledge/research", "brain/knowledge/protocols",
+    "brain/content/drafts", "brain/files/storage",
+    "brain/sessions", "brain/vault", "brain/identity",
+  ];
+  for (const dir of runtimeDirs) {
+    await mkdir(join(root, dir), { recursive: true });
+  }
+
+  // Ensure settings.json exists with defaults
   const settingsPath = join(brainDir, "settings.json");
   try {
     await access(settingsPath);
@@ -145,10 +154,13 @@ async function ensureBrain(root: string): Promise<boolean> {
       settingsPath,
       JSON.stringify(
         {
+          _coreVersion: VERSION,
           airplaneMode: true,
           models: { chat: "auto", agent: "auto" },
           encryptBrainFiles: false,
           safeWordMode: "restart",
+          instanceName: "Core",
+          integrations: { enabled: false, services: {} },
         },
         null,
         2
@@ -217,13 +229,19 @@ async function startBrainOnly(root: string) {
 // ── Start (Level 2+: Full Server) ───────────────────────────────────
 
 async function startServer(tier: import("./tier/types.js").TierName = "byok") {
-  const preferredPort = parseInt(getFlag(args, "--port") ?? process.env.CORE_PORT ?? "0", 10);
+  const explicitPort = getFlag(args, "--port") ?? process.env.CORE_PORT;
   const dirArg = getFlag(args, "--dir") ?? process.env.CORE_HOME;
 
-  // Port 0 = let the OS assign; skip findPort probing
-  const port = preferredPort === 0 ? 0 : await findPort(preferredPort);
-  if (preferredPort !== 0 && port !== preferredPort) {
-    console.log(`  Port ${preferredPort} in use, using ${port}`);
+  // If user specified a port, try it with fallback. Otherwise let the OS assign (port 0).
+  let port: number;
+  if (explicitPort) {
+    const preferred = parseInt(explicitPort, 10);
+    port = await findPort(preferred);
+    if (port !== preferred) {
+      console.log(`  Port ${preferred} in use, using ${port}`);
+    }
+  } else {
+    port = 0; // OS assigns a guaranteed-available port
   }
 
   process.env.CORE_PORT = String(port);
@@ -270,20 +288,19 @@ async function startServer(tier: import("./tier/types.js").TierName = "byok") {
     startHeartbeat(activation.raw, tier);
   }
 
-  // Auto-open browser with startup token for zero-friction onboarding
+  // Auto-open browser for zero-friction onboarding
   const token = getStartupToken();
-  if (token) {
-    const url = `http://localhost:${resolvedPort}?token=${token}`;
+  const url = token
+    ? `http://localhost:${resolvedPort}?token=${token}`
+    : `http://localhost:${resolvedPort}`;
 
-    // Open browser FIRST, then print — so browser gets focus
-    const openCmd =
-      process.platform === "win32" ? `start "" "${url}"`
-      : process.platform === "darwin" ? `open "${url}"`
-      : `xdg-open "${url}"`;
-    exec(openCmd, () => {});
+  const openCmd =
+    process.platform === "win32" ? `start "" "${url}"`
+    : process.platform === "darwin" ? `open "${url}"`
+    : `xdg-open "${url}"`;
+  exec(openCmd, () => {});
 
-    console.log(`\n  Core v${VERSION} — ${tier.toUpperCase()} tier on port ${resolvedPort}\n`);
-  }
+  console.log(`\n  Core v${VERSION} — ${tier.toUpperCase()} tier on port ${resolvedPort}\n`);
 }
 
 // ── Status ─────────────────────────────────────────────────────────
@@ -522,6 +539,15 @@ async function main() {
     return;
   }
 
+  if (command === "init") {
+    const root = resolve(getFlag(args, "--dir") ?? process.env.CORE_HOME ?? process.cwd());
+    const created = await ensureBrain(root);
+    if (!created) {
+      console.log(`  Brain already exists at ${join(root, "brain")}`);
+    }
+    return;
+  }
+
   if (command === "status") {
     await status();
     return;
@@ -559,13 +585,8 @@ async function main() {
   const { currentTier } = await import("./tier/token.js");
   const tier = await currentTier(root);
 
-  if (tier === "local") {
-    // Level 1: brain-only — MCP server, Ollama, no HTTP server
-    await startBrainOnly(root);
-  } else {
-    // Level 2+: full server with tier-appropriate capabilities
-    await startServer(tier);
-  }
+  // All tiers start the full server — local tier just has fewer capabilities
+  await startServer(tier);
 
   // Auto-update after startup
   import("./updater.js").then(({ autoUpdate }) => {

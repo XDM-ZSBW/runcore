@@ -1,1 +1,0 @@
-{"_schema":"open-loops","_version":"1.0","_description":"Append-only open loop packets. Last line per ID wins for state transitions."}

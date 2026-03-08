@@ -7,38 +7,8 @@ dist/
 .env
 .env.local
 
-# Runtime identity (created during pairing)
-brain/identity/human.json
-brain/identity/pairing-code.json
-brain/identity/.session-key
-
-# Encrypted vault & sessions
-brain/vault/
-brain/sessions/
-
-# Agent runtime data
-brain/agents/tasks/
-brain/agents/logs/
-brain/agents/runtime/
-
-# User content (private)
-brain/content/drafts/
-
-# Knowledge (user-generated research)
-brain/knowledge/research/
-brain/knowledge/notes/
-brain/knowledge/protocols/
-
-# Browser sessions
-brain/browser/sessions/
-
-# File storage
-brain/files/storage/
-brain/files/gdrive-sync.jsonl
-
-# Metrics aggregations
-brain/metrics/daily/
-brain/metrics/hourly/
+# Brain data lives in its own repo — packages are code only
+brain/
 
 # Sidecar artifacts
 sidecar/search/__pycache__/

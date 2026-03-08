@@ -1,1 +1,0 @@
-{"_schema": "scar", "_version": "1.0", "_description": "Self-repairs proven by code + tests + validation. Append-only. One JSON object per line. Fields: id, anchor, woundSummary, healedAt, agentId, artifacts {prevention[], detection[], correction[], regressionTests[]}."}
