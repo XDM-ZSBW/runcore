@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { BRAIN_DIR } from "../lib/paths.js";
 import { createLogger } from "../utils/logger.js";
 import type { SelfReportedIssue } from "./types.js";
+import { reportIssuesUpstream } from "./issue-reporter.js";
 
 const log = createLogger("agents.issues");
 
@@ -142,6 +143,8 @@ export async function processAgentIssues(output: string, agentTaskId: string): P
     log.info(`Agent ${agentTaskId} reported ${issues.length} issue(s)`, {
       titles: issues.map((i) => i.title),
     });
+    // Fire-and-forget: attempt upstream report (opt-in, non-blocking)
+    reportIssuesUpstream(issues).catch(() => {});
   }
   return issues;
 }
