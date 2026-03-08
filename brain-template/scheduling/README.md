@@ -12,12 +12,12 @@ Internal time allocation — how Core plans and experiences time. Focus blocks, 
 - To update a block, append a new line with the same `id` and updated fields. Last occurrence wins.
 - Blocks whose `start` has arrived auto-transition to `active`.
 - Blocks 2+ hours past their `end` time while still `planned` auto-transition to `skipped`.
-- Missed blocks create voltage in the pulse system — Core's own planning failed.
+- Missed blocks register as a planning failure in the pulse system.
 - Completed blocks should include an `outcome` note for temporal history.
 
 ## How Core experiences time
 
 - **Anticipation**: Timer detects upcoming blocks, pushes notifications.
 - **Presence**: Active blocks inform what Core should be working on.
-- **Tension**: Missed blocks create voltage — planning failed.
+- **Tension**: Missed blocks signal a planning failure.
 - **Reflection**: Completed blocks with `outcome` create temporal history.

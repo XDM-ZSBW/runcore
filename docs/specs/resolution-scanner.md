@@ -1,18 +1,18 @@
 # Resolution Scanner Spec
 
-*Mirror of the resonance scanner — but instead of detecting wounds, it detects healing.*
+*Complement to the resonance scanner — detects when open loops have been resolved.*
 
 ## Problem
 
 The Open Loop Protocol has a one-way escalation path. The resonance scanner (`src/openloop/scanner.ts`) moves loops from `active` → `resonant` when it finds semantic matches. But nothing moves loops from `resonant` → `expired` when the underlying tension is resolved.
 
-Resonant loops are exempt from time-based decay. So a healed tension vibrates forever — burning scanner cycles, LLM tokens, and log entries — until a human manually appends a resolution line to the JSONL.
+Resonant loops are exempt from time-based decay. So a resolved tension stays active indefinitely — burning scanner cycles, LLM tokens, and log entries — until a human manually appends a resolution line to the JSONL.
 
-The system can detect its own wounds but can't detect its own healing.
+The system can detect new connections but can't detect when a problem has been fixed.
 
 ## Solution
 
-Add a **resolution scanner** that runs alongside the existing resonance scanner. It checks resonant loops against recent git commits and activity entries to determine if the dissonance has been addressed. On confirmation, it transitions the loop to `expired` with `resolvedBy` set and logs a detailed activity entry.
+Add a **resolution scanner** that runs alongside the existing resonance scanner. It checks resonant loops against recent git commits and activity entries to determine if the underlying question has been answered. On confirmation, it transitions the loop to `expired` with `resolvedBy` set and logs a detailed activity entry.
 
 ## Architecture
 
@@ -61,13 +61,13 @@ RESOLVES the tension — not just touches it.
 Resolution means:
 - The specific question/contradiction in the dissonance has been answered
 - Code was written, tested, or deployed that addresses the root cause
-- The tension no longer needs to vibrate because its purpose has been fulfilled
+- The open question no longer needs monitoring because its purpose has been fulfilled
 
 NOT resolution:
 - The signal merely discusses the same topic
 - The signal acknowledges the problem without fixing it
-- The signal addresses a related but different tension
-- Partial fixes that leave the core dissonance open
+- The signal addresses a related but different question
+- Partial fixes that leave the core issue open
 
 Respond with JSON:
 {
@@ -123,7 +123,7 @@ logActivity({
 });
 ```
 
-No scar doc is generated. The activity entry IS the record. It stays in the activity log and surfaces in the Observatory's River section.
+No separate document is generated. The activity entry IS the record. It stays in the activity log and surfaces in the Observatory's River section.
 
 ## Integration Points
 
@@ -155,7 +155,7 @@ Store in the same way the resonance scanner stores its watermark. Either in-memo
 
 ## Edge Cases
 
-1. **Partial resolution** — Loop dissonance has multiple facets; commit fixes one. LLM should return `resolved: false` with explanation noting partial progress. Loop stays resonant.
+1. **Partial resolution** — Loop has multiple facets; commit fixes one. LLM should return `resolved: false` with explanation noting partial progress. Loop stays resonant.
 
 2. **False positive** — LLM incorrectly marks resolved. Mitigation: require `medium+` confidence. Worst case: loop goes expired, but the knowledge stays in vector space (expired loops still influence retrieval). If the tension resurfaces, a new loop can be created.
 
