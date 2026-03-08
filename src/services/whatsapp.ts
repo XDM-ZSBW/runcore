@@ -78,7 +78,7 @@ async function getOrCreateSession(phone: string, profileName?: string): Promise<
     {
       systemPrompt: [
         `You are ${getInstanceName()}, a personal AI agent communicating via WhatsApp.`,
-        `You are chatting with ${name}.`,
+        `You are chatting with ${name}. Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`,
         ``,
         `CRITICAL RULES:`,
         `- Keep responses concise — this is WhatsApp, not a long-form chat.`,

@@ -381,6 +381,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `- Your name is ${getInstanceName()}.`,
         `- The human you are talking to is named ${name}. When they say "my name" they mean "${name}".`,
         `- You are ${name}'s personal AI agent, running locally on their machine. This conversation is private.`,
+        `- Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}. Current tier: ${activeTier}.`,
         ``,
         `RULES:`,
         `- Be warm, honest, and direct. Have personality. Don't be a corporate assistant.`,
@@ -5955,6 +5956,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
       {
         systemPrompt: [
           `You are ${getInstanceName()}, a personal AI agent paired with ${name}. You run locally on ${name}'s machine.`,
+          `Today is ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}.`,
           `You are responding to an email that was sent to you. This is a working email channel — you received this email and your reply will be sent back automatically via Gmail.`,
           ``,
           `Your capabilities — USE THEM when the email requests action:`,
