@@ -5081,16 +5081,22 @@
   (async function() {
     try {
       var data = await api("/api/health");
-      if (data.status && data.status !== "healthy") {
-        setHealthDot(data.status, data.status);
-      }
-      // Populate from server checks
-      if (data.checks_registered) {
-        for (var name of data.checks_registered) {
-          if (data[name] && data[name].status !== "healthy") {
-            setHealthDot(data[name].status, name + ": " + (data[name].detail || data[name].status));
-          }
+      // Extract failing checks with their details
+      var checks = data.checks || {};
+      var failingChecks = [];
+      for (var name in checks) {
+        if (checks[name] && checks[name].status !== "healthy") {
+          failingChecks.push(name + ": " + (checks[name].detail || checks[name].status));
         }
+      }
+      if (failingChecks.length > 0) {
+        // Log each failing check as a separate health event
+        for (var i = 0; i < failingChecks.length; i++) {
+          var checkState = data.status === "unhealthy" ? "unhealthy" : "degraded";
+          setHealthDot(checkState, failingChecks[i]);
+        }
+      } else if (data.status && data.status !== "healthy") {
+        setHealthDot(data.status, data.status);
       }
     } catch { setHealthDot("degraded", "Cannot reach server"); }
   })();
