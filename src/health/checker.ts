@@ -70,14 +70,23 @@ export class HealthChecker {
       }
     }
 
-    // Aggregate: unhealthy if any unhealthy, degraded if any degraded
+    // Aggregate: only critical checks can push to "unhealthy".
+    // Non-critical failures cap at "degraded".
     let overall: HealthStatus = "healthy";
-    for (const c of Object.values(checks)) {
-      if (c.status === "unhealthy") {
+    const checkEntries = name
+      ? [[name, this.checks.get(name)!]] as const
+      : [...this.checks.entries()];
+    for (const [checkName] of checkEntries) {
+      const result = checks[checkName];
+      if (!result || result.status === "healthy") continue;
+      const reg = this.checks.get(checkName);
+      const isCritical = reg?.critical ?? true;
+      if (result.status === "unhealthy" && isCritical) {
         overall = "unhealthy";
         break;
       }
-      if (c.status === "degraded") overall = "degraded";
+      // Non-critical unhealthy or any degraded → cap at degraded
+      if (overall === "healthy") overall = "degraded";
     }
 
     log.debug("health check completed", { status: overall, checksRun: Object.keys(checks).length });
