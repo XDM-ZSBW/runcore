@@ -173,6 +173,7 @@ export class RuntimeManager {
       id: this.registry.generateId(),
       taskId: request.taskId,
       state: "initializing",
+      cwd: request.cwd,
       config: instanceConfig,
       resources: resourceAlloc,
       metadata: {

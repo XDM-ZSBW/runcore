@@ -1543,6 +1543,25 @@ app.put("/api/prompt", async (c) => {
   return c.json({ ok: true });
 });
 
+// --- Model discovery ---
+
+app.get("/api/models", async (c) => {
+  const ollamaUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  try {
+    const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return c.json({ models: [], error: "Ollama not responding" });
+    const data = await res.json() as { models?: Array<{ name: string; size: number; modified_at: string }> };
+    const models = (data.models ?? []).map((m) => ({
+      name: m.name,
+      size: m.size,
+      modified: m.modified_at,
+    }));
+    return c.json({ models });
+  } catch {
+    return c.json({ models: [], error: "Ollama not reachable" });
+  }
+});
+
 // --- Settings routes ---
 
 app.get("/api/settings", async (c) => {

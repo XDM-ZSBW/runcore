@@ -56,8 +56,7 @@ export class ClaudeCliDriver implements AgentDriver {
     const cleanEnv = { ...process.env, ...instance.config.env };
     delete cleanEnv.CLAUDECODE;
 
-    const cwd = instance.metadata.label; // Will be resolved from task
-    const taskCwd = process.cwd();
+    const taskCwd = instance.cwd || process.cwd();
 
     const wrapperScript = `
       const fs = require("fs");

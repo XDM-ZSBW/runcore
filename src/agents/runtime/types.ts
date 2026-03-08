@@ -49,6 +49,8 @@ export interface AgentInstance {
   taskId: string;
   state: AgentState;
   pid?: number;
+  /** Working directory for the agent process. Defaults to process.cwd(). */
+  cwd?: string;
   config: AgentInstanceConfig;
   resources: ResourceAllocation;
   metadata: AgentMetadata;
