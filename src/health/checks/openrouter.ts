@@ -69,7 +69,7 @@ export function openrouterCreditsCheck(): HealthCheckFn {
         };
       }
 
-      const remaining = data.limit_remaining ?? data.limit - data.usage;
+      const remaining = data.limit - data.usage;
       const percentUsed = Math.round((data.usage / data.limit) * 100);
       const detail = `credits ${percentUsed}% used, $${remaining.toFixed(2)} remaining of $${data.limit.toFixed(2)} limit`;
 
