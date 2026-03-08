@@ -3078,8 +3078,40 @@ app.post("/api/skills/resolve", async (c) => {
 import { getPluginStatusSummary } from "./plugins/status.js";
 import { initPlugins, shutdownPlugins } from "./plugins/index.js";
 
+// --- File management routes ---
+
+import { fileRegistry } from "./files/registry.js";
+
 app.get("/api/plugins", (c) => {
   return c.json(getPluginStatusSummary());
+});
+
+// --- File management routes ---
+
+app.get("/api/files", async (c) => {
+  const status = c.req.query("status");
+  const source = c.req.query("source");
+  const q = c.req.query("q");
+
+  if (q) {
+    const results = await fileRegistry.search(q);
+    return c.json({ files: results, total: results.length });
+  }
+
+  const results = await fileRegistry.list({ status, source });
+  return c.json({ files: results, total: results.length });
+});
+
+app.get("/api/files/:id", async (c) => {
+  const record = await fileRegistry.get(c.req.param("id"));
+  if (!record) return c.json({ error: "File not found", code: "NOT_FOUND", status: 404 }, 404);
+  return c.json(record);
+});
+
+app.post("/api/files/:id/archive", async (c) => {
+  const result = await fileRegistry.archive(c.req.param("id"));
+  if (!result) return c.json({ error: "File not found", code: "NOT_FOUND", status: 404 }, 404);
+  return c.json(result);
 });
 
 // --- Module discovery routes ---
