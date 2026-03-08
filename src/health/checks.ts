@@ -50,8 +50,9 @@ export function availabilityCheck(
   });
 }
 
-/** CPU usage check. Reports user + system CPU time as a percentage over a sample window. */
+/** CPU usage check. Reports user + system CPU time as a percentage over a sample window. Normalized by core count. */
 export function cpuCheck(warnPct = 80, criticalPct = 95, sampleMs = 1000): HealthCheckFn {
+  const cpuCount = (() => { try { return require("node:os").cpus().length || 1; } catch { return 1; } })();
   return () =>
     new Promise<CheckResult>((resolve) => {
       const start = process.cpuUsage();
@@ -60,8 +61,8 @@ export function cpuCheck(warnPct = 80, criticalPct = 95, sampleMs = 1000): Healt
         const elapsed = (performance.now() - startTime) * 1000; // microseconds
         const usage = process.cpuUsage(start);
         const totalCpu = usage.user + usage.system;
-        const pct = Math.round((totalCpu / elapsed) * 100);
-        const detail = `cpu ${pct}%, user ${Math.round(usage.user / 1000)}ms, system ${Math.round(usage.system / 1000)}ms`;
+        const pct = Math.round((totalCpu / elapsed / cpuCount) * 100);
+        const detail = `cpu ${pct}% of ${cpuCount} cores, user ${Math.round(usage.user / 1000)}ms, system ${Math.round(usage.system / 1000)}ms`;
         if (pct >= criticalPct) resolve({ status: "unhealthy", detail });
         else if (pct >= warnPct) resolve({ status: "degraded", detail });
         else resolve({ status: "healthy", detail });
