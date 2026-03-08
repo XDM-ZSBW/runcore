@@ -3480,6 +3480,10 @@
           } else {
             addMessage("system", data.content);
           }
+          // Start agent poll if this was a spawn command
+          if (data.content && data.content.includes("Agent spawned")) {
+            startAgentPoll();
+          }
           return;
         }
       }
