@@ -3601,10 +3601,11 @@
               }
             }
             if (data.error) {
-              var errDetail = data.error;
-              if (typeof errDetail === "string" && errDetail.length > 80) errDetail = errDetail.slice(0, 80) + "...";
               addMessage("system", friendlyLLMError(data.error));
-              setHealthDot("degraded", errDetail || "LLM error");
+              // Use raw errorDetail for health drilldown — not the friendly version
+              var rawErr = data.errorDetail || data.error;
+              if (typeof rawErr === "string" && rawErr.length > 100) rawErr = rawErr.slice(0, 100) + "...";
+              setHealthDot("degraded", rawErr);
             }
           } catch {}
         }

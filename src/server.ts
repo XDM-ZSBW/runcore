@@ -5637,11 +5637,15 @@ app.post("/api/chat", async (c) => {
             savePartial();
           } else {
             let errorMsg = err instanceof LLMError ? err.userMessage : (err.message || "Stream error");
+            // Include raw detail for health drilldown — client shows this, not the friendly version
+            const rawDetail = err instanceof LLMError
+              ? `${err.provider} ${err.statusCode || ""}: ${err.message}`.trim()
+              : (err.message || "Stream error");
             if (isPrivateMode() && /ECONNREFUSED|fetch failed|network|socket/i.test(errorMsg)) {
               const health = await checkOllamaHealth();
               if (!health.ok) errorMsg += " — Check that Ollama is running. " + health.message;
             }
-            stream.writeSSE({ data: JSON.stringify({ error: errorMsg }) }).catch(() => {});
+            stream.writeSSE({ data: JSON.stringify({ error: errorMsg, errorDetail: rawDetail }) }).catch(() => {});
           }
           resolve(); // Still resolve so stream closes
         },
