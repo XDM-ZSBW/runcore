@@ -3591,7 +3591,7 @@
             }
             if (data.agentError) {
               console.error("[agent] Spawn failed:", data.agentError);
-              setHealthDot("degraded", "Agent spawn failed");
+              setHealthDot("degraded", "Agent: " + (data.agentError.error || data.agentError.label || "spawn failed"));
             }
             if (data.boardItems && data.boardItems.issues) {
               if (data.boardItems.issues.length > 0) {
@@ -3601,8 +3601,10 @@
               }
             }
             if (data.error) {
+              var errDetail = data.error;
+              if (typeof errDetail === "string" && errDetail.length > 80) errDetail = errDetail.slice(0, 80) + "...";
               addMessage("system", friendlyLLMError(data.error));
-              setHealthDot("degraded", "LLM error");
+              setHealthDot("degraded", errDetail || "LLM error");
             }
           } catch {}
         }
@@ -3657,7 +3659,7 @@
         // User clicked Stop — no error message needed
       } else {
         addMessage("system", "Connection error: " + err.message);
-        setHealthDot("unhealthy", "Connection lost");
+        setHealthDot("unhealthy", err.message || "Connection lost");
       }
       // Remove streaming cursor on error/abort too
       var cursorEl = messagesEl.querySelector(".streaming-cursor");
@@ -3786,6 +3788,11 @@
           }
 
           block.className = "agent-block " + (isDone ? "done" : "failed");
+
+          // Health event on agent failure
+          if (task.status === "failed") {
+            setHealthDot("degraded", "Agent failed: " + taskLabel + (task.error ? " — " + task.error.slice(0, 60) : ""));
+          }
 
           // Replace spinner with icon
           var spinner = block.querySelector(".agent-block-spinner");
