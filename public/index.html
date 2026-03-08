@@ -162,7 +162,10 @@
     height: 8px;
     border-radius: 50%;
     background: #22c55e;
+    transition: background 0.3s;
   }
+  .chat-header .dot.degraded { background: #f59e0b; }
+  .chat-header .dot.unhealthy { background: #ef4444; }
 
   .chat-header .header-nav {
     display: flex;
@@ -3532,6 +3535,7 @@
             }
             if (data.agentError) {
               console.error("[agent] Spawn failed:", data.agentError);
+              setHealthDot("degraded", "Agent spawn failed");
             }
             if (data.boardItems && data.boardItems.issues) {
               if (data.boardItems.issues.length > 0) {
@@ -3542,6 +3546,7 @@
             }
             if (data.error) {
               addMessage("system", friendlyLLMError(data.error));
+              setHealthDot("degraded", "LLM error");
             }
           } catch {}
         }
@@ -3584,6 +3589,9 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
+      // Successful response — mark healthy
+      if (healthState !== "healthy") setHealthDot("healthy", "recovered");
+
       // Auto-play TTS for assistant response
       if (contentEl && voiceStatus.tts && ttsAutoPlay) {
         if (finalText) speakText(finalText);
@@ -3593,6 +3601,7 @@
         // User clicked Stop — no error message needed
       } else {
         addMessage("system", "Connection error: " + err.message);
+        setHealthDot("unhealthy", "Connection lost");
       }
       // Remove streaming cursor on error/abort too
       var cursorEl = messagesEl.querySelector(".streaming-cursor");
@@ -4935,6 +4944,31 @@
 
 
   // --- Start ---
+  // --- Health dot: event-driven, no polling ---
+  var healthDot = document.querySelector(".chat-header .dot");
+  var healthState = "healthy"; // healthy | degraded | unhealthy
+  var healthDecayTimer = null;
+
+  function setHealthDot(state, reason) {
+    if (!healthDot) return;
+    healthState = state;
+    healthDot.className = "dot" + (state === "degraded" ? " degraded" : state === "unhealthy" ? " unhealthy" : "");
+    healthDot.title = reason || state;
+    // Auto-recover to green after 60s of no bad events
+    clearTimeout(healthDecayTimer);
+    if (state !== "healthy") {
+      healthDecayTimer = setTimeout(function() { setHealthDot("healthy", "recovered"); }, 60000);
+    }
+  }
+
+  // Seed from server on load (one fetch, not a poll)
+  (async function() {
+    try {
+      var data = await api("/api/health");
+      setHealthDot(data.status || "healthy", data.status);
+    } catch { setHealthDot("degraded", "Cannot reach server"); }
+  })();
+
   init();
 })();
 </script>
