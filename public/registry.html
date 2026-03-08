@@ -399,6 +399,7 @@
 </div>
 
 <script>
+fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.integrations)location.href='/'}).catch(()=>{});
 (function() {
   let currentData = null;
 

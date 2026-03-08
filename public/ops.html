@@ -652,6 +652,7 @@
 </main>
 
 <script>
+fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.spawning)location.href='/'}).catch(()=>{});
 (function() {
   const POLL_INTERVAL = 15000;
   let activitySince = 0;

@@ -414,6 +414,7 @@
 </div>
 
 <script>
+fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.vault)location.href='/'}).catch(()=>{});
 const urlInput = document.getElementById('urlInput');
 const fetchBtn = document.getElementById('fetchBtn');
 const metaBar = document.getElementById('metaBar');

@@ -1530,6 +1530,8 @@
 </div>
 
 <script>
+// ── Tier gate ────────────────────────────────────────────────────────────
+fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.vault)location.href='/'}).catch(()=>{});
 // ── State ────────────────────────────────────────────────────────────────
 let currentFolderId = null; // null = root
 let currentView = 'grid';

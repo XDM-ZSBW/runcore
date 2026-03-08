@@ -229,6 +229,7 @@
 </div>
 
 <script>
+fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.vault)location.href='/'}).catch(()=>{});
 // --- State ---
 const state = {
   sense: 0.3,
