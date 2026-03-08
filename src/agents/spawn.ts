@@ -23,6 +23,7 @@ import { resolveEnv, getInstanceName, getInstanceNameLower, getAlertEmailFrom } 
 import { skillRegistry as _skillRegistry } from "../skills/registry.js";
 import { getBoardProvider } from "../board/provider.js";
 import { BRAIN_DIR } from "../lib/paths.js";
+import { processAgentIssues } from "./issues.js";
 
 const log = createLogger("agent-spawn");
 
@@ -344,6 +345,13 @@ async function handlePoolCompletion(
 
   const output = await readTaskOutput(task.id).catch(() => "");
   const resultSummary = output.trim().slice(0, 1000) || undefined;
+
+  // Process issue reports from read-only autonomous agents
+  if (task.readOnly && status === "completed" && output) {
+    processAgentIssues(output, task.id).catch((err) => {
+      log.warn(`Failed to process issues from ${task.id}: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  }
 
   // Notifications
   const outputSnippet = resultSummary ? `\nOutput:\n${resultSummary}` : "";

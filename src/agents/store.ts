@@ -49,6 +49,38 @@ export async function writeTask(task: AgentTask): Promise<void> {
   }
 }
 
+/** Read-only preamble for autonomous agents — investigate and report only. */
+const READ_ONLY_PREAMBLE = `## READ-ONLY MODE (CRITICAL — you MUST follow this)
+You are running in READ-ONLY mode. You may NOT:
+- Edit, create, or delete any files
+- Run commands that modify the filesystem
+- Install packages or change dependencies
+
+You CAN:
+- Read files, search code, run diagnostic commands (ls, cat, grep, git log, etc.)
+- Analyze code and identify issues
+- Write a structured issue report
+
+When you find an issue, output EXACTLY this format:
+
+[ISSUE_REPORT]
+{
+  "title": "Short title of the issue",
+  "description": "What you found and why it matters",
+  "severity": "low|medium|high",
+  "category": "crash|error|performance|design|missing-feature",
+  "files": ["relative/path/to/file.ts"],
+  "suggestion": "Direction for a fix (not the fix itself)"
+}
+[/ISSUE_REPORT]
+
+You may output multiple [ISSUE_REPORT] blocks if you find multiple issues.
+If you find nothing wrong, say so clearly and exit.
+
+---
+
+`;
+
 /** Preamble prepended to every agent prompt — teaches early exit on ambiguity. */
 const AGENT_PREAMBLE = `## Autonomy rules (READ FIRST)
 If at any point you cannot proceed because you need a human decision, design choice,
@@ -71,10 +103,11 @@ default choice, do so and note the assumption.
 
 /** Create a new task file and return it. */
 export async function createTask(input: CreateTaskInput): Promise<AgentTask> {
+  const preamble = input.readOnly ? READ_ONLY_PREAMBLE + AGENT_PREAMBLE : AGENT_PREAMBLE;
   const task: AgentTask = {
     id: generateId(),
     label: input.label,
-    prompt: AGENT_PREAMBLE + input.prompt,
+    prompt: preamble + input.prompt,
     cwd: input.cwd ?? process.cwd(),
     status: "pending",
     createdAt: new Date().toISOString(),
@@ -82,6 +115,7 @@ export async function createTask(input: CreateTaskInput): Promise<AgentTask> {
     sessionId: input.sessionId,
     timeoutMs: input.timeoutMs ?? 10 * 60 * 1000,
     boardTaskId: input.boardTaskId,
+    readOnly: input.readOnly,
   };
   await writeTask(task);
   log.info("Task created", { taskId: task.id, label: task.label, origin: task.origin });

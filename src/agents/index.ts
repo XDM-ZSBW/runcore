@@ -82,6 +82,13 @@ export {
   type GovernedSpawnResult,
   type GovernedSpawnDeps,
 } from "./governed-spawn.js";
+export {
+  parseIssueReports,
+  processAgentIssues,
+  storeIssues,
+  listIssues as listSelfReportedIssues,
+} from "./issues.js";
+export type { SelfReportedIssue } from "./types.js";
 
 import type { CreateTaskInput, AgentTask } from "./types.js";
 import { ensureDirs, createTask, readTask, listTasks as listAllTasks, readTaskOutput } from "./store.js";

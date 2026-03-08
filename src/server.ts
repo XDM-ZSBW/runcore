@@ -2228,6 +2228,14 @@ app.post("/api/agents/locks/prune", async (_c) => {
   return _c.json({ pruned });
 });
 
+// --- Self-reported issues (autonomous agent findings) ---
+
+app.get("/api/agents/issues", async (c) => {
+  const { listIssues } = await import("./agents/issues.js");
+  const issues = await listIssues();
+  return c.json({ issues });
+});
+
 // --- Agent runtime routes ---
 
 app.get("/api/runtime/status", async (c) => {

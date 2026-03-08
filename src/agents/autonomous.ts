@@ -685,6 +685,7 @@ async function planAndSpawnInner(
           origin: "ai",
           sessionId,
           boardTaskId: req.taskId,
+          readOnly: true,  // Autonomous agents investigate and report only — no file edits
         });
       } catch (err) {
         log.error(` AGENT_REQUEST parse error: ${err instanceof Error ? err.message : String(err)}`);
