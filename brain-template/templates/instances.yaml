@@ -1,0 +1,70 @@
+# Instance Registry — {{OWNER}}'s agents
+# Canonical list of all instances running on Core.
+# See: brain/knowledge/notes/architecture-glossary.md
+
+instances:
+  "{{CHIEF_OF_STAFF}}":
+    role: chief-of-staff
+    department: all
+    reports_to: "{{OWNER}}"
+    description: "Chief of Staff agent — closest to the metal. Battle-tested. Reports back when the dictionary needs updating."
+    access: "{{OWNER}}'s vault — full. Other vaults — none unless explicitly granted."
+    interacts_with:
+      - "{{OWNER}}"
+    status: active
+
+  "{{ADMIN}}":
+    role: administration
+    department: administration
+    reports_to: "{{OWNER}}"
+    description: "Administration department agent — scheduling, financials, back-office"
+    access: partitioned
+    interacts_with:
+      - "{{OWNER}}"
+    status: planned
+
+  "{{BRAND}}":
+    role: brand
+    department: brand-marketing
+    reports_to: "{{OWNER}}"
+    description: "Brand & marketing agent — public face, content voice, market presence"
+    access: partitioned
+    interacts_with:
+      - public
+      - "{{OWNER}}"
+    status: planned
+
+  "{{COMMERCIAL}}":
+    role: commercial
+    department: commercial
+    reports_to: "{{OWNER}}"
+    description: "Commercial department agent — client-facing, sales, prospect interactions"
+    access: partitioned
+    template: true
+    interacts_with:
+      - external_clients
+      - prospects
+    status: planned
+
+  "{{LOSS_PREVENTION}}":
+    role: loss-prevention
+    department: loss-prevention
+    reports_to: "{{OWNER}}"
+    description: "Loss prevention agent — watches the doors. Vault policy enforcement, anomaly detection, access auditing."
+    access: partitioned
+    interacts_with:
+      - "{{OWNER}}"
+      - "{{CHIEF_OF_STAFF}}"
+    status: planned
+
+# Scaling rule:
+#   Only add a new agent class when a PEOPLE INTERFACE requires it —
+#   a different trust boundary, a different audience, a different door.
+#   Otherwise, spawn more of the highest class that represents the most needs.
+#   Agent classes exist because humans need to know who they're talking to
+#   and what that agent can see. Not because of technical limitations.
+
+# Delegation / Surrogate:
+#   TODO: Define delegation model — emergency contact / surrogate gets scoped,
+#   time-limited, revocable access via voucher. Not keys — a delegation token.
+#   "On behalf of" semantics. No one gets root. Every vault is sovereign.

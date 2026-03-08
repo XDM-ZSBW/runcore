@@ -1,0 +1,81 @@
+{
+  "name": "parallel-analysis",
+  "version": "1.0.0",
+  "description": "Analyze a codebase change from multiple angles in parallel (security, performance, architecture), then synthesize findings. Demonstrates parallel fan-out with dependency fan-in, conditional steps, and input-based gating.",
+  "tags": ["code-review", "analysis", "parallel"],
+  "inputs": {
+    "changeset": {
+      "type": "string",
+      "description": "Description of the code change or PR to analyze.",
+      "required": true
+    },
+    "includeSecurity": {
+      "type": "boolean",
+      "description": "Whether to run the security analysis pass.",
+      "default": true
+    },
+    "includePerformance": {
+      "type": "boolean",
+      "description": "Whether to run the performance analysis pass.",
+      "default": true
+    }
+  },
+  "outputs": {
+    "synthesis": {
+      "fromStep": "synthesize",
+      "value": "output"
+    }
+  },
+  "mode": "dependency",
+  "maxConcurrent": 3,
+  "onFailure": {
+    "action": "continue"
+  },
+  "steps": [
+    {
+      "key": "security",
+      "label": "Security analysis",
+      "prompt": "Perform a security review of the following code change:\n\n{{input.changeset}}\n\nCheck for: injection vulnerabilities, authentication/authorization gaps, data exposure risks, dependency vulnerabilities, and OWASP Top 10 issues. Output a structured report with severity ratings.",
+      "condition": {
+        "inputEquals": {
+          "input": "includeSecurity",
+          "value": true
+        }
+      },
+      "tags": ["security"],
+      "priority": 10,
+      "timeoutMs": 240000
+    },
+    {
+      "key": "performance",
+      "label": "Performance analysis",
+      "prompt": "Analyze the performance implications of the following code change:\n\n{{input.changeset}}\n\nEvaluate: time complexity changes, memory usage, I/O patterns, potential bottlenecks, and scalability concerns. Suggest optimizations where applicable.",
+      "condition": {
+        "inputEquals": {
+          "input": "includePerformance",
+          "value": true
+        }
+      },
+      "tags": ["performance"],
+      "priority": 20,
+      "timeoutMs": 240000
+    },
+    {
+      "key": "architecture",
+      "label": "Architecture review",
+      "prompt": "Review the architectural impact of the following code change:\n\n{{input.changeset}}\n\nAssess: adherence to existing patterns, coupling/cohesion changes, abstraction appropriateness, testability impact, and alignment with project conventions.",
+      "tags": ["architecture"],
+      "priority": 30,
+      "timeoutMs": 240000
+    },
+    {
+      "key": "synthesize",
+      "label": "Synthesize findings",
+      "prompt": "Synthesize the following analysis reports into a unified code review summary:\n\nSecurity Analysis:\n{{steps.security.output}}\n\nPerformance Analysis:\n{{steps.performance.output}}\n\nArchitecture Review:\n{{steps.architecture.output}}\n\nProduce a prioritized list of findings, an overall risk assessment, and actionable recommendations. Note which analyses were skipped (empty sections above).",
+      "dependsOn": ["security", "performance", "architecture"],
+      "tags": ["synthesis"],
+      "priority": 0,
+      "timeoutMs": 180000
+    }
+  ]
+}

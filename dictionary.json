@@ -1,0 +1,38 @@
+{
+  "version": "0.3.1",
+  "publishedAt": "2026-03-08T01:46:21.277Z",
+  "specs": [],
+  "glossary": {
+    "brain": "The local file-based data store for an instance. Always local. Never hosted.",
+    "membrane": "The translation boundary between inside and outside a brain.",
+    "nerve": "An interface channel between the brain and a human. Five types.",
+    "compost": "Anonymous typed signal shared through the field. Lessons, not data.",
+    "bond": "A bilateral cryptographic trust relationship between two brains.",
+    "dictionary": "The canonical set of specs, patterns, and protocols that define how Core works.",
+    "field": "The shared anonymous signal layer. No identity, no addresses, just patterns.",
+    "vault": "Encrypted local credential storage. Secrets never travel in prompts.",
+    "pulse": "Three dots: Sense, Work, Joy. The flywheel. Core's core feature.",
+    "calibration": "Periodic self-assessment of an instance's configuration and behavior.",
+    "dehydration": "Lifecycle process for inactive brain entries. Quiet -> dormant -> archived.",
+    "posture": "The instance's current operational stance. Two gears: calm and crisis."
+  },
+  "defaults": {
+    "dehydration": {
+      "quiet_threshold_multiplier": 2,
+      "stage_duration": "30d",
+      "grace_period": "30d"
+    },
+    "calibration": {
+      "recalibration_interval_interactions": 200,
+      "recalibration_interval_ticks": 500
+    },
+    "posture": {
+      "board_decay_minutes": 5,
+      "pulse_decay_minutes": 30
+    },
+    "pain": {
+      "token_budget_warn": 0.75,
+      "error_spike_threshold": 3
+    }
+  }
+}

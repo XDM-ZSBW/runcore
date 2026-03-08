@@ -1,0 +1,14 @@
+{
+  "airplaneMode": true,
+  "models": {
+    "chat": "auto",
+    "utility": "auto"
+  },
+  "encryptBrainFiles": false,
+  "safeWordMode": "always",
+  "instanceName": "Core",
+  "integrations": {
+    "enabled": false,
+    "services": {}
+  }
+}

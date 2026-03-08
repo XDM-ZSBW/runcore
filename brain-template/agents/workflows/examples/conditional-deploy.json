@@ -1,0 +1,124 @@
+{
+  "name": "conditional-deploy",
+  "version": "1.0.0",
+  "description": "Run tests, then branch based on results: deploy on success, diagnose on failure. Demonstrates conditional branching with stepStatus conditions, allOf/not combinators, and fallback recovery.",
+  "tags": ["deploy", "testing", "conditional"],
+  "inputs": {
+    "target": {
+      "type": "string",
+      "description": "Deployment target: 'staging' or 'production'.",
+      "required": true
+    },
+    "skipLint": {
+      "type": "boolean",
+      "description": "Skip the lint step.",
+      "default": false
+    }
+  },
+  "outputs": {
+    "result": {
+      "fromStep": "deploy",
+      "value": "output"
+    },
+    "diagnosis": {
+      "fromStep": "diagnose",
+      "value": "output"
+    }
+  },
+  "mode": "sequential",
+  "onFailure": {
+    "action": "continue"
+  },
+  "steps": [
+    {
+      "key": "lint",
+      "label": "Lint codebase",
+      "prompt": "Run linting checks on the codebase. Report any issues found with file paths and line numbers. Output PASS if clean, or FAIL with details.",
+      "condition": {
+        "not": {
+          "inputEquals": {
+            "input": "skipLint",
+            "value": true
+          }
+        }
+      },
+      "tags": ["quality"],
+      "timeoutMs": 120000
+    },
+    {
+      "key": "test",
+      "label": "Run test suite",
+      "prompt": "Run the full test suite. Report pass/fail counts and any failing test details. Summarize overall result as PASS or FAIL.",
+      "tags": ["testing"],
+      "retries": 1,
+      "timeoutMs": 300000
+    },
+    {
+      "key": "deploy",
+      "label": "Deploy to target",
+      "prompt": "Deploy the application to {{input.target}}. Verify the deployment was successful and report the deployed version and URL.",
+      "dependsOn": ["test"],
+      "condition": {
+        "allOf": [
+          {
+            "stepStatus": {
+              "step": "test",
+              "equals": "completed"
+            }
+          },
+          {
+            "anyOf": [
+              {
+                "stepStatus": {
+                  "step": "lint",
+                  "equals": "completed"
+                }
+              },
+              {
+                "stepStatus": {
+                  "step": "lint",
+                  "equals": "skipped"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "tags": ["deploy"],
+      "timeoutMs": 600000,
+      "onFailure": {
+        "action": "fallback",
+        "fallbackStep": "rollback"
+      }
+    },
+    {
+      "key": "diagnose",
+      "label": "Diagnose test failures",
+      "prompt": "The test suite failed. Analyze the test output and identify root causes:\n\nTest output:\n{{steps.test.error}}\n\nProvide a prioritized list of issues and suggested fixes.",
+      "dependsOn": ["test"],
+      "condition": {
+        "stepStatus": {
+          "step": "test",
+          "equals": "failed"
+        }
+      },
+      "tags": ["debugging"],
+      "timeoutMs": 180000
+    },
+    {
+      "key": "rollback",
+      "label": "Rollback deployment",
+      "prompt": "The deployment to {{input.target}} failed. Initiate a rollback to the previous stable version. Report the rollback status and any manual steps needed.",
+      "tags": ["deploy", "recovery"],
+      "timeoutMs": 300000
+    },
+    {
+      "key": "notify",
+      "label": "Send status notification",
+      "prompt": "Summarize the pipeline results:\n- Lint: {{steps.lint.status}}\n- Tests: {{steps.test.status}}\n- Deploy: {{steps.deploy.status}}\n- Diagnosis: {{steps.diagnose.status}}\n- Rollback: {{steps.rollback.status}}\n\nTarget: {{input.target}}\n\nCompose a concise status notification suitable for a team channel.",
+      "dependsOn": ["test"],
+      "tags": ["notification"],
+      "timeoutMs": 60000
+    }
+  ]
+}
