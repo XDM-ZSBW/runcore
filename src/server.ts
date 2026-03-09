@@ -19,7 +19,7 @@ const PKG_ROOT = join(__dirname, "..");
 
 // UI directory — resolved at startup. Prefers CDN-synced, falls back to bundled.
 let UI_DIR = getUiPublicDir(PKG_ROOT);
-import { writeFileSync } from "node:fs";
+import { writeFileSync, appendFileSync } from "node:fs";
 import { initInstanceName, getInstanceName, setInstanceName, getInstanceNameLower, resolveEnv, getAlertEmailFrom } from "./instance.js";
 import { syncUi, getUiPublicDir } from "./ui-sync.js";
 
@@ -6134,14 +6134,12 @@ app.post("/api/chat", async (c) => {
         // Debug: trace rehydration
         const hasPh = tokenBuf2.includes("<<") && tokenBuf2.includes(">>");
         if (hasPh) {
-          const fs = require("node:fs");
-          fs.appendFileSync("E:/Core/membrane-debug.log",
+          appendFileSync("E:/Core/membrane-debug.log",
             `[${new Date().toISOString()}] pre: ${JSON.stringify(tokenBuf2.slice(0, 300))}\n`);
         }
         const rehydrated = rehydrateResponse(tokenBuf2);
         if (hasPh) {
-          const fs = require("node:fs");
-          fs.appendFileSync("E:/Core/membrane-debug.log",
+          appendFileSync("E:/Core/membrane-debug.log",
             `[${new Date().toISOString()}] post: ${JSON.stringify(rehydrated.slice(0, 300))}\n` +
             `[${new Date().toISOString()}] changed: ${rehydrated !== tokenBuf2}\n` +
             `[${new Date().toISOString()}] membrane-exists: ${!!getActiveMembrane()}\n` +
