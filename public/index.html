@@ -2334,7 +2334,23 @@
     font-size: 11px;
     color: var(--text-dim);
     margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+  .thread-delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+  .thread-item:hover .thread-delete-btn { opacity: 0.7; }
+  .thread-delete-btn:hover { color: var(--error); opacity: 1 !important; }
 
   .thread-toggle-btn {
     width: 32px;
@@ -2660,8 +2676,8 @@
     <nav class="header-nav" id="header-nav">
       <a href="/" class="active">Chat</a>
     </nav>
-    <button class="thread-toggle-btn" id="thread-toggle-btn" title="Toggle threads">&#9776;</button>
-    <span class="thread-current-label" id="thread-current-label" title="Click to toggle threads"></span>
+    <button class="thread-toggle-btn" id="thread-toggle-btn" title="Toggle chats">&#9776;</button>
+    <span class="thread-current-label" id="thread-current-label" title="Click to toggle chats"></span>
     <span class="spacer"></span>
     <button class="gear-btn" id="mobile-pair-btn" onclick="openMobileModal()" title="Go Mobile"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></button>
     <button class="gear-btn" id="share-btn" onclick="nativeShare()" title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
@@ -2675,13 +2691,13 @@
         <input type="text" id="sidebar-search" placeholder="Search..." />
       </div>
       <div class="sidebar-tabs">
-        <button class="sidebar-tab active" data-tab="threads">Threads</button>
+        <button class="sidebar-tab active" data-tab="threads">Chats</button>
         <button class="sidebar-tab" data-tab="files">Files</button>
       </div>
-      <!-- Threads tab -->
+      <!-- Chats tab -->
       <div class="sidebar-tab-content active" id="sidebar-threads">
         <div class="thread-sidebar-header">
-          <button class="thread-new-btn" id="thread-new-btn">+ New</button>
+          <button class="thread-new-btn" id="thread-new-btn">+ New chat</button>
         </div>
         <div class="thread-list" id="thread-list"></div>
       </div>
@@ -3261,7 +3277,7 @@
     // Add "Main chat" as the default option
     const mainItem = document.createElement("div");
     mainItem.className = "thread-item" + (currentThreadId === null ? " active" : "");
-    mainItem.innerHTML = '<div class="thread-item-title">Main chat</div><div class="thread-item-meta">Default conversation</div>';
+    mainItem.innerHTML = '<div class="thread-item-title">Main</div><div class="thread-item-meta">Always here</div>';
     mainItem.addEventListener("click", () => switchThread(null));
     threadListEl.appendChild(mainItem);
 
@@ -3271,8 +3287,24 @@
       item.dataset.id = t.id;
       const ago = timeAgo(t.updatedAt);
       item.innerHTML = '<div class="thread-item-title">' + escapeHtml(t.title) + '</div>'
-        + '<div class="thread-item-meta">' + ago + '</div>';
-      item.addEventListener("click", () => switchThread(t.id));
+        + '<div class="thread-item-meta">' + ago
+        + '<button class="thread-delete-btn" title="Delete chat" data-thread-id="' + t.id + '">&times;</button></div>';
+      item.addEventListener("click", (e) => {
+        if (e.target.classList && e.target.classList.contains("thread-delete-btn")) return;
+        switchThread(t.id);
+      });
+      item.querySelector(".thread-delete-btn").addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const tid = e.target.dataset ? e.target.dataset.threadId : null;
+        if (!tid) return;
+        try {
+          await api("/api/threads/" + encodeURIComponent(tid) + "?sessionId=" + encodeURIComponent(sessionId), {
+            method: "DELETE",
+          });
+          if (currentThreadId === tid) await switchThread(null);
+          loadThreads();
+        } catch (err) { console.log("Delete thread failed:", err.message); }
+      });
       threadListEl.appendChild(item);
     }
   }
@@ -3351,7 +3383,7 @@
   function updateThreadLabel() {
     if (currentThreadId) {
       const t = threads.find(t => t.id === currentThreadId);
-      threadCurrentLabel.textContent = t ? t.title : "Thread";
+      threadCurrentLabel.textContent = t ? t.title : "Chat";
     } else {
       threadCurrentLabel.textContent = "";
     }

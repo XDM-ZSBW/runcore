@@ -651,6 +651,20 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
     if (restored) {
       cs = { history: restored.history, historySummary: restored.historySummary ?? "", brain, fileContext: restored.fileContext, learnedPaths: restored.learnedPaths, ingestedContext, turnCount: 0, lastExtractionTurn: 0, foldedBack: false, activeThreadId: null, mainHistory: [], mainHistorySummary: "" };
       chatSessions.set(sessionId, cs);
+      // Restore threads
+      if (restored.threads && restored.threads.length > 0) {
+        const threads = getThreadsForSession(sessionId);
+        for (const t of restored.threads) {
+          threads.set(t.id, {
+            id: t.id,
+            title: t.title,
+            history: t.history || [],
+            historySummary: t.historySummary || "",
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+          });
+        }
+      }
       return cs;
     }
   }
@@ -2506,7 +2520,7 @@ app.post("/api/threads", async (c) => {
   const now = new Date().toISOString();
   const thread: ChatThread = {
     id: generateThreadId(),
-    title: body.title || "New thread",
+    title: body.title || "New chat",
     history: [],
     historySummary: "",
     createdAt: now,
@@ -2514,33 +2528,18 @@ app.post("/api/threads", async (c) => {
   };
   threads.set(thread.id, thread);
 
-  // If currently on a thread, save it back first
+  // New thread starts blank. Main chat keeps its history.
+  // If currently on a thread, save it back first.
   const cs = chatSessions.get(sessionId);
-  if (cs) {
-    // Save current thread state if on one
-    if (cs.activeThreadId) {
-      const prevThread = threads.get(cs.activeThreadId);
-      if (prevThread) {
-        prevThread.history = cs.history;
-        prevThread.historySummary = cs.historySummary;
-      }
-      // Restore main
-      cs.history = cs.mainHistory;
-      cs.historySummary = cs.mainHistorySummary;
-      cs.activeThreadId = null;
+  if (cs && cs.activeThreadId) {
+    const prevThread = threads.get(cs.activeThreadId);
+    if (prevThread) {
+      prevThread.history = cs.history;
+      prevThread.historySummary = cs.historySummary;
     }
-    // Move current main history into the new thread
-    if (cs.history.length > 0) {
-      thread.history = cs.history;
-      thread.historySummary = cs.historySummary || "";
-    }
-    // Clear main for fresh conversation
-    cs.history = [];
-    cs.historySummary = "";
-    cs.mainHistory = [];
-    cs.mainHistorySummary = "";
-    cs.foldedBack = false;
-    cs.turnCount = 0;
+    cs.history = cs.mainHistory;
+    cs.historySummary = cs.mainHistorySummary;
+    cs.activeThreadId = null;
   }
 
   return c.json({ thread: { id: thread.id, title: thread.title, createdAt: thread.createdAt, updatedAt: thread.updatedAt } });
@@ -2588,8 +2587,14 @@ app.delete("/api/threads/:id", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid session" }, 401);
 
+  const threadId = c.req.param("id");
   const threads = getThreadsForSession(sessionId);
-  threads.delete(c.req.param("id"));
+  // If deleting the active thread, switch back to main first
+  const cs = chatSessions.get(sessionId);
+  if (cs && cs.activeThreadId === threadId) {
+    switchSessionThread(cs, null, sessionId);
+  }
+  threads.delete(threadId);
   return c.json({ ok: true });
 });
 
@@ -5470,11 +5475,26 @@ app.post("/api/chat", async (c) => {
   const persistSession = () => {
     const key = sessionKeys.get(sessionId);
     if (key) {
+      // Collect threads for persistence
+      const threads = getThreadsForSession(sessionId);
+      const threadList = [...threads.values()].map((t) => ({
+        id: t.id,
+        title: t.title,
+        // If this thread is active, its live history is in cs.history
+        history: (cs.activeThreadId === t.id) ? cs.history : t.history,
+        historySummary: (cs.activeThreadId === t.id) ? cs.historySummary : t.historySummary,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      }));
+      // Persist main history (from mainHistory if a thread is active, else cs.history)
+      const mainHistory = cs.activeThreadId ? cs.mainHistory : cs.history;
+      const mainSummary = cs.activeThreadId ? cs.mainHistorySummary : cs.historySummary;
       saveSession(sessionId, {
-        history: cs.history,
+        history: mainHistory,
         fileContext: cs.fileContext,
         learnedPaths: cs.learnedPaths,
-        historySummary: cs.historySummary,
+        historySummary: mainSummary,
+        threads: threadList.length > 0 ? threadList : undefined,
       }, key).catch(() => {});
     }
 

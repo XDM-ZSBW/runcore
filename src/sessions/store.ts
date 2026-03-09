@@ -18,11 +18,21 @@ interface EncryptedFile {
   authTag: string;
 }
 
+export interface SessionThread {
+  id: string;
+  title: string;
+  history: ContextMessage[];
+  historySummary: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SessionData {
   history: ContextMessage[];
   fileContext: string;
   learnedPaths: string[];
   historySummary?: string;
+  threads?: SessionThread[];
 }
 
 function sessionPath(id: string): string {
