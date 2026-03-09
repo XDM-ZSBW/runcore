@@ -322,6 +322,11 @@ interface ChatSession {
   turnCount: number;
   lastExtractionTurn: number;
   foldedBack: boolean;
+  /** Currently active thread ID, or null for main chat. */
+  activeThreadId: string | null;
+  /** Preserved main chat history when a thread is active. */
+  mainHistory: ContextMessage[];
+  mainHistorySummary: string;
 }
 
 const chatSessions = new Map<string, ChatSession>();
@@ -2470,9 +2475,14 @@ app.post("/api/threads", async (c) => {
   };
   threads.set(thread.id, thread);
 
-  // Save current main history as the previous thread, then clear for fresh conversation
+  // Snapshot current main history into the new thread so it's not lost,
+  // then clear main session for a fresh conversation
   const cs = chatSessions.get(sessionId);
-  if (cs) {
+  if (cs && cs.history.length > 0) {
+    // Move main history into the new thread (it becomes the "archive" of what was being discussed)
+    thread.history = [...cs.history];
+    thread.historySummary = cs.historySummary || "";
+    // Clear main session
     cs.history = [];
     cs.historySummary = "";
     cs.foldedBack = false;
@@ -5357,6 +5367,7 @@ app.post("/api/chat", async (c) => {
     sessionId?: string;
     message?: string;
     images?: { data: string; mimeType: string }[];
+    threadId?: string;
   };
 
   if (!sessionId || !message) {
@@ -5369,6 +5380,33 @@ app.post("/api/chat", async (c) => {
   }
 
   const cs = await getOrCreateChatSession(sessionId, session.name);
+
+  // Route to thread history if threadId is provided
+  const requestThreadId = (body as any).threadId as string | undefined;
+  let threadRef: ChatThread | undefined;
+  if (requestThreadId) {
+    const threads = getThreadsForSession(sessionId);
+    threadRef = threads.get(requestThreadId);
+    if (threadRef) {
+      // Swap cs to use thread's history for this request
+      // Save main history so we can restore later
+      if (!(cs as any)._mainHistory) {
+        (cs as any)._mainHistory = cs.history;
+        (cs as any)._mainSummary = cs.historySummary;
+      }
+      cs.history = threadRef.history;
+      cs.historySummary = threadRef.historySummary || "";
+      threadRef.updatedAt = new Date().toISOString();
+    }
+  } else {
+    // Restore main history if we were previously on a thread
+    if ((cs as any)._mainHistory) {
+      cs.history = (cs as any)._mainHistory;
+      cs.historySummary = (cs as any)._mainSummary || "";
+      delete (cs as any)._mainHistory;
+      delete (cs as any)._mainSummary;
+    }
+  }
 
   // Reset continuation rounds when user sends a real message
   resetContinuation(sessionId);
