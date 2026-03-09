@@ -33,6 +33,7 @@ import {
   type HeartbeatTracker,
 } from "./heartbeat.js";
 import { logActivity, generateTraceId } from "../activity/log.js";
+import { resolveTaskRouteAsync } from "../settings.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("governed-spawn");
@@ -190,6 +191,15 @@ export async function governedSpawn(
   // Compute effective scope ceiling for this agent and its children
   const effectiveCeiling = narrowScopeCeiling(request.scopeCeiling, request.cwd);
 
+  // Resolve model routing for this task type
+  const route = await resolveTaskRouteAsync(request.agentType);
+  log.info("Task route resolved", {
+    taskId: request.taskId,
+    agentType: request.agentType,
+    provider: route.provider,
+    model: route.model ?? "auto",
+  });
+
   let instance: AgentInstance;
   try {
 
@@ -204,8 +214,16 @@ export async function governedSpawn(
         "governed",
         governance.voucherToken ? `voucher:${governance.voucherToken}` : "voucher:none",
         `scope-ceiling:${effectiveCeiling}`,
+        `route:${route.provider}/${route.model ?? "auto"}`,
       ],
       parentId: request.parentId,
+      config: {
+        env: {
+          // Inject routed provider/model into child agent's environment
+          ...(route.provider ? { CORE_TASK_PROVIDER: route.provider } : {}),
+          ...(route.model ? { CORE_TASK_MODEL: route.model } : {}),
+        },
+      },
     };
 
     instance = await pool.spawn(spawnRequest);

@@ -74,6 +74,12 @@ export interface IntegrationSettings {
   services?: Record<string, boolean>;
 }
 
+/** Task-type → {provider, model} routing override. */
+export interface TaskRoute {
+  provider?: ProviderName;
+  model?: string;
+}
+
 export interface CoreSettings {
   /** Display name for this instance. Default: "Core". */
   instanceName?: string;
@@ -86,6 +92,10 @@ export interface CoreSettings {
   /** Explicit provider override. When set, takes precedence over airplaneMode. */
   provider?: ProviderName;
   models: { chat: string; utility: string; agent?: string };
+  /** Task-type → {provider, model} routing.
+   *  Keys are task types (e.g. "writing", "code", "research", "strategic").
+   *  Values override the default agent provider/model for that task type. */
+  taskRoutes?: Record<string, TaskRoute>;
   /** Encrypt all brain files at rest (JSONL, YAML, MD, JSON).
    *  When false, files are written as plaintext even if an encryption key is available. */
   encryptBrainFiles: boolean;
@@ -201,6 +211,16 @@ export async function loadSettings(): Promise<CoreSettings> {
             ? parsed.integrations.services
             : undefined,
         } : undefined,
+        taskRoutes: parsed.taskRoutes && typeof parsed.taskRoutes === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.taskRoutes)
+                .filter(([, v]) => v && typeof v === "object")
+                .map(([k, v]: [string, any]) => [k, {
+                  provider: ["openrouter", "anthropic", "openai", "ollama"].includes(v.provider) ? v.provider : undefined,
+                  model: typeof v.model === "string" ? v.model : undefined,
+                }])
+            )
+          : undefined,
       };
     } catch {
       cached = { ...DEFAULTS, models: { ...DEFAULTS.models }, pulse: { ...DEFAULTS.pulse } };
@@ -300,6 +320,9 @@ export async function updateSettings(partial: Partial<CoreSettings>): Promise<Co
     if (typeof partial.mesh.lanAnnounce === "boolean") cached.mesh.lanAnnounce = partial.mesh.lanAnnounce;
     if (typeof partial.mesh.allowIncoming === "boolean") cached.mesh.allowIncoming = partial.mesh.allowIncoming;
   }
+  if (partial.taskRoutes) {
+    cached.taskRoutes = { ...cached.taskRoutes, ...partial.taskRoutes };
+  }
   if (partial.integrations) {
     if (!cached.integrations) cached.integrations = { enabled: true };
     if (typeof partial.integrations.enabled === "boolean") {
@@ -320,6 +343,13 @@ export async function updateSettings(partial: Partial<CoreSettings>): Promise<Co
 
 /** Returns the active provider. privateMode and master integration kill switch force Ollama. */
 export function resolveProvider(): ProviderName {
+  // Child agent env override (injected by task routing)
+  const envProvider = process.env.CORE_TASK_PROVIDER as ProviderName | undefined;
+  if (envProvider && ["openrouter", "anthropic", "openai", "ollama"].includes(envProvider)) {
+    // privateMode still overrides
+    if (cached.privateMode) return "ollama";
+    return envProvider;
+  }
   // Private mode → force local-only (hard enforcement happens in guard.ts)
   if (cached.privateMode) return "ollama";
   // Master integration gate off → force local-only
@@ -352,6 +382,9 @@ export function resolveUtilityModel(): string | undefined {
  * use it instead of burning cloud tokens on execution work.
  */
 export function resolveAgentModel(): string | undefined {
+  // Child agent env override (injected by task routing)
+  const envModel = process.env.CORE_TASK_MODEL;
+  if (envModel) return envModel;
   const v = cached.models.agent;
   if (v && v !== "auto") return v;
   // When on Ollama (airplane/private mode), let the provider auto-select
@@ -389,6 +422,48 @@ export function resolveAgentProvider(): ProviderName {
     }
   }
   return resolveProvider();
+}
+
+/**
+ * Resolve {provider, model} for a task type.
+ * Fallback: taskRoutes[type] → agent model → utility model → provider default.
+ * privateMode forces provider to ollama regardless of route config.
+ */
+export function resolveTaskRoute(taskType: string | undefined): { provider: ProviderName; model: string | undefined } {
+  if (taskType && cached.taskRoutes?.[taskType]) {
+    const route = cached.taskRoutes[taskType];
+    let provider = route.provider ?? resolveProvider();
+    // privateMode overrides everything to local
+    if (cached.privateMode) provider = "ollama";
+    return { provider, model: route.model };
+  }
+  return { provider: resolveAgentProvider(), model: resolveAgentModel() };
+}
+
+/**
+ * Async version — auto-discovers local models when route points to Ollama
+ * and no explicit model is set.
+ */
+export async function resolveTaskRouteAsync(taskType: string | undefined): Promise<{ provider: ProviderName; model: string | undefined }> {
+  if (taskType && cached.taskRoutes?.[taskType]) {
+    const route = cached.taskRoutes[taskType];
+    let provider = route.provider ?? resolveProvider();
+    if (cached.privateMode) provider = "ollama";
+
+    if (route.model) return { provider, model: route.model };
+
+    // No explicit model + Ollama → auto-discover
+    if (provider === "ollama") {
+      const { bestLocalCodingModel, bestLocalModel } = await import("./llm/providers/ollama.js");
+      const model = taskType === "code"
+        ? await bestLocalCodingModel()
+        : await bestLocalModel();
+      return { provider, model };
+    }
+    return { provider, model: undefined };
+  }
+  // No route — fall back to agent defaults
+  return { provider: resolveAgentProvider(), model: await resolveAgentModelAsync() };
 }
 
 /** Returns the TTS configuration. */
