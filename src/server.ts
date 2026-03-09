@@ -2581,6 +2581,17 @@ app.post("/api/branch", async (c) => {
   }
   const reqSignal = c.req.raw.signal;
 
+  // Apply membrane to branch messages before they reach the LLM
+  const branchMembrane = getActiveMembrane();
+  const redactedBranchMessages = messages.map((msg: any) => {
+    if (!branchMembrane) return msg;
+    const copy = { ...msg };
+    if (typeof copy.content === "string") {
+      copy.content = branchMembrane.apply(copy.content);
+    }
+    return copy;
+  });
+
   return streamSSE(c, async (stream) => {
     // Send branch trace metadata so the UI can track lineage
     await stream.writeSSE({
@@ -2609,7 +2620,7 @@ app.post("/api/branch", async (c) => {
       };
 
       stream_fn({
-        messages,
+        messages: redactedBranchMessages,
         model: activeChatModel,
         signal: reqSignal,
         onToken: (token) => {
@@ -6047,28 +6058,43 @@ app.post("/api/chat", async (c) => {
     // Send metadata first so UI can show which model is responding
     await stream.writeSSE({ data: JSON.stringify({ meta: { provider: activeProvider, model: activeChatModel ?? (activeProvider === "ollama" ? "llama3.2:3b" : "claude-sonnet-4") } }) });
 
+    // --- Apply membrane: redact messages BEFORE they reach the LLM ---
+    const membrane = getActiveMembrane();
+    const redactedMessages = ctx.messages.map((msg: any) => {
+      if (!membrane) return msg;
+      const copy = { ...msg };
+      if (typeof copy.content === "string") {
+        copy.content = membrane.apply(copy.content);
+      } else if (Array.isArray(copy.content)) {
+        copy.content = copy.content.map((block: any) => {
+          if (block.type === "text" && typeof block.text === "string") {
+            return { ...block, text: membrane.apply(block.text) };
+          }
+          return block;
+        });
+      }
+      return copy;
+    });
+
     // --- Membrane view: emit what the LLM will see (redacted) ---
     try {
-      const membrane = getActiveMembrane();
       const membraneView: { role: string; preview: string; redactions: number }[] = [];
-      for (const msg of ctx.messages) {
+      for (const msg of redactedMessages) {
         const raw = typeof msg.content === "string" ? msg.content
           : Array.isArray(msg.content) ? msg.content.map((b: any) => b.text || b.type || "").join(" ") : "";
         if (!raw) continue;
-        const redacted = membrane ? membrane.apply(raw) : raw;
-        // Count redactions by counting placeholders
-        const placeholders = redacted.match(/<<[A-Z_]+_\d+>>|\[REDACTED:[^\]]+\]/g);
-        // Send truncated preview (first 200 chars of each message)
+        // Count redactions by counting placeholders (already redacted)
+        const placeholders = raw.match(/<<[A-Z_]+_\d+>>|\[REDACTED:[^\]]+\]/g);
         membraneView.push({
           role: msg.role,
-          preview: redacted.slice(0, 300) + (redacted.length > 300 ? "..." : ""),
+          preview: raw.slice(0, 300) + (raw.length > 300 ? "..." : ""),
           redactions: placeholders ? placeholders.length : 0,
         });
       }
       const totalRedactions = membraneView.reduce((sum, m) => sum + m.redactions, 0);
       await stream.writeSSE({ data: JSON.stringify({
         membrane: {
-          messageCount: ctx.messages.length,
+          messageCount: redactedMessages.length,
           totalRedactions,
           messages: membraneView,
         },
@@ -6105,17 +6131,32 @@ app.post("/api/chat", async (c) => {
       let tokenBuf2 = "";
       const flushBuf2 = () => {
         if (!tokenBuf2) return;
+        // Debug: trace rehydration
+        const hasPh = tokenBuf2.includes("<<") && tokenBuf2.includes(">>");
+        if (hasPh) {
+          const fs = require("node:fs");
+          fs.appendFileSync("E:/Core/membrane-debug.log",
+            `[${new Date().toISOString()}] pre: ${JSON.stringify(tokenBuf2.slice(0, 300))}\n`);
+        }
         const rehydrated = rehydrateResponse(tokenBuf2);
+        if (hasPh) {
+          const fs = require("node:fs");
+          fs.appendFileSync("E:/Core/membrane-debug.log",
+            `[${new Date().toISOString()}] post: ${JSON.stringify(rehydrated.slice(0, 300))}\n` +
+            `[${new Date().toISOString()}] changed: ${rehydrated !== tokenBuf2}\n` +
+            `[${new Date().toISOString()}] membrane-exists: ${!!getActiveMembrane()}\n` +
+            `[${new Date().toISOString()}] reverse-map-size: ${getActiveMembrane()?.size ?? "null"}\n---\n`);
+        }
+        fullResponse += rehydrated;
         tokenBuf2 = "";
         stream.writeSSE({ data: JSON.stringify({ token: rehydrated }) }).catch(() => {});
       };
 
       stream_fn({
-        messages: ctx.messages,
+        messages: redactedMessages,
         model: activeChatModel,
         signal: reqSignal,
         onToken: (token) => {
-          fullResponse += token;
           tokenBuf2 += token;
           // Hold if buffer ends with partial placeholder
           const lastOpen = tokenBuf2.lastIndexOf("<<");

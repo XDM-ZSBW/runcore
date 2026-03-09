@@ -32,7 +32,12 @@ export function getActiveMembrane(): PrivacyMembrane | null {
  * No-op if no membrane is active.
  */
 export function rehydrateResponse(text: string): string {
-  if (!activeMembrane) return text;
+  if (!activeMembrane) {
+    if (text.includes("<<") && text.includes(">>")) {
+      log.warn("rehydrateResponse called but no active membrane!", { snippet: text.slice(0, 100) });
+    }
+    return text;
+  }
   return activeMembrane.rehydrate(text);
 }
 

@@ -26,6 +26,8 @@ const BLOCKED_HOSTS = new Set([
 const LLM_HOSTS = new Set([
   ...BLOCKED_HOSTS,
   "generativelanguage.googleapis.com",
+  "localhost",
+  "127.0.0.1",
 ]);
 
 let installed = false;

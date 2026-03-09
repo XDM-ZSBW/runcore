@@ -91,16 +91,27 @@ export class PrivacyMembrane {
    */
   rehydrate(text: string): string {
     const categoryCounts: Record<string, number> = {};
+    let result = text;
 
-    const result = text.replace(PLACEHOLDER_RE, (match) => {
-      const original = this.reverse.get(match);
-      if (original) {
-        const cat = match.replace(/<<|_\d+>>/g, "");
-        categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-        return original;
+    // Direct string replacement — no regex, no lastIndex issues
+    for (const [placeholder, original] of this.reverse) {
+      if (!result.includes(placeholder)) continue;
+      const cat = placeholder.replace(/^<<|_\d+>>$/g, "");
+      let count = 0;
+      while (result.includes(placeholder)) {
+        result = result.replace(placeholder, original);
+        count++;
       }
-      return match; // unknown placeholder — leave as-is
-    });
+      categoryCounts[cat] = (categoryCounts[cat] ?? 0) + count;
+    }
+
+    if (Object.keys(categoryCounts).length === 0 && text.includes("<<") && text.includes(">>")) {
+      log.warn("Rehydrate found no mappings", {
+        reverseMapSize: this.reverse.size,
+        snippet: text.slice(0, 200),
+        keys: [...this.reverse.keys()].slice(0, 10),
+      });
+    }
 
     if (Object.keys(categoryCounts).length > 0) {
       this.audit.push({
