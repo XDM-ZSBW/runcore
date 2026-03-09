@@ -66,7 +66,7 @@
     "@opentelemetry/core": "^1.30.0",
     "@opentelemetry/resources": "^1.30.0",
     "@opentelemetry/sdk-trace-base": "^1.30.0",
-    "@opentelemetry/sdk-trace-node": "^1.30.0",
+    "@opentelemetry/sdk-trace-node": "^2.6.0",
     "@opentelemetry/semantic-conventions": "^1.28.0",
     "compromise": "^14.15.0",
     "hono": "^4.12.3",
