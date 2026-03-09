@@ -3273,6 +3273,12 @@
     topicState.scores = [];
     topicState.messageTexts = [];
     topicState.topic = "";
+    topicState.branches = 0;
+    topicState.maxDrift = 0;
+    topicState.merges = 0;
+    graphState.lanes = [true, false, false, false, false];
+    graphState.currentLane = 0;
+    graphState.history = [];
     renderThreadList();
     updateThreadLabel();
 
@@ -4544,6 +4550,120 @@
       + '<span class="continuity-topic">' + (topicState.topic || "detecting...") + '</span>';
   }
 
+  // Compute graph entry for a new message at given drift level
+  function computeGraphEntry(drift, prevDrift) {
+    var entry = {
+      lane: drift,
+      activeLanes: graphState.lanes.slice(),
+      forkFrom: undefined,
+      mergeTo: undefined,
+      label: undefined,
+    };
+
+    if (drift > prevDrift && drift >= 2) {
+      // Fork: activate new lane, keep old active
+      graphState.lanes[drift] = true;
+      entry.forkFrom = prevDrift;
+      entry.activeLanes = graphState.lanes.slice();
+      // Extract fork label from recent keywords
+      var recent = topicState.messageTexts.slice(-2).join(" ");
+      var rk = extractKeywords(recent);
+      var topicSet = new Set(topicState.keywords);
+      var newWords = rk.filter(function(w) { return !topicSet.has(w); }).slice(0, 2);
+      if (newWords.length > 0) entry.label = newWords.join(" ");
+    } else if (drift < prevDrift) {
+      // Merge: deactivate old lane(s) between current and previous
+      for (var i = drift + 1; i <= prevDrift; i++) {
+        graphState.lanes[i] = false;
+      }
+      entry.mergeTo = prevDrift;
+      entry.activeLanes = graphState.lanes.slice();
+    }
+
+    graphState.currentLane = drift;
+    graphState.history.push(entry);
+    return entry;
+  }
+
+  // Render the graph column for a message
+  function renderGraphRow(messageDiv, entry) {
+    var graph = document.createElement("div");
+    graph.className = "drift-graph";
+
+    // Draw vertical line segments for each active lane
+    for (var i = 0; i < 5; i++) {
+      if (!entry.activeLanes[i]) continue;
+      var line = document.createElement("div");
+      line.className = "lane-line" + (i === entry.lane ? " active-lane" : "");
+      line.style.left = LANE_X[i] + "px";
+      line.style.background = LANE_COLORS[i];
+      graph.appendChild(line);
+    }
+
+    // Draw commit node on current lane
+    var node = document.createElement("div");
+    node.className = "lane-node";
+    node.style.left = (LANE_X[entry.lane] + 1) + "px";
+    node.style.background = LANE_COLORS[entry.lane];
+    graph.appendChild(node);
+
+    // Draw fork or merge curve via SVG
+    if (entry.forkFrom !== undefined || entry.mergeTo !== undefined) {
+      var svgNS = "http://www.w3.org/2000/svg";
+      var svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("class", "lane-svg");
+      svg.setAttribute("viewBox", "0 0 68 40");
+      svg.setAttribute("fill", "none");
+
+      if (entry.forkFrom !== undefined) {
+        // Curve from parent lane down to new lane
+        var fx = LANE_X[entry.forkFrom] + 1;
+        var tx = LANE_X[entry.lane] + 1;
+        var path = document.createElementNS(svgNS, "path");
+        path.setAttribute("d", "M" + fx + ",0 C" + fx + ",18 " + tx + ",22 " + tx + ",40");
+        path.setAttribute("stroke", LANE_COLORS[entry.lane]);
+        path.setAttribute("stroke-width", "2");
+        path.setAttribute("stroke-linecap", "round");
+        svg.appendChild(path);
+      }
+
+      if (entry.mergeTo !== undefined) {
+        // Curve from old lane merging back to current
+        var mx = LANE_X[entry.mergeTo] + 1;
+        var cx = LANE_X[entry.lane] + 1;
+        var path2 = document.createElementNS(svgNS, "path");
+        path2.setAttribute("d", "M" + mx + ",0 C" + mx + ",18 " + cx + ",22 " + cx + ",40");
+        path2.setAttribute("stroke", LANE_COLORS[entry.mergeTo]);
+        path2.setAttribute("stroke-width", "2");
+        path2.setAttribute("stroke-linecap", "round");
+        path2.setAttribute("opacity", "0.6");
+        svg.appendChild(path2);
+      }
+
+      graph.appendChild(svg);
+    }
+
+    // Fork label
+    if (entry.label) {
+      var lbl = document.createElement("div");
+      lbl.className = "drift-label";
+      lbl.textContent = entry.label;
+      lbl.style.color = LANE_COLORS[entry.lane];
+      graph.appendChild(lbl);
+    }
+
+    // Merge indicator
+    if (entry.mergeTo !== undefined && entry.lane <= 1) {
+      var ml = document.createElement("div");
+      ml.className = "drift-label";
+      ml.textContent = "↩ merged";
+      ml.style.color = LANE_COLORS[0];
+      graph.appendChild(ml);
+    }
+
+    messageDiv.appendChild(graph);
+  }
+
   function addMessage(role, content, labelOverride) {
     const div = document.createElement("div");
     div.className = "message " + role;
@@ -4564,12 +4684,11 @@
     applyPrivacySeals(div.querySelector(".content"));
     if (window._serverSealValues) applyServerSeals(div.querySelector(".content"), window._serverSealValues);
 
-    // --- Drift tracking ---
+    // --- Conversation graph ---
     if (role !== "system") {
       var text = typeof content === "string" ? content : "";
       topicState.messageTexts.push(text);
 
-      // Establish topic after a few messages
       if (!topicState.established && topicState.messageTexts.length >= 2) {
         updateTopicFromMessages();
       }
@@ -4578,7 +4697,6 @@
       var prevDrift = topicState.scores.length > 0 ? topicState.scores[topicState.scores.length - 1] : 0;
       topicState.scores.push(drift);
 
-      // Track branches and merges
       if (drift > prevDrift && drift >= 2) {
         topicState.branches++;
         topicState.maxDrift = Math.max(topicState.maxDrift, drift);
@@ -4587,47 +4705,8 @@
         topicState.merges++;
       }
 
-      // Add drift indicator line
-      var driftLine = document.createElement("div");
-      driftLine.className = "drift-line";
-      driftLine.setAttribute("data-drift", String(drift));
-      var node = document.createElement("div");
-      node.className = "drift-node";
-      driftLine.appendChild(node);
-
-      // Draw horizontal connector when drift level changes (fork or merge)
-      if (drift !== prevDrift && topicState.scores.length > 1) {
-        var connector = document.createElement("div");
-        connector.className = "drift-connector " + (drift > prevDrift ? "fork" : "merge");
-        var fromX = DRIFT_POSITIONS[prevDrift] + 1; // center of prev line
-        var toX = DRIFT_POSITIONS[drift] + 1;
-        var leftX = Math.min(fromX, toX);
-        var width = Math.abs(toX - fromX);
-        connector.style.left = (leftX - DRIFT_POSITIONS[drift]) + "px";
-        connector.style.width = width + "px";
-        connector.style.background = drift > prevDrift ? DRIFT_COLORS[drift] : DRIFT_COLORS[prevDrift];
-        driftLine.appendChild(connector);
-
-        // Show branch count on forks
-        if (drift > prevDrift && topicState.branches > 0) {
-          var label = document.createElement("div");
-          label.className = "drift-branch-count";
-          label.textContent = topicState.branches + (topicState.branches === 1 ? " branch" : " branches");
-          driftLine.appendChild(label);
-        }
-        // Show merge label when returning
-        if (drift < prevDrift && drift <= 1) {
-          var mergeLabel = document.createElement("div");
-          mergeLabel.className = "drift-branch-count";
-          mergeLabel.style.color = DRIFT_COLORS[0];
-          mergeLabel.textContent = "↩ merged";
-          driftLine.appendChild(mergeLabel);
-        }
-      }
-
-      div.appendChild(driftLine);
-
-      // Update continuity badge
+      var entry = computeGraphEntry(drift, prevDrift);
+      renderGraphRow(div, entry);
       renderContinuityBadge();
     }
 
@@ -4979,33 +5058,9 @@
           if (drift < prevDrift && drift <= 1 && prevDrift >= 2) topicState.merges++;
 
           var msgDiv = contentEl.closest(".message");
-          if (msgDiv && !msgDiv.querySelector(".drift-line")) {
-            var driftLine = document.createElement("div");
-            driftLine.className = "drift-line";
-            driftLine.setAttribute("data-drift", String(drift));
-            var node = document.createElement("div");
-            node.className = "drift-node";
-            driftLine.appendChild(node);
-
-            if (drift !== prevDrift && topicState.scores.length > 1) {
-              var connector = document.createElement("div");
-              connector.className = "drift-connector " + (drift > prevDrift ? "fork" : "merge");
-              var fromX = DRIFT_POSITIONS[prevDrift] + 1;
-              var toX = DRIFT_POSITIONS[drift] + 1;
-              connector.style.left = (Math.min(fromX, toX) - DRIFT_POSITIONS[drift]) + "px";
-              connector.style.width = Math.abs(toX - fromX) + "px";
-              connector.style.background = drift > prevDrift ? DRIFT_COLORS[drift] : DRIFT_COLORS[prevDrift];
-              driftLine.appendChild(connector);
-              if (drift < prevDrift && drift <= 1) {
-                var ml = document.createElement("div");
-                ml.className = "drift-branch-count";
-                ml.style.color = DRIFT_COLORS[0];
-                ml.textContent = "↩ merged";
-                driftLine.appendChild(ml);
-              }
-            }
-
-            msgDiv.appendChild(driftLine);
+          if (msgDiv && !msgDiv.querySelector(".drift-graph")) {
+            var entry = computeGraphEntry(drift, prevDrift);
+            renderGraphRow(msgDiv, entry);
           }
           renderContinuityBadge();
         }
