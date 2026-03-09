@@ -6783,9 +6783,9 @@ async function loadPairedDevices() {
     var msgs = document.querySelectorAll("#messages .message");
     var turnIndex = msgs ? msgs.length : null;
 
-    // Get sessionId from URL or stored value
+    // Get sessionId from sessionStorage (set by main app after auth)
     var sid = "";
-    try { sid = new URLSearchParams(window.location.search).get("sessionId") || window.sessionId || ""; } catch(e) {}
+    try { sid = sessionStorage.getItem("dash_sid") || new URLSearchParams(window.location.search).get("sessionId") || ""; } catch(e) {}
 
     var url = "/api/sensitive/flag" + (sid ? "?sessionId=" + encodeURIComponent(sid) : "");
     fetch(url, {
