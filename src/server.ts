@@ -764,6 +764,18 @@ if (webhookInitMs > 100) {
 
 // --- API routes ---
 
+// UI version check (stub — UI polls this to detect hot-reload)
+app.get("/api/ui-version", (c) => c.json({ version: "0.4.0" }));
+
+// Return current seal values so client can blur on page load
+app.get("/api/sensitive/seals", (c) => {
+  const membrane = getActiveMembrane();
+  return c.json({ values: membrane ? membrane.knownValues.map(v => v.value) : [] });
+});
+
+// Pending questions (stub — proactive question chips)
+app.get("/api/pending-questions", (c) => c.json({ questions: [] }));
+
 // Status: what screen should the UI show?
 app.get("/api/status", async (c) => {
   const status = await getStatus();

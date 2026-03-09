@@ -260,48 +260,66 @@
   }
 
   .message {
-    padding: 12px 20px 12px 36px;
+    padding: 12px 20px 12px 76px;
     max-width: var(--max-width);
     margin: 0 auto;
     width: 100%;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
   }
 
-  /* --- Topic branch indicator (git-style) --- */
-  .drift-line {
+  /* --- Conversation graph (git-style branch visualization) --- */
+  .drift-graph {
     position: absolute;
-    left: 12px;
-    top: 4px;
-    bottom: 4px;
-    width: 3px;
-    border-radius: 1.5px;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 68px;
+    pointer-events: none;
     z-index: 0;
   }
-  .drift-line[data-drift="0"] { background: #2ea043; left: 12px; }
-  .drift-line[data-drift="1"] { background: #3fb950; left: 14px; }
-  .drift-line[data-drift="2"] { background: #d29922; left: 17px; }
-  .drift-line[data-drift="3"] { background: #db6d28; left: 20px; }
-  .drift-line[data-drift="4"] { background: #f85149; left: 24px; }
-  .drift-node {
+  .lane-line {
     position: absolute;
-    left: -3px;
-    top: 10px;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    border: 2px solid var(--bg);
-    background: inherit;
-  }
-  .drift-line .drift-connector {
-    position: absolute;
-    top: 18px;
-    height: 2px;
-    background: inherit;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    opacity: 0.5;
     border-radius: 1px;
   }
-  /* Connector from previous position to current */
-  .drift-line[data-drift="0"] .drift-connector { display: none; }
+  .lane-line.active-lane { opacity: 0.8; }
+  .lane-node {
+    position: absolute;
+    top: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    z-index: 2;
+    transform: translateX(-4px);
+  }
+  .lane-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 68px;
+    height: 40px;
+    overflow: visible;
+    z-index: 1;
+  }
+  .drift-label {
+    position: absolute;
+    left: 68px;
+    top: 2px;
+    font-size: 9px;
+    font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+    color: var(--text-dim);
+    opacity: 0.6;
+    white-space: nowrap;
+    pointer-events: none;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   /* Continuity score badge */
   .continuity-badge {
@@ -2443,9 +2461,11 @@
     .content-sidebar.collapsed { width: 0; display: none; }
 
     /* Messages: tighter padding */
-    .message { padding: 10px 12px; }
+    .message { padding: 10px 12px 10px 56px; }
     .message .content { font-size: 14px; }
     .message .role { font-size: 10px; }
+    .drift-graph { width: 48px; }
+    .drift-label { left: 48px; display: none; }
 
     /* Composer: stack on small screens */
     .composer { padding: 8px 10px; }
@@ -4069,6 +4089,20 @@
     // Pre-load threads list
     await loadThreads();
 
+    // Load seal values from membrane so flagged terms blur on refresh
+    try {
+      const sealRes = await fetch("/api/sensitive/seals?" + new URLSearchParams({ sessionId: sessionId || "" }));
+      if (sealRes.ok) {
+        const sealData = await sealRes.json();
+        if (sealData.values && sealData.values.length > 0) {
+          window._serverSealValues = sealData.values;
+          document.querySelectorAll("#messages .message .content").forEach(function(el) {
+            applyServerSeals(el, window._serverSealValues);
+          });
+        }
+      }
+    } catch (e) { /* best effort */ }
+
     // Restore thread + scroll after toast refresh
     try {
       const restore = sessionStorage.getItem("_dash_restore");
@@ -4399,13 +4433,27 @@
     }
   }
 
-  // --- Topic drift tracking (git-style branch indicator) ---
+  // --- Conversation graph (git-style branch visualization) ---
+  var LANE_X = [10, 22, 34, 46, 58]; // 5 lanes, 12px apart
+  var LANE_COLORS = ["#2ea043", "#3fb950", "#d29922", "#db6d28", "#f85149"];
+  // Compat aliases for old code paths
+  var DRIFT_POSITIONS = LANE_X;
+  var DRIFT_COLORS = LANE_COLORS;
   var topicState = {
     keywords: [],        // main topic keywords extracted from first messages
     established: false,  // topic established after N messages
     scores: [],          // drift score per message (0-4)
     messageTexts: [],    // raw text per message for scoring
     topic: "",           // detected main topic label
+    branches: 0,         // number of active divergences
+    maxDrift: 0,         // peak drift in current branch
+    merges: 0,           // times conversation returned to topic
+  };
+  // Graph state: tracks which lanes are currently active
+  var graphState = {
+    lanes: [true, false, false, false, false],
+    currentLane: 0,
+    history: [], // per message: { lane, activeLanes, forkFrom?, mergeTo?, label? }
   };
 
   // Stop words to filter out
@@ -4527,7 +4575,17 @@
       }
 
       var drift = scoreDrift(text);
+      var prevDrift = topicState.scores.length > 0 ? topicState.scores[topicState.scores.length - 1] : 0;
       topicState.scores.push(drift);
+
+      // Track branches and merges
+      if (drift > prevDrift && drift >= 2) {
+        topicState.branches++;
+        topicState.maxDrift = Math.max(topicState.maxDrift, drift);
+      }
+      if (drift < prevDrift && drift <= 1 && prevDrift >= 2) {
+        topicState.merges++;
+      }
 
       // Add drift indicator line
       var driftLine = document.createElement("div");
@@ -4536,6 +4594,37 @@
       var node = document.createElement("div");
       node.className = "drift-node";
       driftLine.appendChild(node);
+
+      // Draw horizontal connector when drift level changes (fork or merge)
+      if (drift !== prevDrift && topicState.scores.length > 1) {
+        var connector = document.createElement("div");
+        connector.className = "drift-connector " + (drift > prevDrift ? "fork" : "merge");
+        var fromX = DRIFT_POSITIONS[prevDrift] + 1; // center of prev line
+        var toX = DRIFT_POSITIONS[drift] + 1;
+        var leftX = Math.min(fromX, toX);
+        var width = Math.abs(toX - fromX);
+        connector.style.left = (leftX - DRIFT_POSITIONS[drift]) + "px";
+        connector.style.width = width + "px";
+        connector.style.background = drift > prevDrift ? DRIFT_COLORS[drift] : DRIFT_COLORS[prevDrift];
+        driftLine.appendChild(connector);
+
+        // Show branch count on forks
+        if (drift > prevDrift && topicState.branches > 0) {
+          var label = document.createElement("div");
+          label.className = "drift-branch-count";
+          label.textContent = topicState.branches + (topicState.branches === 1 ? " branch" : " branches");
+          driftLine.appendChild(label);
+        }
+        // Show merge label when returning
+        if (drift < prevDrift && drift <= 1) {
+          var mergeLabel = document.createElement("div");
+          mergeLabel.className = "drift-branch-count";
+          mergeLabel.style.color = DRIFT_COLORS[0];
+          mergeLabel.textContent = "↩ merged";
+          driftLine.appendChild(mergeLabel);
+        }
+      }
+
       div.appendChild(driftLine);
 
       // Update continuity badge
@@ -4883,7 +4972,12 @@
             updateTopicFromMessages();
           }
           var drift = scoreDrift(finalText);
+          var prevDrift = topicState.scores.length > 0 ? topicState.scores[topicState.scores.length - 1] : 0;
           topicState.scores.push(drift);
+
+          if (drift > prevDrift && drift >= 2) topicState.branches++;
+          if (drift < prevDrift && drift <= 1 && prevDrift >= 2) topicState.merges++;
+
           var msgDiv = contentEl.closest(".message");
           if (msgDiv && !msgDiv.querySelector(".drift-line")) {
             var driftLine = document.createElement("div");
@@ -4892,6 +4986,25 @@
             var node = document.createElement("div");
             node.className = "drift-node";
             driftLine.appendChild(node);
+
+            if (drift !== prevDrift && topicState.scores.length > 1) {
+              var connector = document.createElement("div");
+              connector.className = "drift-connector " + (drift > prevDrift ? "fork" : "merge");
+              var fromX = DRIFT_POSITIONS[prevDrift] + 1;
+              var toX = DRIFT_POSITIONS[drift] + 1;
+              connector.style.left = (Math.min(fromX, toX) - DRIFT_POSITIONS[drift]) + "px";
+              connector.style.width = Math.abs(toX - fromX) + "px";
+              connector.style.background = drift > prevDrift ? DRIFT_COLORS[drift] : DRIFT_COLORS[prevDrift];
+              driftLine.appendChild(connector);
+              if (drift < prevDrift && drift <= 1) {
+                var ml = document.createElement("div");
+                ml.className = "drift-branch-count";
+                ml.style.color = DRIFT_COLORS[0];
+                ml.textContent = "↩ merged";
+                driftLine.appendChild(ml);
+              }
+            }
+
             msgDiv.appendChild(driftLine);
           }
           renderContinuityBadge();
