@@ -3791,6 +3791,10 @@ app.post("/api/files/upload", async (c) => {
     const tagsRaw = formData.get("tags") as string;
     const tags = tagsRaw ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean) : [];
 
+    // Folder path from directory upload — preserved as virtual folder tag
+    const folder = formData.get("folder") as string | null;
+    if (folder) tags.push("folder:" + folder);
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const maxUploadBytes = 50 * 1024 * 1024; // 50 MB
 

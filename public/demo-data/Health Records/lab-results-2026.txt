@@ -1,0 +1,26 @@
+Quest Diagnostics Lab Report
+Patient: Margaret Herrman
+DOB: 04/15/1958
+SSN: 412-68-9203
+MRN: QD-2026-44891
+
+Test Date: 02/14/2026
+Ordering Physician: Dr. Sarah Chen, NPI: 1234567890
+
+COMPLETE BLOOD COUNT (CBC)
+WBC: 6.2 x10^3/uL (4.5-11.0)
+RBC: 4.51 x10^6/uL (4.10-5.10)
+Hemoglobin: 13.8 g/dL (12.0-15.5)
+Hematocrit: 41.2% (36.0-44.0)
+Platelets: 245 x10^3/uL (150-379)
+
+METABOLIC PANEL
+Glucose: 98 mg/dL (65-99)
+BUN: 14 mg/dL (6-20)
+Creatinine: 0.9 mg/dL (0.57-1.00)
+eGFR: >60 mL/min
+
+HbA1c: 5.6% (<5.7 Normal)
+
+Notes: All values within normal range. Continue current medications.
+Follow-up in 6 months.

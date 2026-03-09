@@ -593,6 +593,86 @@
   .composer-actions button:hover { background: var(--surface); color: var(--text); }
   #incognito-btn.active { color: #ef4444; background: var(--surface); }
 
+  /* Attach menu dropdown */
+  .attach-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+    z-index: 20;
+    min-width: 120px;
+  }
+  .attach-menu-item {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    padding: 8px 12px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .attach-menu-item:hover { background: var(--bg); }
+
+  /* Folder upload progress overlay */
+  .folder-progress {
+    position: fixed;
+    bottom: 80px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    width: 320px;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .folder-progress-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .folder-progress-title .folder-icon { color: var(--accent); }
+  .folder-progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 6px;
+    overflow: hidden;
+  }
+  .folder-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+  .folder-progress-status {
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex;
+    justify-content: space-between;
+  }
+  .folder-progress-cancel {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .folder-progress-cancel:hover { color: var(--text); }
+
   /* Incognito mode — red border signals local-only */
   .composer.incognito textarea {
     border-color: #ef4444 !important;
@@ -2555,6 +2635,11 @@
             <button id="incognito-btn" title="Incognito — local only, no memory"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
           </div>
           <input type="file" id="file-input" accept="image/*,.pdf,.docx,.doc,.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.xml,.yaml,.yml,.toml,.log,.sh,.bat,.c,.cpp,.java,.go,.rs,.rb,.php,.sql,.r,.swift" multiple style="display:none;" />
+          <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none;" />
+          <div class="attach-menu" id="attach-menu" style="display:none;">
+            <button class="attach-menu-item" id="attach-files-opt">Files</button>
+            <button class="attach-menu-item" id="attach-folder-opt">Folder</button>
+          </div>
           <textarea id="chat-input" placeholder="Say something..." rows="1"></textarea>
           <button id="send-btn">Send</button>
         </div>
@@ -2569,7 +2654,7 @@
       </div>
       <div class="stream-tabs">
         <button class="stream-tab active" data-stream-tab="activity">Activity</button>
-        <button class="stream-tab" data-stream-tab="membrane">Membrane</button>
+        <button class="stream-tab" data-stream-tab="membrane">Data</button>
       </div>
       <div class="stream-tab-content active" id="stream-tab-activity">
         <div class="stream-actions" id="stream-actions">
@@ -3279,10 +3364,104 @@
     }
   }
 
-  attachBtn.addEventListener("click", () => { if (incognitoMode) return; fileInput.click(); });
+  // Attach button — show menu with Files / Folder options
+  var attachMenu = document.getElementById("attach-menu");
+  attachBtn.addEventListener("click", function(e) {
+    if (incognitoMode) return;
+    e.stopPropagation();
+    attachMenu.style.display = attachMenu.style.display === "none" ? "block" : "none";
+  });
+  document.getElementById("attach-files-opt").addEventListener("click", function() {
+    attachMenu.style.display = "none";
+    fileInput.click();
+  });
+  document.getElementById("attach-folder-opt").addEventListener("click", function() {
+    attachMenu.style.display = "none";
+    document.getElementById("folder-input").click();
+  });
+  document.addEventListener("click", function(e) {
+    if (!e.target.closest("#attach-btn") && !e.target.closest("#attach-menu")) {
+      attachMenu.style.display = "none";
+    }
+  });
+
   fileInput.addEventListener("change", async () => {
     await processAttachedFiles(fileInput.files);
     fileInput.value = "";
+  });
+
+  // Folder upload — batch with progress
+  var folderUploadAborted = false;
+  document.getElementById("folder-input").addEventListener("change", async function() {
+    var files = this.files;
+    if (!files || files.length === 0) return;
+    this.value = "";
+
+    var rootFolder = files[0].webkitRelativePath.split("/")[0];
+    folderUploadAborted = false;
+
+    // Create progress overlay
+    var prog = document.createElement("div");
+    prog.className = "folder-progress";
+    prog.innerHTML = '<div class="folder-progress-title"><span class="folder-icon">&#128193;</span> Ingesting: ' + rootFolder + '</div>'
+      + '<div class="folder-progress-bar"><div class="folder-progress-fill" id="folder-fill"></div></div>'
+      + '<div class="folder-progress-status"><span id="folder-status">0 / ' + files.length + '</span><button class="folder-progress-cancel" id="folder-cancel">Cancel</button></div>';
+    document.body.appendChild(prog);
+
+    document.getElementById("folder-cancel").addEventListener("click", function() {
+      folderUploadAborted = true;
+    });
+
+    var fill = document.getElementById("folder-fill");
+    var status = document.getElementById("folder-status");
+    var uploaded = 0, skipped = 0, errors = 0;
+
+    // Batch upload — 3 concurrent
+    var queue = Array.from(files);
+    var total = queue.length;
+
+    async function uploadOne(file) {
+      if (folderUploadAborted) return;
+      var relPath = file.webkitRelativePath || file.name;
+      var parts = relPath.split("/");
+      var folderPath = parts.slice(0, -1).join("/");
+
+      var formData = new FormData();
+      formData.append("file", file);
+      formData.append("source", "folder-ingest");
+      if (folderPath) formData.append("folder", folderPath);
+
+      try {
+        var r = await fetch("/api/files/upload", { method: "POST", headers: authHeaders(), body: formData });
+        var data = await r.json();
+        if (data.duplicate) skipped++;
+        else if (data.file) uploaded++;
+        else errors++;
+      } catch { errors++; }
+
+      var done = uploaded + skipped + errors;
+      fill.style.width = Math.round((done / total) * 100) + "%";
+      status.textContent = done + " / " + total + (skipped ? " (" + skipped + " dup)" : "") + (errors ? " (" + errors + " err)" : "");
+    }
+
+    // Process in batches of 3
+    for (var i = 0; i < queue.length && !folderUploadAborted; i += 3) {
+      var batch = queue.slice(i, i + 3);
+      await Promise.allSettled(batch.map(uploadOne));
+    }
+
+    // Done — show summary, remove after 3s
+    fill.style.width = "100%";
+    fill.style.background = folderUploadAborted ? "#f59e0b" : "#22c55e";
+    status.textContent = folderUploadAborted
+      ? "Cancelled. " + uploaded + " uploaded, " + skipped + " dup."
+      : uploaded + " uploaded, " + skipped + " dup" + (errors ? ", " + errors + " failed" : "");
+    document.getElementById("folder-cancel").style.display = "none";
+
+    // Reload files panel
+    if (typeof loadFiles === "function") loadFiles();
+
+    setTimeout(function() { if (prog.parentNode) prog.parentNode.removeChild(prog); }, 4000);
   });
 
   // --- Drag and drop zone (whole chat area) ---

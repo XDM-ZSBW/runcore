@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core — Folder Ingestion Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --border: #2a2a2a;
+    --text: #e0e0e0; --text-dim: #888; --accent: #7c6fef;
+    --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+    --mono: "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .demo-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .demo-header h1 { font-size: 16px; font-weight: 600; }
+  .demo-header h1 span { color: var(--accent); }
+  .demo-header .badge {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 4px; padding: 2px 8px;
+  }
+
+  .demo-layout {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr;
+    gap: 0;
+    height: calc(100vh - 53px);
+  }
+
+  .panel { display: flex; flex-direction: column; overflow: hidden; }
+  .panel-title {
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim); padding: 12px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+
+  /* Left panel — source tree */
+  .source-panel { border-right: 1px solid var(--border); }
+  .source-tree { flex: 1; overflow-y: auto; padding: 8px 0; font-size: 13px; }
+
+  /* Tree styling — old school */
+  .tree-item { display: flex; align-items: center; padding: 2px 0 2px 0; cursor: default; white-space: nowrap; }
+  .tree-item:hover { background: rgba(255,255,255,0.03); }
+  .tree-item.processing { background: rgba(124,111,239,0.08); }
+  .tree-item.done { opacity: 0.5; }
+  .tree-item.redacted { background: rgba(245,158,11,0.08); }
+  .tree-indent { display: inline-block; width: 20px; flex-shrink: 0; text-align: center; }
+  .tree-guide { color: var(--border); font-family: var(--mono); font-size: 13px; }
+  .tree-icon { margin-right: 6px; font-size: 12px; flex-shrink: 0; }
+  .tree-icon.folder { color: var(--amber); }
+  .tree-icon.file { color: var(--text-dim); }
+  .tree-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .tree-size { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-left: 8px; padding-right: 12px; }
+  .tree-status { font-size: 10px; margin-left: 8px; padding-right: 12px; }
+  .tree-status.ok { color: var(--green); }
+  .tree-status.redact { color: var(--amber); }
+  .tree-status.skip { color: var(--red); }
+
+  /* Middle — pipeline animation */
+  .pipeline {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 16px;
+    border-right: 1px solid var(--border);
+    background: var(--surface); padding: 16px 8px;
+  }
+  .pipe-stage {
+    width: 48px; height: 48px; border-radius: 8px;
+    border: 1px solid var(--border); display: flex;
+    align-items: center; justify-content: center;
+    font-size: 18px; position: relative;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .pipe-stage.active { border-color: var(--accent); background: rgba(124,111,239,0.1); }
+  .pipe-stage .pipe-label {
+    position: absolute; top: 100%; margin-top: 4px;
+    font-size: 8px; font-family: var(--mono); text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-dim); white-space: nowrap;
+  }
+  .pipe-arrow { color: var(--border); font-size: 14px; }
+
+  /* Right panel — brain tree (result) */
+  .brain-panel { background: var(--bg); }
+  .brain-tree { flex: 1; overflow-y: auto; padding: 8px 0; font-size: 13px; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex; gap: 16px; padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .stat-val { color: var(--text); font-weight: 600; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.amber { color: var(--amber); }
+
+  /* Controls */
+  .controls {
+    display: flex; gap: 8px; padding: 12px 16px;
+    border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 6px;
+    padding: 8px 16px; font-size: 13px; font-family: inherit;
+    cursor: pointer; font-weight: 500;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn.secondary:hover { border-color: var(--text-dim); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Redaction highlight */
+  .redact-hl { background: rgba(245,158,11,0.15); color: var(--amber); padding: 0 2px; border-radius: 2px; font-family: var(--mono); font-size: 11px; }
+
+  @media (max-width: 768px) {
+    .demo-layout { grid-template-columns: 1fr; grid-template-rows: 1fr auto 1fr; }
+    .pipeline { flex-direction: row; border-right: none; border-bottom: 1px solid var(--border); padding: 8px 16px; }
+    .source-panel { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-header">
+  <h1>Run <span>Core</span></h1>
+  <span class="badge">Ingestion Demo</span>
+  <span style="flex:1;"></span>
+  <a href="/" style="font-size:12px;color:var(--text-dim);text-decoration:none;">Back to Core</a>
+</div>
+
+<div class="demo-layout">
+  <!-- Source folder -->
+  <div class="panel source-panel">
+    <div class="panel-title">Source folder</div>
+    <div class="source-tree" id="source-tree"></div>
+    <div class="controls">
+      <button class="btn" id="run-btn" onclick="runDemo()">Run Demo</button>
+      <button class="btn secondary" id="reset-btn" onclick="resetDemo()">Reset</button>
+      <button class="btn secondary" onclick="document.getElementById('real-folder').click()">Select Real Folder</button>
+      <input type="file" id="real-folder" webkitdirectory directory multiple style="display:none;">
+    </div>
+  </div>
+
+  <!-- Pipeline -->
+  <div class="pipeline">
+    <div class="pipe-stage" id="pipe-scan" title="Scan">&#128269;<span class="pipe-label">Scan</span></div>
+    <div class="pipe-arrow">&#9660;</div>
+    <div class="pipe-stage" id="pipe-validate" title="Validate">&#9989;<span class="pipe-label">Check</span></div>
+    <div class="pipe-arrow">&#9660;</div>
+    <div class="pipe-stage" id="pipe-redact" title="Redact">&#128737;<span class="pipe-label">Redact</span></div>
+    <div class="pipe-arrow">&#9660;</div>
+    <div class="pipe-stage" id="pipe-store" title="Store">&#128190;<span class="pipe-label">Store</span></div>
+    <div class="pipe-arrow">&#9660;</div>
+    <div class="pipe-stage" id="pipe-index" title="Index">&#128270;<span class="pipe-label">Index</span></div>
+  </div>
+
+  <!-- Brain result -->
+  <div class="panel brain-panel">
+    <div class="panel-title">Brain — Virtual Folders</div>
+    <div class="brain-tree" id="brain-tree"></div>
+    <div class="stats-bar">
+      <span>Files: <span class="stat-val green" id="stat-files">0</span></span>
+      <span>Redactions: <span class="stat-val amber" id="stat-redactions">0</span></span>
+      <span>PII found: <span class="stat-val amber" id="stat-pii">0</span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+// Demo data — simulates the folder from demo-data/
+var DEMO_FILES = [
+  { path: "Family Docs/Health Records/lab-results-2026.txt", size: 847, pii: ["SSN", "DOB", "MRN", "NPI", "ADDRESS", "PHONE"] },
+  { path: "Family Docs/Health Records/prescription-list.txt", size: 1024, pii: ["PHONE", "ADDRESS", "INSURANCE_ID", "EMAIL"] },
+  { path: "Family Docs/Health Records/vaccination-record.csv", size: 612, pii: ["ADDRESS"] },
+  { path: "Family Docs/Financial/Taxes/w2-2025.txt", size: 743, pii: ["SSN", "ADDRESS", "CARD"] },
+  { path: "Family Docs/Financial/Taxes/property-tax-2025.txt", size: 658, pii: ["ADDRESS", "ACCOUNT_NUMBER"] },
+  { path: "Family Docs/Financial/Insurance/auto-policy.txt", size: 891, pii: ["ADDRESS", "PHONE", "DRIVERS_LICENSE"] },
+  { path: "Family Docs/Financial/Insurance/homeowners-policy.txt", size: 702, pii: ["ADDRESS", "ACCOUNT_NUMBER"] },
+  { path: "Family Docs/Legal/Estate/will-summary.txt", size: 824, pii: ["ADDRESS", "PHONE"] },
+  { path: "Family Docs/Legal/Estate/beneficiary-contacts.csv", size: 418, pii: ["SSN", "PHONE", "EMAIL", "ADDRESS"] },
+  { path: "Family Docs/Recipes/grandmas-chili.md", size: 1200, pii: [] },
+  { path: "Family Docs/Recipes/christmas-cookies.md", size: 980, pii: [] },
+  { path: "Family Docs/Work/Projects/project-status.md", size: 645, pii: ["PHONE", "ACCOUNT_NUMBER"] },
+  { path: "Family Docs/Work/Contracts/lawn-service-2026.txt", size: 712, pii: ["ADDRESS", "PHONE", "EMAIL", "CARD"] },
+  { path: "Family Docs/Family Photos/2024/christmas-dinner.txt", size: 534, pii: ["ADDRESS"] },
+  { path: "Family Docs/Family Photos/2025/summer-cookout.txt", size: 621, pii: [] },
+  { path: "Family Docs/passwords.txt", size: 489, pii: ["EMAIL", "PHONE"], rejected: "Contains plaintext passwords — flagged for review" },
+];
+
+var demoFiles = DEMO_FILES;
+var running = false;
+
+function buildTree(files, containerId) {
+  var container = document.getElementById(containerId);
+  container.innerHTML = "";
+
+  // Build folder structure
+  var root = { children: {}, files: [] };
+  files.forEach(function(f) {
+    var parts = f.path.split("/");
+    var node = root;
+    for (var i = 0; i < parts.length - 1; i++) {
+      if (!node.children[parts[i]]) node.children[parts[i]] = { children: {}, files: [] };
+      node = node.children[parts[i]];
+    }
+    node.files.push({ name: parts[parts.length - 1], ...f });
+  });
+
+  function renderNode(node, depth, isLast, parentPrefix) {
+    var keys = Object.keys(node.children).sort();
+    var allItems = [];
+    keys.forEach(function(k) { allItems.push({ type: "folder", name: k, node: node.children[k] }); });
+    node.files.sort(function(a, b) { return a.name.localeCompare(b.name); });
+    node.files.forEach(function(f) { allItems.push({ type: "file", ...f }); });
+
+    allItems.forEach(function(item, idx) {
+      var last = idx === allItems.length - 1;
+      var connector = last ? "\u2514\u2500" : "\u251C\u2500";
+      var guide = parentPrefix + connector + " ";
+      var childPrefix = parentPrefix + (last ? "   " : "\u2502  ");
+
+      var div = document.createElement("div");
+      div.className = "tree-item";
+      div.setAttribute("data-path", item.path || "");
+
+      var html = '<span class="tree-guide" style="white-space:pre;font-family:var(--mono);">' + guide + '</span>';
+
+      if (item.type === "folder") {
+        html += '<span class="tree-icon folder">&#128193;</span>';
+        html += '<span class="tree-name" style="font-weight:500;">' + item.name + '</span>';
+      } else {
+        var ext = item.name.split(".").pop();
+        var icon = ext === "csv" ? "&#128202;" : ext === "md" ? "&#128196;" : ext === "txt" ? "&#128196;" : "&#128196;";
+        html += '<span class="tree-icon file">' + icon + '</span>';
+        html += '<span class="tree-name">' + item.name + '</span>';
+        html += '<span class="tree-size">' + formatSize(item.size) + '</span>';
+      }
+
+      div.innerHTML = html;
+      container.appendChild(div);
+
+      if (item.type === "folder") {
+        renderNode(item.node, depth + 1, last, childPrefix);
+      }
+    });
+  }
+
+  // Render root name
+  var rootName = files.length > 0 ? files[0].path.split("/")[0] : "Folder";
+  var rootDiv = document.createElement("div");
+  rootDiv.className = "tree-item";
+  rootDiv.innerHTML = '<span class="tree-icon folder">&#128193;</span><span class="tree-name" style="font-weight:600;">' + rootName + '</span>';
+  container.appendChild(rootDiv);
+
+  renderNode(root.children[rootName] || root, 0, false, "");
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  return (bytes / 1024).toFixed(1) + " KB";
+}
+
+function resetDemo() {
+  running = false;
+  demoFiles = DEMO_FILES;
+  buildTree(demoFiles, "source-tree");
+  document.getElementById("brain-tree").innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px;font-style:italic;">Run the demo to see files organized here.</div>';
+  document.getElementById("stat-files").textContent = "0";
+  document.getElementById("stat-redactions").textContent = "0";
+  document.getElementById("stat-pii").textContent = "0";
+  document.querySelectorAll(".pipe-stage").forEach(function(s) { s.classList.remove("active"); });
+  document.getElementById("run-btn").disabled = false;
+}
+
+async function runDemo() {
+  if (running) return;
+  running = true;
+  document.getElementById("run-btn").disabled = true;
+
+  var sourceItems = document.querySelectorAll("#source-tree .tree-item[data-path]");
+  var brainFiles = [];
+  var totalRedactions = 0;
+  var totalPii = 0;
+  var stages = ["pipe-scan", "pipe-validate", "pipe-redact", "pipe-store", "pipe-index"];
+
+  for (var fi = 0; fi < demoFiles.length; fi++) {
+    var file = demoFiles[fi];
+    if (!running) break;
+
+    // Find source tree item
+    var srcItem = document.querySelector('#source-tree .tree-item[data-path="' + file.path + '"]');
+
+    // Stage 1: Scan
+    setStage(0); if (srcItem) srcItem.classList.add("processing");
+    await wait(200);
+
+    // Stage 2: Validate
+    setStage(1);
+    await wait(150);
+
+    if (file.rejected) {
+      // Rejected file
+      if (srcItem) {
+        srcItem.classList.remove("processing");
+        srcItem.classList.add("redacted");
+        srcItem.innerHTML += '<span class="tree-status skip">FLAGGED</span>';
+      }
+      await wait(300);
+      continue;
+    }
+
+    // Stage 3: Redact
+    setStage(2);
+    var piiCount = file.pii ? file.pii.length : 0;
+    totalPii += piiCount;
+    if (piiCount > 0) {
+      totalRedactions += piiCount;
+      if (srcItem) {
+        srcItem.classList.add("redacted");
+        srcItem.innerHTML += '<span class="tree-status redact">' + piiCount + ' redacted</span>';
+      }
+    }
+    await wait(piiCount > 0 ? 300 : 100);
+
+    // Stage 4: Store
+    setStage(3);
+    await wait(150);
+
+    // Stage 5: Index
+    setStage(4);
+    brainFiles.push(file);
+    if (srcItem) { srcItem.classList.remove("processing"); srcItem.classList.add("done"); }
+    await wait(100);
+
+    // Update stats
+    document.getElementById("stat-files").textContent = brainFiles.length;
+    document.getElementById("stat-redactions").textContent = totalRedactions;
+    document.getElementById("stat-pii").textContent = totalPii;
+
+    // Rebuild brain tree
+    buildTree(brainFiles, "brain-tree");
+  }
+
+  // Clear pipeline
+  document.querySelectorAll(".pipe-stage").forEach(function(s) { s.classList.remove("active"); });
+  running = false;
+  document.getElementById("run-btn").disabled = false;
+
+  function setStage(idx) {
+    stages.forEach(function(id, i) {
+      document.getElementById(id).classList.toggle("active", i === idx);
+    });
+  }
+}
+
+function wait(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+// Real folder selection — read actual files and build tree
+document.getElementById("real-folder").addEventListener("change", function() {
+  var files = this.files;
+  if (!files || !files.length) return;
+  this.value = "";
+
+  demoFiles = [];
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    demoFiles.push({
+      path: f.webkitRelativePath || f.name,
+      size: f.size,
+      pii: [], // Can't scan client-side in demo, but structure shows
+    });
+  }
+  buildTree(demoFiles, "source-tree");
+  document.getElementById("brain-tree").innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px;font-style:italic;">Run the demo to see files organized here.</div>';
+});
+
+// Init
+resetDemo();
+</script>
+</body>
+</html>

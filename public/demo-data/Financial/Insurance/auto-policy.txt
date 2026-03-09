@@ -1,0 +1,26 @@
+State Farm Auto Insurance Policy
+
+Policy #: SF-OH-8842-5567-A
+Effective: 01/01/2026 — 07/01/2026
+
+Named Insured: Robert A. Herrman
+Address: 4412 Maple Ridge Dr, Columbus OH 43220
+Phone: 614-555-0147
+Driver's License: OH-RH442891
+
+Vehicle 1: 2022 Toyota RAV4 XLE
+VIN: 2T3P1RFV8NW123456
+Liability: 100/300/100
+Collision: $500 deductible
+Comprehensive: $250 deductible
+Premium: $847/6mo
+
+Vehicle 2: 2020 Honda Accord Sport
+VIN: 1HGCV1F34LA098765
+Liability: 100/300/100
+Collision: $500 deductible
+Comprehensive: $250 deductible
+Premium: $762/6mo
+
+Agent: Mike Patterson
+Office: 614-555-0288

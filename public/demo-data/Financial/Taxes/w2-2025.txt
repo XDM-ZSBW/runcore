@@ -1,0 +1,18 @@
+W-2 Wage and Tax Statement — 2025
+
+Employer: Nationwide Insurance
+EIN: 31-4177660
+Address: One Nationwide Plaza, Columbus OH 43215
+
+Employee: Robert Herrman
+SSN: 298-54-7163
+Address: 4412 Maple Ridge Dr, Columbus OH 43220
+
+Box 1 - Wages: $82,450.00
+Box 2 - Federal tax withheld: $12,891.00
+Box 3 - Social security wages: $82,450.00
+Box 4 - Social security tax: $5,111.90
+Box 5 - Medicare wages: $82,450.00
+Box 6 - Medicare tax: $1,195.53
+Box 12a - 401(k): $8,245.00
+Box 14 - State: OH  State wages: $82,450.00  State tax: $3,298.00
