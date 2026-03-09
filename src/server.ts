@@ -3770,13 +3770,112 @@ import { initPlugins, shutdownPlugins } from "./plugins/index.js";
 
 // --- File management routes ---
 
-import { fileRegistry } from "./files/registry.js";
+import { fileRegistry, computeChecksum } from "./files/registry.js";
+import { validateUpload } from "./files/validate.js";
+import { slugify } from "./files/validate.js";
 
 app.get("/api/plugins", (c) => {
   return c.json(getPluginStatusSummary());
 });
 
 // --- File management routes ---
+
+// Upload file — persist to brain/files/data/, register in JSONL
+app.post("/api/files/upload", async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
+    if (!file) return c.json({ error: "No file provided" }, 400);
+
+    const source = (formData.get("source") as string) || "user-upload";
+    const tagsRaw = formData.get("tags") as string;
+    const tags = tagsRaw ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean) : [];
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const maxUploadBytes = 50 * 1024 * 1024; // 50 MB
+
+    // Validate: extension allowlist, magic bytes, size, content scan
+    const validation = await validateUpload(buffer, file.name, file.type, maxUploadBytes);
+    if (!validation.valid) {
+      return c.json({ error: validation.rejected }, 400);
+    }
+
+    // Generate storage path: brain/files/data/YYYY-MM-DD/slug_id.ext
+    const dateDir = new Date().toISOString().slice(0, 10);
+    const slug = slugify(file.name.replace(/\.[^.]+$/, ""));
+    const checksum = computeChecksum(buffer);
+
+    // Check for duplicate by checksum
+    const existing = await fileRegistry.list({});
+    const dup = existing.find(r => r.checksum === checksum && r.status === "active");
+    if (dup) {
+      return c.json({ file: dup, duplicate: true });
+    }
+
+    const storageDir = join(BRAIN_DIR, "files", "data", dateDir);
+    await mkdir(storageDir, { recursive: true });
+
+    const storedName = `${slug}_${Date.now()}${validation.detectedExt}`;
+    const storagePath = join("files", "data", dateDir, storedName);
+    const fullPath = join(BRAIN_DIR, storagePath);
+
+    await writeFile(fullPath, buffer);
+
+    // Extract text preview for searchability
+    let textPreview: string | undefined;
+    const textExts = new Set([".txt", ".md", ".csv", ".json", ".yaml", ".yml", ".xml", ".log"]);
+    if (textExts.has(validation.detectedExt)) {
+      textPreview = buffer.toString("utf-8").slice(0, 500);
+    } else if (validation.detectedExt === ".pdf") {
+      try {
+        const { extractPdfText } = await import("./files/extract.js");
+        textPreview = (await extractPdfText(buffer)).slice(0, 500);
+      } catch { /* PDF extraction optional */ }
+    }
+
+    // Register in file registry
+    const record = await fileRegistry.register({
+      filename: validation.sanitizedName,
+      storagePath,
+      mimeType: validation.detectedMime || file.type,
+      sizeBytes: buffer.length,
+      checksum,
+      tags,
+      source,
+      status: "active",
+    });
+
+    return c.json({ file: record, duplicate: false });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.warn("File upload failed", { error: msg });
+    return c.json({ error: `Upload failed: ${msg}` }, 500);
+  }
+});
+
+// Download / serve a stored file
+app.get("/api/files/:id/download", async (c) => {
+  const record = await fileRegistry.get(c.req.param("id"));
+  if (!record) return c.json({ error: "File not found" }, 404);
+
+  const fullPath = join(BRAIN_DIR, record.storagePath);
+  try {
+    const data = await readFile(fullPath);
+    return c.newResponse(data, 200, {
+      "Content-Type": record.mimeType,
+      "Content-Disposition": `inline; filename="${record.filename}"`,
+      "Content-Length": String(data.length),
+    });
+  } catch {
+    return c.json({ error: "File data not found on disk" }, 404);
+  }
+});
+
+// List virtual folders (must be before :id route)
+app.get("/api/files/folders", async (c) => {
+  const folders = await fileRegistry.getFolders();
+  return c.json({ folders });
+});
 
 app.get("/api/files", async (c) => {
   const status = c.req.query("status");
@@ -3803,6 +3902,28 @@ app.post("/api/files/:id/archive", async (c) => {
   if (!result) return c.json({ error: "File not found", code: "NOT_FOUND", status: 404 }, 404);
   return c.json(result);
 });
+
+// Update file tags / move to virtual folder
+app.put("/api/files/:id", async (c) => {
+  const body = await c.req.json();
+  const { tags, source, folder } = body as { tags?: string[]; source?: string; folder?: string };
+  const id = c.req.param("id");
+
+  const record = await fileRegistry.get(id);
+  if (!record) return c.json({ error: "File not found" }, 404);
+
+  // Handle virtual folder: stored as tag "folder:Name"
+  let updatedTags = tags ?? [...(record.tags ?? [])];
+  if (folder !== undefined) {
+    // Remove existing folder tags, add new one
+    updatedTags = updatedTags.filter(t => !t.startsWith("folder:"));
+    if (folder) updatedTags.push("folder:" + folder);
+  }
+
+  const result = await fileRegistry.update(id, { tags: updatedTags, ...(source ? { source } : {}) });
+  return c.json(result);
+});
+
 
 // --- Module discovery routes ---
 

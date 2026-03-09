@@ -191,6 +191,43 @@ export class FileRegistry {
   }
 
   /**
+   * Update tags or source on a file record. Appends a new line (append-only).
+   */
+  async update(id: string, patch: { tags?: string[]; source?: string }): Promise<FileRecord | null> {
+    const map = await this.load();
+    const existing = map.get(id);
+    if (!existing) return null;
+
+    const updated: FileRecord = {
+      ...existing,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    map.set(id, updated);
+    await this.append(updated);
+
+    log.info("file updated", { id, changes: Object.keys(patch) });
+    return updated;
+  }
+
+  /**
+   * Get all unique tags (virtual folders) across all active records.
+   */
+  async getFolders(): Promise<string[]> {
+    const map = await this.load();
+    const folders = new Set<string>();
+    for (const record of map.values()) {
+      if (record.status === "archived") continue;
+      for (const tag of record.tags ?? []) {
+        if (tag.startsWith("folder:")) {
+          folders.add(tag.slice(7));
+        }
+      }
+    }
+    return [...folders].sort();
+  }
+
+  /**
    * Fuzzy search across filename and tags. Returns records whose filename
    * or any tag contains the query string (case-insensitive).
    */

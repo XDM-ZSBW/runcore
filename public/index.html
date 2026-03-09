@@ -260,10 +260,77 @@
   }
 
   .message {
-    padding: 12px 20px;
+    padding: 12px 20px 12px 36px;
     max-width: var(--max-width);
     margin: 0 auto;
     width: 100%;
+    position: relative;
+  }
+
+  /* --- Topic branch indicator (git-style) --- */
+  .drift-line {
+    position: absolute;
+    left: 12px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 1.5px;
+    transition: background 0.3s, left 0.3s;
+  }
+  .drift-line[data-drift="0"] { background: #2ea043; left: 12px; }
+  .drift-line[data-drift="1"] { background: #3fb950; left: 14px; }
+  .drift-line[data-drift="2"] { background: #d29922; left: 17px; }
+  .drift-line[data-drift="3"] { background: #db6d28; left: 20px; }
+  .drift-line[data-drift="4"] { background: #f85149; left: 24px; }
+  .drift-node {
+    position: absolute;
+    left: -3px;
+    top: 14px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid var(--bg);
+    background: inherit;
+  }
+  .drift-line .drift-connector {
+    position: absolute;
+    top: 18px;
+    height: 2px;
+    background: inherit;
+    border-radius: 1px;
+  }
+  /* Connector from previous position to current */
+  .drift-line[data-drift="0"] .drift-connector { display: none; }
+
+  /* Continuity score badge */
+  .continuity-badge {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  }
+  .continuity-score {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .continuity-score.high { color: #2ea043; }
+  .continuity-score.mid { color: #d29922; }
+  .continuity-score.low { color: #f85149; }
+  .continuity-topic {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-dim);
   }
 
   .message .role {
@@ -312,9 +379,25 @@
     padding: 0;
   }
 
-  .message .content ul {
+  .message .content ul,
+  .message .content ol {
     margin: 4px 0;
+    padding-left: 24px;
+  }
+  .message .content ul ul,
+  .message .content ol ol,
+  .message .content ul ol,
+  .message .content ol ul {
+    margin: 0;
     padding-left: 20px;
+  }
+  .message .content li {
+    margin: 0;
+    padding: 1px 0;
+    line-height: 1.5;
+  }
+  .message .content li > p {
+    margin: 0;
   }
 
   .message .content strong { font-weight: 600; }
@@ -611,6 +694,240 @@
     text-align: center;
     cursor: pointer;
     padding: 0;
+  }
+
+  /* --- Content sidebar (left panel — threads + files) --- */
+  .content-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    overflow: hidden;
+    position: relative;
+    transition: width 0.2s ease;
+  }
+  .content-sidebar.collapsed {
+    width: 48px;
+  }
+  .content-sidebar.collapsed .sidebar-search,
+  .content-sidebar.collapsed .sidebar-tabs,
+  .content-sidebar.collapsed .sidebar-tab-content,
+  .content-sidebar.collapsed .thread-sidebar-header {
+    display: none;
+  }
+  .content-sidebar.collapsed .sidebar-collapse-btn {
+    transform: rotate(180deg);
+  }
+  .content-sidebar.hidden { display: none; }
+  .sidebar-search {
+    padding: 10px 12px 6px;
+    flex-shrink: 0;
+  }
+  .sidebar-search input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+  }
+  .sidebar-search input:focus { border-color: var(--accent); }
+  .sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 0;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+  }
+  .sidebar-tab:hover { color: var(--text); }
+  .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .sidebar-tab-content {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .sidebar-tab-content.active { display: flex; }
+  .sidebar-collapse-btn {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: transform 0.2s;
+  }
+  .sidebar-collapse-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+  /* Files tab content */
+  .files-folders {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .files-folders::-webkit-scrollbar { display: none; }
+  .files-folder-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .files-folder-btn:hover { color: var(--text); border-color: var(--text-dim); }
+  .files-folder-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(124,111,239,0.1); }
+  .files-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .files-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .files-item:hover { background: var(--bg); }
+  .files-item-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .files-item-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .files-item-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .files-item-name {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .files-item-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 6px;
+  }
+  .files-item-folder {
+    font-size: 9px;
+    color: var(--accent);
+    background: rgba(124,111,239,0.1);
+    padding: 1px 5px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .files-item-actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .files-item:hover .files-item-actions { opacity: 1; }
+  .files-item-actions button {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 3px;
+  }
+  .files-item-actions button:hover { color: var(--text); }
+  .files-panel-footer {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .files-upload-btn, .files-new-folder-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .files-upload-btn:hover, .files-new-folder-btn:hover {
+    color: var(--text);
+    border-color: var(--text-dim);
+  }
+  .files-empty {
+    padding: 32px 12px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  /* --- Drop overlay --- */
+  #drop-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(10, 10, 10, 0.85);
+    align-items: center;
+    justify-content: center;
+  }
+  #drop-overlay.visible { display: flex; }
+  .drop-overlay-content {
+    padding: 48px 64px;
+    border: 2px dashed rgba(255,255,255,0.3);
+    border-radius: 16px;
+    color: rgba(255,255,255,0.7);
+    font-size: 18px;
+    font-family: var(--font-mono, monospace);
+    pointer-events: none;
   }
 
   /* --- Vault slide-over --- */
@@ -1656,19 +1973,7 @@
   }
 
 
-  /* ─── Thread sidebar ─── */
-
-  .thread-sidebar {
-    width: 260px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-    overflow: hidden;
-  }
-
-  .thread-sidebar.hidden { display: none; }
+  /* ─── Thread sidebar (inside content-sidebar) ─── */
 
   .thread-sidebar-header {
     display: flex;
@@ -1880,15 +2185,16 @@
     .tab-group { margin-left: 4px; }
     .tab-btn { font-size: 11px; padding: 3px 8px; }
 
-    /* Thread sidebar: full overlay on mobile */
-    .thread-sidebar {
+    /* Content sidebar: full overlay on mobile */
+    .content-sidebar {
       position: fixed;
       top: 0; left: 0; bottom: 0;
       width: 280px;
       z-index: 50;
       box-shadow: 4px 0 20px rgba(0,0,0,0.5);
     }
-    .thread-sidebar.hidden { display: none; }
+    .content-sidebar.hidden { display: none; }
+    .content-sidebar.collapsed { width: 0; display: none; }
 
     /* Messages: tighter padding */
     .message { padding: 10px 12px; }
@@ -2061,17 +2367,41 @@
     <button class="thread-toggle-btn" id="thread-toggle-btn" title="Toggle threads">&#9776;</button>
     <span class="thread-current-label" id="thread-current-label" title="Click to toggle threads"></span>
     <span class="spacer"></span>
-    <button class="gear-btn" id="mobile-pair-btn" onclick="openMobileModal()" title="Go Mobile" style="display:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></button>
+    <button class="gear-btn" id="mobile-pair-btn" onclick="openMobileModal()" title="Go Mobile"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></button>
+    <button class="gear-btn" id="share-btn" onclick="nativeShare()" title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
     <button class="gear-btn" id="vault-open-btn" title="Settings">&#9881;</button>
     <span class="tab-badge" id="activity-badge" style="display:none;"></span>
   </div>
   <div class="chat-body">
-    <div class="thread-sidebar hidden" id="thread-sidebar">
-      <div class="thread-sidebar-header">
-        <span>Threads</span>
-        <button class="thread-new-btn" id="thread-new-btn">+ New</button>
+    <div class="content-sidebar" id="content-sidebar">
+      <div class="sidebar-search">
+        <input type="text" id="sidebar-search" placeholder="Search..." />
       </div>
-      <div class="thread-list" id="thread-list"></div>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" data-tab="threads">Threads</button>
+        <button class="sidebar-tab" data-tab="files">Files</button>
+      </div>
+      <!-- Threads tab -->
+      <div class="sidebar-tab-content active" id="sidebar-threads">
+        <div class="thread-sidebar-header">
+          <button class="thread-new-btn" id="thread-new-btn">+ New</button>
+        </div>
+        <div class="thread-list" id="thread-list"></div>
+      </div>
+      <!-- Files tab -->
+      <div class="sidebar-tab-content" id="sidebar-files">
+        <div class="files-folders" id="files-folders">
+          <button class="files-folder-btn active" data-folder="">All</button>
+        </div>
+        <div class="files-list" id="files-list"></div>
+        <div class="files-panel-footer">
+          <button class="files-upload-btn" id="files-upload-btn">+ Upload</button>
+          <button class="files-new-folder-btn" id="files-new-folder-btn">+ Folder</button>
+          <input type="file" id="files-upload-input" multiple style="display:none;" />
+        </div>
+      </div>
+      <!-- Collapse rail -->
+      <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" title="Collapse sidebar">&#9664;</button>
     </div>
     <!-- Chat pane (left) -->
     <div class="chat-pane" id="chat-pane">
@@ -2541,33 +2871,62 @@
     if (incognitoMode && chatInput.value.trim()) chatInput.classList.add("redacted");
   });
 
-  // --- Thread state ---
-  const threadSidebar = document.getElementById("thread-sidebar");
+  // --- Content sidebar state ---
+  const contentSidebar = document.getElementById("content-sidebar");
   const threadListEl = document.getElementById("thread-list");
   const threadToggleBtn = document.getElementById("thread-toggle-btn");
   const threadNewBtn = document.getElementById("thread-new-btn");
   const threadCurrentLabel = document.getElementById("thread-current-label");
   let currentThreadId = null;
-  let threadSidebarOpen = false;
+  let sidebarOpen = true; // visible by default on desktop
+  let sidebarCollapsed = false;
   let threads = [];
 
-  // Mobile thread backdrop
+  // Mobile backdrop
   const threadBackdrop = document.createElement("div");
   threadBackdrop.style.cssText = "display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:49;";
   document.body.appendChild(threadBackdrop);
-  threadBackdrop.addEventListener("click", () => toggleThreadSidebar());
+  threadBackdrop.addEventListener("click", () => toggleContentSidebar());
 
-  function toggleThreadSidebar() {
-    threadSidebarOpen = !threadSidebarOpen;
-    threadSidebar.classList.toggle("hidden", !threadSidebarOpen);
-    // Show backdrop on mobile when sidebar is open
+  // Tab switching
+  document.querySelectorAll(".sidebar-tab").forEach(function(tab) {
+    tab.addEventListener("click", function() {
+      document.querySelectorAll(".sidebar-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.querySelectorAll(".sidebar-tab-content").forEach(function(c) { c.classList.remove("active"); });
+      tab.classList.add("active");
+      var target = document.getElementById("sidebar-" + tab.dataset.tab);
+      if (target) target.classList.add("active");
+      if (tab.dataset.tab === "threads") loadThreads();
+      if (tab.dataset.tab === "files") loadFiles();
+    });
+  });
+
+  // Collapse/expand
+  document.getElementById("sidebar-collapse-btn").addEventListener("click", function() {
+    sidebarCollapsed = !sidebarCollapsed;
+    contentSidebar.classList.toggle("collapsed", sidebarCollapsed);
+  });
+
+  function toggleContentSidebar() {
+    sidebarOpen = !sidebarOpen;
     const isMobile = window.innerWidth <= 640;
-    threadBackdrop.style.display = (threadSidebarOpen && isMobile) ? "block" : "none";
-    if (threadSidebarOpen) loadThreads();
+    if (isMobile) {
+      contentSidebar.classList.toggle("hidden", !sidebarOpen);
+      threadBackdrop.style.display = sidebarOpen ? "block" : "none";
+    } else {
+      contentSidebar.classList.toggle("hidden", !sidebarOpen);
+    }
+    if (sidebarOpen) loadThreads();
   }
 
-  threadToggleBtn.addEventListener("click", toggleThreadSidebar);
-  threadCurrentLabel.addEventListener("click", toggleThreadSidebar);
+  // Start hidden on mobile, visible on desktop
+  if (window.innerWidth <= 640) {
+    sidebarOpen = false;
+    contentSidebar.classList.add("hidden");
+  }
+
+  threadToggleBtn.addEventListener("click", toggleContentSidebar);
+  threadCurrentLabel.addEventListener("click", toggleContentSidebar);
 
   async function loadThreads() {
     try {
@@ -2621,6 +2980,12 @@
     if (threadId === currentThreadId) return;
     currentThreadId = threadId;
     messagesEl.innerHTML = "";
+    // Reset topic tracking for new thread
+    topicState.keywords = [];
+    topicState.established = false;
+    topicState.scores = [];
+    topicState.messageTexts = [];
+    topicState.topic = "";
     renderThreadList();
     updateThreadLabel();
 
@@ -2694,10 +3059,32 @@
 
   function getFileExt(name) { return "." + name.split(".").pop().toLowerCase(); }
 
-  attachBtn.addEventListener("click", () => { if (incognitoMode) return; fileInput.click(); });
-  fileInput.addEventListener("change", async () => {
-    for (const file of fileInput.files) {
+  // Persist file to brain (fire-and-forget, doesn't block chat)
+  function persistFileToBrain(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("source", "user-upload");
+    fetch("/api/files/upload", { method: "POST", headers: authHeaders(), body: formData })
+      .then(r => r.json())
+      .then(data => {
+        if (data.duplicate) {
+          console.log("File already in brain:", file.name);
+        } else if (data.file) {
+          console.log("Saved to brain:", file.name, data.file.id);
+        } else if (data.error) {
+          console.warn("Brain save skipped:", file.name, data.error);
+        }
+      })
+      .catch(err => console.warn("Brain save failed:", file.name, err.message));
+  }
+
+  // Process files for both chat context AND brain persistence
+  async function processAttachedFiles(files) {
+    for (const file of files) {
       const ext = getFileExt(file.name);
+
+      // Always persist to brain (background, non-blocking)
+      persistFileToBrain(file);
 
       if (file.type.startsWith("image/")) {
         // Image: base64 for vision
@@ -2740,7 +3127,45 @@
         }
       }
     }
+  }
+
+  attachBtn.addEventListener("click", () => { if (incognitoMode) return; fileInput.click(); });
+  fileInput.addEventListener("change", async () => {
+    await processAttachedFiles(fileInput.files);
     fileInput.value = "";
+  });
+
+  // --- Drag and drop zone (whole chat area) ---
+  var chatArea = document.getElementById("messages") || document.body;
+  var dropOverlay = document.createElement("div");
+  dropOverlay.id = "drop-overlay";
+  dropOverlay.innerHTML = '<div class="drop-overlay-content">Drop files here</div>';
+  document.body.appendChild(dropOverlay);
+
+  var dragCounter = 0;
+  chatArea.addEventListener("dragenter", (e) => {
+    if (incognitoMode) return;
+    e.preventDefault();
+    dragCounter++;
+    dropOverlay.classList.add("visible");
+  });
+  chatArea.addEventListener("dragleave", (e) => {
+    dragCounter--;
+    if (dragCounter <= 0) { dragCounter = 0; dropOverlay.classList.remove("visible"); }
+  });
+  chatArea.addEventListener("dragover", (e) => {
+    if (incognitoMode) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  chatArea.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dropOverlay.classList.remove("visible");
+    if (incognitoMode) return;
+    if (e.dataTransfer.files.length > 0) {
+      await processAttachedFiles(e.dataTransfer.files);
+    }
   });
 
   screenshotBtn.addEventListener("click", async () => {
@@ -2766,6 +3191,13 @@
       const base64 = dataUrl.split(",")[1];
       pendingImages.push({ data: base64, mimeType: "image/jpeg" });
       renderAttachmentPreviews();
+      // Persist screenshot to brain
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        const screenshotFile = new File([blob], "screenshot-" + ts + ".jpg", { type: "image/jpeg" });
+        persistFileToBrain(screenshotFile);
+      }, "image/jpeg", 0.8);
     } catch (err) {
       console.log("Screen capture cancelled or failed:", err.message);
     }
@@ -3501,6 +3933,103 @@
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  // --- Topic drift tracking (git-style branch indicator) ---
+  var topicState = {
+    keywords: [],        // main topic keywords extracted from first messages
+    established: false,  // topic established after N messages
+    scores: [],          // drift score per message (0-4)
+    messageTexts: [],    // raw text per message for scoring
+    topic: "",           // detected main topic label
+  };
+
+  // Stop words to filter out
+  var STOP_WORDS = new Set(["the","a","an","is","are","was","were","be","been","being","have","has","had",
+    "do","does","did","will","would","could","should","shall","may","might","can","must",
+    "i","you","he","she","it","we","they","me","him","her","us","them","my","your","his",
+    "its","our","their","this","that","these","those","what","which","who","whom","whose",
+    "where","when","how","why","if","then","than","but","and","or","not","no","so","too",
+    "very","just","about","also","like","with","from","for","into","of","on","in","to","at",
+    "by","up","out","off","over","under","again","further","once","here","there","all","each",
+    "every","both","few","more","most","other","some","such","only","own","same","as","now",
+    "new","one","two","well","way","see","get","got","go","know","think","make","take","come",
+    "want","use","find","give","tell","say","said","let","yeah","yes","ok","okay","sure",
+    "right","thing","things","something","anything","really","much","many","still","even"]);
+
+  function extractKeywords(text) {
+    if (!text || typeof text !== "string") return [];
+    // Strip markdown, code blocks, URLs
+    var clean = text
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`[^`]+`/g, " ")
+      .replace(/https?:\/\/\S+/g, " ")
+      .replace(/[#*_\[\](){}|>~`]/g, " ")
+      .replace(/\s+/g, " ")
+      .toLowerCase()
+      .trim();
+    var words = clean.split(/\s+/).filter(function(w) {
+      return w.length > 2 && !STOP_WORDS.has(w) && !/^\d+$/.test(w);
+    });
+    // Count frequency
+    var freq = {};
+    words.forEach(function(w) { freq[w] = (freq[w] || 0) + 1; });
+    // Sort by frequency, return top keywords
+    return Object.keys(freq).sort(function(a, b) { return freq[b] - freq[a]; }).slice(0, 30);
+  }
+
+  function scoreDrift(messageText) {
+    if (!topicState.established || topicState.keywords.length === 0) return 0;
+    var msgKeywords = extractKeywords(messageText);
+    if (msgKeywords.length === 0) return 0;
+    // Count how many message keywords overlap with topic keywords
+    var topicSet = new Set(topicState.keywords);
+    var overlap = msgKeywords.filter(function(k) { return topicSet.has(k); }).length;
+    var ratio = overlap / Math.min(msgKeywords.length, topicState.keywords.length);
+    // Map ratio to drift level: 1.0 = on topic (0), 0.0 = off topic (4)
+    if (ratio >= 0.3) return 0;
+    if (ratio >= 0.2) return 1;
+    if (ratio >= 0.12) return 2;
+    if (ratio >= 0.05) return 3;
+    return 4;
+  }
+
+  function updateTopicFromMessages() {
+    // Establish topic from first 4 non-system messages
+    var texts = topicState.messageTexts.slice(0, 6);
+    if (texts.length < 2) return;
+    var combined = texts.join(" ");
+    topicState.keywords = extractKeywords(combined);
+    topicState.established = true;
+    // Topic label: top 3 keywords
+    topicState.topic = topicState.keywords.slice(0, 3).join(", ");
+  }
+
+  function computeContinuityScore() {
+    if (topicState.scores.length < 2) return 100;
+    var total = topicState.scores.length;
+    var onTopic = topicState.scores.filter(function(s) { return s <= 1; }).length;
+    return Math.round((onTopic / total) * 100);
+  }
+
+  function renderContinuityBadge() {
+    var existing = document.getElementById("continuity-badge");
+    if (topicState.scores.length < 3) {
+      if (existing) existing.style.display = "none";
+      return;
+    }
+    var score = computeContinuityScore();
+    var cls = score >= 70 ? "high" : (score >= 40 ? "mid" : "low");
+    if (!existing) {
+      existing = document.createElement("div");
+      existing.id = "continuity-badge";
+      existing.className = "continuity-badge";
+      messagesEl.insertBefore(existing, messagesEl.firstChild);
+    }
+    existing.style.display = "flex";
+    existing.innerHTML = '<span class="continuity-score ' + cls + '">' + score + '%</span>'
+      + '<span>continuity</span>'
+      + '<span class="continuity-topic">' + (topicState.topic || "detecting...") + '</span>';
+  }
+
   function addMessage(role, content, labelOverride) {
     const div = document.createElement("div");
     div.className = "message " + role;
@@ -3517,6 +4046,33 @@
     } else {
       div.querySelector(".content").textContent = content;
     }
+
+    // --- Drift tracking ---
+    if (role !== "system") {
+      var text = typeof content === "string" ? content : "";
+      topicState.messageTexts.push(text);
+
+      // Establish topic after a few messages
+      if (!topicState.established && topicState.messageTexts.length >= 2) {
+        updateTopicFromMessages();
+      }
+
+      var drift = scoreDrift(text);
+      topicState.scores.push(drift);
+
+      // Add drift indicator line
+      var driftLine = document.createElement("div");
+      driftLine.className = "drift-line";
+      driftLine.setAttribute("data-drift", String(drift));
+      var node = document.createElement("div");
+      node.className = "drift-node";
+      driftLine.appendChild(node);
+      div.appendChild(driftLine);
+
+      // Update continuity badge
+      renderContinuityBadge();
+    }
+
     messagesEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
     return div;
@@ -4479,6 +5035,191 @@
     }
   }
 
+  // --- Files panel (integrated in content sidebar) ---
+  var filesList = document.getElementById("files-list");
+  var filesFolders = document.getElementById("files-folders");
+  var filesUploadInput = document.getElementById("files-upload-input");
+  var sidebarSearchInput = document.getElementById("sidebar-search");
+  var activeFolder = "";
+  var allFiles = [];
+  var allFolders = [];
+
+  var FILE_ICONS = {
+    photo: "\ud83d\uddbc\ufe0f", document: "\ud83d\udcc4", data: "\ud83d\udcca",
+    code: "\ud83d\udcbb", spreadsheet: "\ud83d\udcca", video: "\ud83c\udfa5",
+    audio: "\ud83c\udfa7", graphic: "\ud83c\udfa8", file: "\ud83d\udcc1"
+  };
+
+  async function loadFiles() {
+    try {
+      var q = sidebarSearchInput.value.trim();
+      var url = "/api/files" + (q ? "?q=" + encodeURIComponent(q) : "");
+      var res = await fetch(url, { headers: authHeaders() });
+      var data = await res.json();
+      allFiles = data.files || [];
+
+      // Load folders
+      var fRes = await fetch("/api/files/folders", { headers: authHeaders() });
+      var fData = await fRes.json();
+      allFolders = fData.folders || [];
+
+      renderFolderTabs();
+      renderFilesList();
+    } catch (err) {
+      filesList.innerHTML = '<div class="files-empty">Failed to load files</div>';
+    }
+  }
+
+  function renderFolderTabs() {
+    var html = '<button class="files-folder-btn' + (activeFolder === "" ? " active" : "") + '" data-folder="">All</button>';
+    allFolders.forEach(function(f) { html += '<button class="files-folder-btn' + (activeFolder === f ? " active" : "") + '" data-folder="' + f + '">' + f + '</button>'; });
+    filesFolders.innerHTML = html;
+    filesFolders.querySelectorAll(".files-folder-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        activeFolder = btn.dataset.folder;
+        filesFolders.querySelectorAll(".files-folder-btn").forEach(function(b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        renderFilesList();
+      });
+    });
+  }
+
+  function renderFilesList() {
+    var filtered = allFiles;
+    if (activeFolder) {
+      filtered = allFiles.filter(function(f) {
+        return (f.tags || []).some(function(t) { return t === "folder:" + activeFolder; });
+      });
+    }
+
+    if (filtered.length === 0) {
+      filesList.innerHTML = '<div class="files-empty">' + (allFiles.length === 0 ? 'No files yet.<br>Attach in chat or drag & drop.' : 'No files in this folder.') + '</div>';
+      return;
+    }
+
+    var html = "";
+    filtered.forEach(function(f) {
+      var isImage = f.mimeType && f.mimeType.startsWith("image/");
+      var iconHtml = isImage
+        ? '<img src="/api/files/' + f.id + '/download" alt="" loading="lazy" />'
+        : (FILE_ICONS[f.source] || FILE_ICONS.file);
+      var folder = (f.tags || []).find(function(t) { return t.startsWith("folder:"); });
+      var folderName = folder ? folder.slice(7) : "";
+      var size = formatFileSize(f.sizeBytes);
+      var date = new Date(f.createdAt).toLocaleDateString();
+
+      html += '<div class="files-item" data-id="' + f.id + '">'
+        + '<div class="files-item-icon">' + iconHtml + '</div>'
+        + '<div class="files-item-info">'
+        + '<div class="files-item-name" title="' + escapeHtml(f.filename) + '">' + escapeHtml(f.filename) + '</div>'
+        + '<div class="files-item-meta"><span>' + size + '</span><span>' + date + '</span></div>'
+        + '</div>'
+        + (folderName ? '<span class="files-item-folder">' + escapeHtml(folderName) + '</span>' : '')
+        + '<div class="files-item-actions">'
+        + '<button title="Move to folder" data-action="move" data-id="' + f.id + '">\ud83d\udcc2</button>'
+        + '<button title="Download" data-action="download" data-id="' + f.id + '">\u2b07</button>'
+        + '<button title="Archive" data-action="archive" data-id="' + f.id + '">\ud83d\uddd1</button>'
+        + '</div></div>';
+    });
+    filesList.innerHTML = html;
+
+    // Click handlers
+    filesList.querySelectorAll(".files-item").forEach(function(item) {
+      item.addEventListener("click", function(e) {
+        if (e.target.closest(".files-item-actions")) return;
+        window.open("/api/files/" + item.dataset.id + "/download", "_blank");
+      });
+    });
+    filesList.querySelectorAll("[data-action=move]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        moveFileToFolder(btn.dataset.id);
+      });
+    });
+    filesList.querySelectorAll("[data-action=download]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        window.open("/api/files/" + btn.dataset.id + "/download", "_blank");
+      });
+    });
+    filesList.querySelectorAll("[data-action=archive]").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        archiveFile(btn.dataset.id);
+      });
+    });
+  }
+
+  async function moveFileToFolder(fileId) {
+    var folders = allFolders.length > 0 ? allFolders.join(", ") : "(none yet)";
+    var folder = prompt("Move to folder (existing: " + folders + ").\nEnter folder name or leave empty to remove:");
+    if (folder === null) return;
+    try {
+      await fetch("/api/files/" + fileId, {
+        method: "PUT",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: folder.trim() })
+      });
+      await loadFiles();
+    } catch (err) {
+      console.warn("Move failed:", err.message);
+    }
+  }
+
+  async function archiveFile(fileId) {
+    if (!confirm("Archive this file?")) return;
+    try {
+      await fetch("/api/files/" + fileId + "/archive", { method: "POST", headers: authHeaders() });
+      await loadFiles();
+    } catch (err) {
+      console.warn("Archive failed:", err.message);
+    }
+  }
+
+  function formatFileSize(bytes) {
+    if (!bytes) return "0 B";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+
+  // Sidebar search: filter both threads and files
+  var sidebarSearchTimer;
+  sidebarSearchInput.addEventListener("input", function() {
+    clearTimeout(sidebarSearchTimer);
+    var activeTab = document.querySelector(".sidebar-tab.active");
+    if (activeTab && activeTab.dataset.tab === "files") {
+      sidebarSearchTimer = setTimeout(loadFiles, 300);
+    } else {
+      sidebarSearchTimer = setTimeout(loadThreads, 300);
+    }
+  });
+
+  // Upload from files panel
+  document.getElementById("files-upload-btn").addEventListener("click", function() { filesUploadInput.click(); });
+  filesUploadInput.addEventListener("change", async function() {
+    for (var i = 0; i < filesUploadInput.files.length; i++) {
+      persistFileToBrain(filesUploadInput.files[i]);
+    }
+    filesUploadInput.value = "";
+    setTimeout(loadFiles, 500);
+  });
+
+  // New folder
+  document.getElementById("files-new-folder-btn").addEventListener("click", function() {
+    var name = prompt("New folder name:");
+    if (!name || !name.trim()) return;
+    allFolders.push(name.trim());
+    renderFolderTabs();
+  });
+
   document.getElementById("vault-open-btn").addEventListener("click", openSettings);
   document.getElementById("vault-close-btn").addEventListener("click", closeVault);
 
@@ -5329,6 +6070,22 @@
 <script>
 // --- Mobile Pairing UI ---
 var mobileVoucherTimer = null;
+
+function nativeShare() {
+  if (navigator.share) {
+    navigator.share({
+      title: document.title || "Core",
+      url: window.location.href,
+    }).catch(function() { /* user cancelled */ });
+  } else {
+    // Fallback: copy URL to clipboard
+    navigator.clipboard.writeText(window.location.href).then(function() {
+      alert("Link copied to clipboard");
+    }).catch(function() {
+      openShareModal();
+    });
+  }
+}
 
 function openMobileModal() {
   document.getElementById("mobile-overlay").classList.add("open");
