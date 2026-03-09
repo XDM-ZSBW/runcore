@@ -689,7 +689,9 @@
 </div>
 
 <script>
-fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.integrations)location.href='/'}).catch(()=>{});
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
+fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){location.href='/';return null;} return r.json(); }).then(d=>{if(d&&(!d.capabilities||!d.capabilities.integrations))location.href='/'}).catch(()=>{});
 (function() {
   // --- Config ---
   const COLUMNS = [
@@ -735,7 +737,10 @@ fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilitie
 
   // --- Helpers ---
   async function fetchJSON(url, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, authHeaders(), opts.headers || {});
     var res = await fetch(url, opts);
+    if (res.status === 401) { window.location.href = '/'; return null; }
     // Retry once on rate limit after a short delay
     if (res.status === 429) {
       var retryAfter = parseInt(res.headers.get('Retry-After') || '2', 10);

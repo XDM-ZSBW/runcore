@@ -414,7 +414,9 @@
 </div>
 
 <script>
-fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.vault)location.href='/'}).catch(()=>{});
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
+fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){location.href='/';return null;} return r.json(); }).then(d=>{if(d&&(!d.capabilities||!d.capabilities.vault))location.href='/'}).catch(()=>{});
 const urlInput = document.getElementById('urlInput');
 const fetchBtn = document.getElementById('fetchBtn');
 const metaBar = document.getElementById('metaBar');
@@ -478,9 +480,10 @@ function navigateTo(url, addToHistory = true) {
   setView(currentView);
   pageFrame.src = url;
 
-  fetch('/api/browse?url=' + encodeURIComponent(url))
-    .then(r => r.json())
+  fetch('/api/browse?url=' + encodeURIComponent(url), { headers: authHeaders() })
+    .then(r => { if (r.status === 401) { window.location.href = '/'; return null; } return r.json(); })
     .then(data => {
+      if (!data) return;
       if (data.error) {
         metaBar.innerHTML = `<span class="badge error">error</span> <span>${escapeHtml(data.error)}</span>`;
         content.innerHTML = `<div class="error-display">${escapeHtml(data.error)}</div>`;

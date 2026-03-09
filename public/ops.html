@@ -652,7 +652,9 @@
 </main>
 
 <script>
-fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.spawning)location.href='/'}).catch(()=>{});
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
+fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){location.href='/';return null;} return r.json(); }).then(d=>{if(d&&(!d.capabilities||!d.capabilities.spawning))location.href='/'}).catch(()=>{});
 (function() {
   const POLL_INTERVAL = 15000;
   let activitySince = 0;
@@ -705,7 +707,8 @@ fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilitie
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { signal: controller.signal });
+      const res = await fetch(url, { signal: controller.signal, headers: authHeaders() });
+      if (res.status === 401) { window.location.href = '/'; return null; }
       if (!res.ok) throw new Error(res.statusText);
       return res.json();
     } finally {
@@ -775,7 +778,7 @@ fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilitie
         btn.disabled = true;
         btn.textContent = 'Restarting...';
         try {
-          await fetch('/api/ops/sidecars/' + name + '/restart', { method: 'POST' });
+          await fetch('/api/ops/sidecars/' + name + '/restart', { method: 'POST', headers: authHeaders() });
           // Refresh after short delay to let sidecar come up
           setTimeout(() => refreshAll(), 1500);
         } catch {
@@ -783,6 +786,32 @@ fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilitie
         }
       });
     });
+  }
+
+  function humanizeOps(summary, source) {
+    if (!summary) return "";
+    var s = summary;
+    var cm = s.match(/^Agent task "(.+?)" completed/);
+    if (cm) return "\u2705 " + cm[1];
+    var fm = s.match(/^Agent task "(.+?)" failed.*?\n(?:Output:\n)?(.+)/s);
+    if (fm) return "\u274C " + fm[1] + " \u2014 " + fm[2].trim().slice(0, 60);
+    var fs = s.match(/^Agent task "(.+?)" failed/);
+    if (fs) return "\u274C " + fs[1];
+    var sp = s.match(/^Spawn (\d+) agent\(s\): (.+)/);
+    if (sp) return "\u{1F680} Starting " + sp[1] + ": " + sp[2];
+    var wm = s.match(/^Working on (\d+) task\(s\): (.+)/);
+    if (wm) return "\u{1F3C3} " + wm[1] + " running: " + wm[2];
+    if (s.startsWith("Batch done")) return "\u{1F3C1} Batch complete";
+    var lm = s.match(/^LLM call: "(.+?)"/);
+    if (lm) return "\u{1F4AD} " + lm[1];
+    if (s.includes("credits exhausted") || s.includes("Credits exhausted")) return "\u{1F4B8} Credits used up";
+    var qm = s.match(/New queue item (DASH-\d+).*?"(.+?)"/);
+    if (qm) return "\u{1F4CB} " + qm[2];
+    if (s.includes("new email")) return "\u{1F4E7} " + s;
+    if (s.includes("Compacted conversation")) return "\u{1F4E6} Memory compacted";
+    var pe = s.match(/^Poll error: (.+)/);
+    if (pe) return "\u{1F50C} " + pe[1].slice(0, 60);
+    return s.length > 100 ? s.slice(0, 97) + "..." : s;
   }
 
   function renderActivity(data) {
@@ -806,7 +835,7 @@ fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilitie
       <div class="activity-item">
         <span class="activity-time">${fmtTime(a.timestamp)}</span>
         <span class="activity-source" data-s="${escHtml(a.source)}">${escHtml(a.source)}</span>
-        <span class="activity-text">${escHtml(a.summary)}</span>
+        <span class="activity-text">${escHtml(humanizeOps(a.summary, a.source))}</span>
       </div>
     `).join('');
   }

@@ -915,7 +915,9 @@
 </main>
 
 <script>
-fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.spawning)location.href='/'}).catch(()=>{});
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
+fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){location.href='/';return null;} return r.json(); }).then(d=>{if(d&&(!d.capabilities||!d.capabilities.spawning))location.href='/'}).catch(()=>{});
 (function() {
   // --- Helpers ---
 
@@ -942,7 +944,8 @@ fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilitie
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { signal: controller.signal });
+      const res = await fetch(url, { signal: controller.signal, headers: authHeaders() });
+      if (res.status === 401) { window.location.href = '/'; return null; }
       if (!res.ok) throw new Error(res.statusText);
       return res.json();
     } finally {

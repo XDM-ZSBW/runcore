@@ -498,9 +498,12 @@
 </main>
 
 <script>
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
 (async function() {
   try {
-    const res = await fetch('/api/help/context');
+    const res = await fetch('/api/help/context', { headers: authHeaders() });
+    if (res.status === 401) { window.location.href = '/'; return; }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     renderState(data);

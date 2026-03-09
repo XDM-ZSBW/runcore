@@ -496,7 +496,9 @@
 </div>
 
 <script>
-fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.spawning)location.href='/'}).catch(()=>{});
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
+fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){location.href='/';return null;} return r.json(); }).then(d=>{if(d&&(!d.capabilities||!d.capabilities.spawning))location.href='/'}).catch(()=>{});
 // --- View switching (global scope for inline onclick) ---
 let currentView = 'roadmap';
 let rearviewLoaded = false;
@@ -527,7 +529,8 @@ async function loadRearview(hours) {
   container.innerHTML = '<div class="loading">Loading recent activity...</div>';
 
   try {
-    const res = await fetch('/api/roadmap/recent?hours=' + hours);
+    const res = await fetch('/api/roadmap/recent?hours=' + hours, { headers: authHeaders() });
+    if (res.status === 401) { window.location.href = '/'; return; }
     if (!res.ok) throw new Error('Failed to load');
     const data = await res.json();
     rearviewLoaded = true;
@@ -585,7 +588,8 @@ function renderRearview(data, container) {
 
   // --- Fetch & parse ---
   async function load() {
-    const res = await fetch('/api/roadmap');
+    const res = await fetch('/api/roadmap', { headers: authHeaders() });
+    if (res.status === 401) { window.location.href = '/'; return; }
     if (!res.ok) { document.getElementById('loading').textContent = 'Failed to load roadmap'; return; }
     data = await res.json();
     activeStreams = new Set(data.streams.map(s => s.id));

@@ -99,7 +99,7 @@ export function validateSession(sessionId: string): Session | null {
   return session;
 }
 
-function createSession(name: string, id?: string): Session {
+export function createSession(name: string, id?: string): Session {
   const session: Session = {
     id: id ?? generateSessionId(),
     name,
@@ -136,6 +136,14 @@ export async function readHuman(): Promise<HumanIdentity | null> {
 async function writeHuman(identity: HumanIdentity): Promise<void> {
   await ensureDir();
   await writeFile(HUMAN_PATH, JSON.stringify(identity, null, 2), "utf-8");
+}
+
+/** Update just the human name in the identity file. */
+export async function updateHumanName(newName: string): Promise<void> {
+  const human = await readHuman();
+  if (!human) return;
+  human.name = newName;
+  await writeHuman(human);
 }
 
 async function readPairingCode(): Promise<PairingCode | null> {

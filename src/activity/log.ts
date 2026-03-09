@@ -18,6 +18,14 @@ import {
 import { getPressureIntegrator } from "../pulse/pressure.js";
 import { BRAIN_DIR } from "../lib/paths.js";
 
+// --- SSE subscribers ---
+type ActivityListener = (entry: ActivityEntry) => void;
+const activityListeners = new Set<ActivityListener>();
+export function onActivity(fn: ActivityListener): () => void {
+  activityListeners.add(fn);
+  return () => { activityListeners.delete(fn); };
+}
+
 const log = createLogger("activity");
 
 /** Generate a short, unique trace ID: ts_ + 12 hex chars. */
@@ -280,6 +288,11 @@ export function logActivity(opts: {
 
   // Feed event into pressure integrator (if initialized)
   getPressureIntegrator()?.addTension(entry.source, entry.summary);
+
+  // Notify SSE subscribers
+  for (const fn of activityListeners) {
+    try { fn(entry); } catch {}
+  }
 
   return entry;
 }

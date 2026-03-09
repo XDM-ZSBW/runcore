@@ -399,13 +399,16 @@
 </div>
 
 <script>
-fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.integrations)location.href='/'}).catch(()=>{});
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
+fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){location.href='/';return null;} return r.json(); }).then(d=>{if(d&&(!d.capabilities||!d.capabilities.integrations))location.href='/'}).catch(()=>{});
 (function() {
   let currentData = null;
 
   async function fetchData() {
     try {
-      const res = await fetch("/api/capabilities");
+      const res = await fetch("/api/capabilities", { headers: authHeaders() });
+      if (res.status === 401) { window.location.href = '/'; return null; }
       if (!res.ok) throw new Error("HTTP " + res.status);
       return await res.json();
     } catch (err) {
@@ -594,7 +597,7 @@ fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilitie
         try {
           await fetch("/api/settings", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
             body: JSON.stringify({ capabilities: { [capId]: enabled } })
           });
           await refresh();

@@ -1530,8 +1530,10 @@
 </div>
 
 <script>
+var sessionId = sessionStorage.getItem("dash_sid");
+function authHeaders() { return sessionId ? { "x-session-id": sessionId } : {}; }
 // ── Tier gate ────────────────────────────────────────────────────────────
-fetch('/api/tier').then(r=>r.json()).then(d=>{if(!d.capabilities||!d.capabilities.vault)location.href='/'}).catch(()=>{});
+fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){location.href='/';return null;} return r.json(); }).then(d=>{if(d&&(!d.capabilities||!d.capabilities.vault))location.href='/'}).catch(()=>{});
 // ── State ────────────────────────────────────────────────────────────────
 let currentFolderId = null; // null = root
 let currentView = 'grid';
@@ -1596,8 +1598,17 @@ function folderIcon(icon) {
   return map[icon] || '📁';
 }
 
+async function authFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, authHeaders(), opts.headers || {});
+  const res = await fetch(url, opts);
+  if (res.status === 401) { window.location.href = '/'; return null; }
+  return res;
+}
+
 async function api(path, opts) {
-  const res = await fetch(API + path, opts);
+  const res = await authFetch(API + path, opts);
+  if (!res) return null;
   return res.json();
 }
 
@@ -1952,7 +1963,7 @@ async function uploadFiles(files) {
     if (currentFolderId && currentFolderId !== '__unfiled') {
       form.append('folderId', currentFolderId);
     }
-    await fetch(API + '/files/upload', { method: 'POST', body: form });
+    await authFetch(API + '/files/upload', { method: 'POST', body: form });
   }
   // Refresh
   if (currentFolderId && currentFolderId !== '__unfiled') {
@@ -2256,7 +2267,8 @@ async function loadContacts(typeFilter) {
     : `${CONTACTS_API}/entities`;
 
   try {
-    const data = await fetch(url).then(r => r.json());
+    const data = await authFetch(url).then(r => r && r.json());
+    if (!data) return;
     allContacts = (data.entities || []).filter(e => e.status !== 'archived');
     renderContactGrid(allContacts);
     updateContactCounts();
@@ -2300,7 +2312,7 @@ async function selectContact(id) {
 
   let edges = [];
   try {
-    const data = await fetch(`${CONTACTS_API}/entities/${id}/relationships`).then(r => r.json());
+    const data = await authFetch(`${CONTACTS_API}/entities/${id}/relationships`).then(r => r && r.json());
     edges = data.edges || [];
   } catch (err) {
     console.error('Failed to load relationships:', err);
@@ -2395,7 +2407,7 @@ function renderContactDetail(entity, edges) {
 
 async function updateContactCounts() {
   try {
-    const data = await fetch(`${CONTACTS_API}/entities`).then(r => r.json());
+    const data = await authFetch(`${CONTACTS_API}/entities`).then(r => r && r.json());
     const all = (data.entities || []).filter(e => e.status !== 'archived');
     const counts = { human: 0, organization: 0, ai: 0, service: 0 };
     all.forEach(e => { if (counts[e.type] !== undefined) counts[e.type]++; });
@@ -2448,7 +2460,7 @@ async function createContact() {
   const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
 
   try {
-    await fetch(`${CONTACTS_API}/entities`, {
+    await authFetch(`${CONTACTS_API}/entities`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, type, channels, notes: notes || undefined, tags }),
@@ -2485,7 +2497,7 @@ async function createRelationship() {
   if (!from || !to) return;
 
   try {
-    await fetch(`${CONTACTS_API}/edges`, {
+    await authFetch(`${CONTACTS_API}/edges`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to, type, label: label || undefined, notes: notes || undefined }),
@@ -2500,7 +2512,7 @@ async function createRelationship() {
 async function archiveContact(id) {
   if (!confirm('Archive this contact?')) return;
   try {
-    await fetch(`${CONTACTS_API}/entities/${id}`, {
+    await authFetch(`${CONTACTS_API}/entities/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'archived' }),
@@ -2553,7 +2565,8 @@ async function loadCredentials(typeFilter) {
   const url = params.toString() ? `${CREDENTIALS_API}?${params}` : CREDENTIALS_API;
 
   try {
-    const data = await fetch(url).then(r => r.json());
+    const data = await authFetch(url).then(r => r && r.json());
+    if (!data) return;
     allCredentials = (data.credentials || []).filter(c => c.status !== 'archived');
     renderCredentialGrid(allCredentials);
     updateCredentialCounts();
@@ -2594,7 +2607,8 @@ async function selectCredential(id) {
   selectedCredentialId = id;
   // Fetch full credential (with unmasked value) for detail view
   try {
-    const cred = await fetch(`${CREDENTIALS_API}/${id}`).then(r => r.json());
+    const cred = await authFetch(`${CREDENTIALS_API}/${id}`).then(r => r && r.json());
+    if (!cred) return;
     renderCredentialDetail(cred);
   } catch (err) {
     console.error('Failed to load credential:', err);
@@ -2702,7 +2716,7 @@ async function copyCredentialValue(id) {
 
 async function updateCredentialCounts() {
   try {
-    const data = await fetch(CREDENTIALS_API).then(r => r.json());
+    const data = await authFetch(CREDENTIALS_API).then(r => r && r.json());
     const all = (data.credentials || []).filter(c => c.status !== 'archived');
     const counts = { api_key: 0, token: 0, oauth: 0, password: 0, secret: 0 };
     all.forEach(c => { if (counts[c.type] !== undefined) counts[c.type]++; });
@@ -2744,7 +2758,8 @@ function openNewCredentialModal() {
 }
 
 async function openEditCredentialModal(id) {
-  const cred = await fetch(`${CREDENTIALS_API}/${id}`).then(r => r.json());
+  const cred = await authFetch(`${CREDENTIALS_API}/${id}`).then(r => r && r.json());
+  if (!cred) return;
   editingCredentialId = id;
   document.getElementById('credentialModalTitle').textContent = 'Edit Credential';
   document.getElementById('credentialModalSubmit').textContent = 'Save';
@@ -2789,13 +2804,13 @@ async function saveCredential() {
 
   try {
     if (editingCredentialId) {
-      await fetch(`${CREDENTIALS_API}/${editingCredentialId}`, {
+      await authFetch(`${CREDENTIALS_API}/${editingCredentialId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, service, type, value, envVar, notes, tags }),
       });
     } else {
-      await fetch(CREDENTIALS_API, {
+      await authFetch(CREDENTIALS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, service, type, value, envVar, notes, tags }),
@@ -2814,7 +2829,7 @@ async function rotateCredential(id) {
   const newValue = prompt('Enter the new secret value:');
   if (!newValue) return;
   try {
-    await fetch(`${CREDENTIALS_API}/${id}`, {
+    await authFetch(`${CREDENTIALS_API}/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ value: newValue, lastRotatedAt: new Date().toISOString() }),
@@ -2829,7 +2844,7 @@ async function rotateCredential(id) {
 async function archiveCredential(id) {
   if (!confirm('Archive this credential?')) return;
   try {
-    await fetch(`${CREDENTIALS_API}/${id}`, { method: 'DELETE' });
+    await authFetch(`${CREDENTIALS_API}/${id}`, { method: 'DELETE' });
     closeDetail();
     selectedCredentialId = null;
     await loadCredentials();
@@ -2841,7 +2856,7 @@ async function archiveCredential(id) {
 async function migrateFromVault() {
   if (!confirm('Import all keys from Settings vault into Credentials?\n\nExisting credentials with matching env vars will be skipped.')) return;
   try {
-    const res = await fetch(`${CREDENTIALS_API}/migrate-vault`, { method: 'POST' });
+    const res = await authFetch(`${CREDENTIALS_API}/migrate-vault`, { method: 'POST' });
     const data = await res.json();
     if (data.error) { alert('Migration failed: ' + data.error); return; }
     let msg = `Imported ${data.migrated} key(s) from vault.`;
@@ -2932,7 +2947,7 @@ function getCalendarDateRange() {
 async function loadCalendar() {
   // Check if Google is authenticated (no session needed)
   try {
-    const status = await fetch('/api/google/status').then(r => r.json());
+    const status = await authFetch('/api/google/status').then(r => r && r.json());
     googleAuthenticated = status.authenticated;
   } catch (e) {
     googleAuthenticated = false;
@@ -2952,7 +2967,8 @@ async function loadCalendar() {
       timeMax: end.toISOString(),
       maxResults: '100',
     });
-    const res = await fetch(`/api/google/calendar/events?${params}`);
+    const res = await authFetch(`/api/google/calendar/events?${params}`);
+    if (!res) return;
     const data = await res.json();
 
     if (!res.ok || data.error) {
@@ -3223,7 +3239,7 @@ function selectCalendarEvent(idx) {
 async function deleteCalendarEvent(eventId) {
   if (!confirm('Delete this event?')) return;
   try {
-    const res = await fetch(`/api/google/calendar/events/${eventId}`, { method: 'DELETE' });
+    const res = await authFetch(`/api/google/calendar/events/${eventId}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Delete failed');
     closeDetail();
     selectedCalendarEvent = null;
@@ -3288,7 +3304,7 @@ async function createEvent() {
   const attendees = attendeesStr ? attendeesStr.split(',').map(e => e.trim()).filter(Boolean) : [];
 
   try {
-    const res = await fetch('/api/google/calendar/events', {
+    const res = await authFetch('/api/google/calendar/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3393,7 +3409,8 @@ async function loadFeedContent(fileId, mimeType, name, textPreview) {
   }
 
   try {
-    const res = await fetch(`${API}/files/${fileId}/content?max=10000`);
+    const res = await authFetch(`${API}/files/${fileId}/content?max=10000`);
+    if (!res) return;
     const data = await res.json();
     if (data.content) {
       bodyEl.className = 'feed-card-body';
@@ -3425,7 +3442,8 @@ const BRAIN_API = '/api/library/brain';
 
 async function loadBrainCategories() {
   try {
-    const data = await fetch(BRAIN_API).then(r => r.json());
+    const data = await authFetch(BRAIN_API).then(r => r && r.json());
+    if (!data) return;
     const cats = data.categories || [];
     const list = document.getElementById('brainCategoryList');
     list.innerHTML = cats.map(cat =>
@@ -3446,7 +3464,8 @@ async function navigateToBrainRoot() {
   selectedFileId = null;
   closeDetail();
 
-  const data = await fetch(BRAIN_API).then(r => r.json());
+  const data = await authFetch(BRAIN_API).then(r => r && r.json());
+  if (!data) return;
   const cats = data.categories || [];
 
   renderBreadcrumb([{ id: '__brain', name: 'Brain' }]);
@@ -3472,8 +3491,8 @@ async function navigateToBrainCategory(key) {
   selectedFileId = null;
   closeDetail();
 
-  const data = await fetch(`${BRAIN_API}/${key}`).then(r => r.json());
-  if (!data.category) return;
+  const data = await authFetch(`${BRAIN_API}/${key}`).then(r => r && r.json());
+  if (!data || !data.category) return;
 
   renderBreadcrumb([
     { id: '__brain', name: 'Brain' },
@@ -3523,7 +3542,8 @@ function renderBrainFiles(files, category) {
 
 async function selectBrainFile(category, filename) {
   selectedFileId = `shadow_${category}_${filename}`;
-  const data = await fetch(`${BRAIN_API}/${category}`).then(r => r.json());
+  const data = await authFetch(`${BRAIN_API}/${category}`).then(r => r && r.json());
+  if (!data) return;
   const f = (data.files || []).find(f => f.name === filename);
   if (!f) return;
 
@@ -3568,8 +3588,8 @@ async function selectBrainFile(category, filename) {
 
   // Re-render file list to update selection highlight
   if (currentBrainCategory) {
-    const reData = await fetch(`${BRAIN_API}/${currentBrainCategory}`).then(r => r.json());
-    renderBrainFiles(reData.files || [], currentBrainCategory);
+    const reData = await authFetch(`${BRAIN_API}/${currentBrainCategory}`).then(r => r && r.json());
+    if (reData) renderBrainFiles(reData.files || [], currentBrainCategory);
   }
 }
 

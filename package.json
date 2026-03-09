@@ -51,6 +51,7 @@
   "devDependencies": {
     "@types/multicast-dns": "^7.2.4",
     "@types/node": "^22.10.0",
+    "@types/qrcode": "^1.5.6",
     "@types/web-push": "^3.6.4",
     "@vitest/ui": "^4.0.18",
     "tsx": "^4.19.2",
@@ -72,6 +73,7 @@
     "multicast-dns": "^7.2.5",
     "pdf-parse": "^2.4.5",
     "playwright": "^1.58.2",
+    "qrcode": "^1.5.4",
     "tesseract.js": "^7.0.0",
     "unpdf": "^1.4.0",
     "web-push": "^3.6.7",

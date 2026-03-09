@@ -43,6 +43,7 @@ import {
   readHuman,
   restoreSession,
   cacheSessionKey,
+  createSession,
 } from "./auth/identity.js";
 import { requireSession } from "./auth/middleware.js";
 import { streamChat } from "./llm/openrouter.js";
@@ -918,6 +919,8 @@ const deviceVouchers = new Map<string, DeviceVoucher>();
 /** In-memory store for paired devices. */
 interface PairedDevice {
   deviceToken: string;
+  sessionId?: string;
+  humanName?: string;
   label: string;
   pairedAt: string;
   lastSeen: string;
@@ -929,7 +932,14 @@ async function loadPairedDevices(): Promise<void> {
   try {
     const raw = await readFile(join(BRAIN_DIR, "identity", "devices.json"), "utf-8");
     const devices = JSON.parse(raw) as PairedDevice[];
-    for (const d of devices) pairedDevices.set(d.deviceToken, d);
+    for (const d of devices) {
+      pairedDevices.set(d.deviceToken, d);
+      // Re-create session so phone doesn't need to re-pair after Core restart
+      if (d.sessionId) {
+        createSession(d.humanName || d.label, d.sessionId);
+        log.debug("Restored session for paired device", { label: d.label, humanName: d.humanName });
+      }
+    }
   } catch { /* no devices yet */ }
 }
 async function savePairedDevices(): Promise<void> {
@@ -982,10 +992,25 @@ app.post("/api/mobile/voucher", async (c) => {
   }));
   const qrUrl = `https://runcore.sh/pair#${voucherPayload}`;
 
+  // Generate QR code as data URL (server-side, proven library)
+  let qrDataUrl = "";
+  try {
+    const QRCode = (await import("qrcode")).default;
+    qrDataUrl = await QRCode.toDataURL(qrUrl, {
+      width: 250,
+      margin: 2,
+      color: { dark: "#000000", light: "#ffffff" },
+      errorCorrectionLevel: "L",
+    });
+  } catch (err) {
+    log.warn("QR generation failed", { error: err instanceof Error ? err.message : String(err) });
+  }
+
   return c.json({
     token,
     expiresIn: 600,
     qrData: qrUrl,
+    qrImage: qrDataUrl,
     instanceName: voucher.instanceName,
   });
 });
@@ -1036,6 +1061,8 @@ app.post("/api/mobile/redeem", async (c) => {
 
   const device: PairedDevice = {
     deviceToken,
+    sessionId: authResult.session.id,
+    humanName: authResult.name,
     label,
     pairedAt: new Date().toISOString(),
     lastSeen: new Date().toISOString(),
@@ -1093,33 +1120,55 @@ let relayPollInterval: ReturnType<typeof setInterval> | null = null;
 function startRelayPoll(instanceHash: string): void {
   if (relayPollInterval) return;
 
-  const POLL_MS = 5_000; // 5 seconds
+  const POLL_MS = 1_500; // 1.5 seconds
 
   relayPollInterval = setInterval(async () => {
+    // Check for chat envelopes
     try {
       const res = await fetch(
         `https://runcore.sh/api/relay/envelope?recipient=${encodeURIComponent(instanceHash)}`,
         { signal: AbortSignal.timeout(8_000) },
       );
-      if (!res.ok) return;
-
-      const data = await res.json() as { envelopes: Array<{ id: string; from: string; deviceToken?: string; payload: string; timestamp: string }> };
-      if (!data.envelopes || data.envelopes.length === 0) return;
-
-      for (const env of data.envelopes) {
-        try {
-          const decoded = JSON.parse(Buffer.from(env.payload, "base64").toString("utf-8"));
-          if (decoded.type === "chat" && decoded.sessionId && decoded.message) {
-            // Process as a chat message — find or create chat session
-            log.info("Relay message received", { from: env.from, messageLen: decoded.message.length });
-            await handleRelayChat(decoded.sessionId, decoded.message, env.from, instanceHash);
+      if (res.ok) {
+        const data = await res.json() as { envelopes: Array<{ id: string; from: string; deviceToken?: string; payload: string; timestamp: string }> };
+        if (data.envelopes && data.envelopes.length > 0) {
+          for (const env of data.envelopes) {
+            try {
+              const decoded = JSON.parse(Buffer.from(env.payload, "base64").toString("utf-8"));
+              if (decoded.type === "chat" && decoded.sessionId && decoded.message) {
+                log.info("Relay message received", { from: env.from, messageLen: decoded.message.length });
+                await handleRelayChat(decoded.sessionId, decoded.message, env.from, instanceHash);
+              } else if (decoded.type === "sync" && decoded.sessionId) {
+                log.info("Relay sync request", { from: env.from });
+                await handleRelaySync(decoded.sessionId, env.from, instanceHash);
+              }
+            } catch (err) {
+              log.debug("Failed to process relay envelope", { error: err instanceof Error ? err.message : String(err) });
+            }
           }
-        } catch (err) {
-          log.debug("Failed to process relay envelope", { error: err instanceof Error ? err.message : String(err) });
         }
       }
     } catch {
       // Network error — will retry on next poll
+    }
+
+    // Check for pending pair requests (independent of envelope check)
+    try {
+      const pairRes = await fetch(
+        `https://runcore.sh/api/relay/pair?instance=${encodeURIComponent(instanceHash)}`,
+        { signal: AbortSignal.timeout(8_000) },
+      );
+      if (pairRes.ok) {
+        const pairData = await pairRes.json() as { requests: Array<{ token: string; password: string; label: string }> };
+        if (pairData.requests && pairData.requests.length > 0) {
+          log.info("Relay pair requests received", { count: pairData.requests.length });
+          for (const req of pairData.requests) {
+            await handleRelayPair(req.token, req.password, req.label, instanceHash);
+          }
+        }
+      }
+    } catch {
+      // Pair poll failed — will retry on next cycle
     }
   }, POLL_MS);
 }
@@ -1128,20 +1177,65 @@ function startRelayPoll(instanceHash: string): void {
  * Handle a chat message received via relay from a paired phone.
  * Processes through the same LLM pipeline as a local chat, sends response back through relay.
  */
-async function handleRelayChat(sid: string, message: string, senderHash: string, instanceHash: string): Promise<void> {
-  // Get the user name from the session, or fall back to "User"
-  const session = validateSession(sid);
-  const userName = session?.name || "User";
-  const cs = await getOrCreateChatSession(sid, userName);
+/**
+ * Handle a sync request from a paired phone — send chat history back through relay.
+ */
+async function handleRelaySync(sid: string, senderHash: string, instanceHash: string): Promise<void> {
+  try {
+    // Find chat session — check this sessionId or grab the single existing one
+    let history: Array<{ role: string; content: string }> = [];
+    const cs = chatSessions.get(sid) || (chatSessions.size > 0 ? chatSessions.values().next().value : null);
+    if (cs) {
+      // Send last 50 messages to keep payload reasonable
+      history = cs.history.slice(-50).map((m: any) => ({ role: m.role, content: m.content }));
+    }
 
-  // Add user message to history
-  cs.history.push({ role: "user", content: message });
+    await fetch("https://runcore.sh/api/relay/envelope", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipientHash: senderHash,
+        senderHash: instanceHash,
+        payload: Buffer.from(JSON.stringify({
+          type: "history",
+          messages: history,
+          timestamp: new Date().toISOString(),
+        })).toString("base64"),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    log.info("Sent chat history to phone", { messageCount: history.length });
+  } catch (err) {
+    log.warn("Relay sync failed", { error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+async function handleRelayChat(sid: string, message: string, senderHash: string, instanceHash: string): Promise<void> {
+  log.info("handleRelayChat start", { sid: sid.slice(0, 8), senderHash, messageLen: message.length });
+
+  // Get the user name — check session first, then paired device, then fallback
+  const session = validateSession(sid);
+  let userName = session?.name || "User";
+  // Look up paired device for real name
+  for (const d of pairedDevices.values()) {
+    if (d.sessionId === sid && d.humanName) { userName = d.humanName; break; }
+  }
+  log.info("handleRelayChat session", { userName, sessionValid: !!session });
+
+  const cs = await getOrCreateChatSession(sid, userName);
+  log.info("handleRelayChat chatSession ready", { turnCount: cs.turnCount, historyLen: cs.history.length });
+
+  // Add user message to history (tagged with source device)
+  cs.history.push({ role: "user", content: message, source: "phone" } as any);
 
   try {
-    const llmProvider = getProvider(resolveProvider());
+    const provider = resolveProvider();
     const model = resolveChatModel() ?? undefined;
+    log.info("handleRelayChat calling LLM", { provider, model });
+    const llmProvider = getProvider(provider);
 
     const response = await llmProvider.completeChat(cs.history, model);
+    log.info("handleRelayChat LLM responded", { responseLen: response.length });
 
     // Add response to history
     cs.history.push({ role: "assistant", content: response });
@@ -1180,6 +1274,64 @@ async function handleRelayChat(sid: string, message: string, senderHash: string,
       }),
       signal: AbortSignal.timeout(10_000),
     }).catch(() => {});
+  }
+}
+
+/**
+ * Handle a pairing request received via relay.
+ * Validates the safe word, issues device token, sends result back through relay.
+ */
+async function handleRelayPair(token: string, password: string, label: string, instanceHash: string): Promise<void> {
+  let result: { ok: boolean; deviceToken?: string; sessionId?: string; instanceName?: string; error?: string };
+
+  try {
+    const voucher = deviceVouchers.get(token);
+    if (!voucher || voucher.consumed || voucher.expiresAt < Date.now()) {
+      result = { ok: false, error: "Invalid or expired voucher" };
+    } else {
+      const authResult = await authenticate(password);
+      if ("error" in authResult) {
+        result = { ok: false, error: "Invalid safe word" };
+      } else {
+        // Consume voucher
+        voucher.consumed = true;
+
+        // Issue device token
+        const { randomBytes: rng } = await import("node:crypto");
+        const deviceToken = `dt_${rng(16).toString("hex")}`;
+
+        const device: PairedDevice = {
+          deviceToken,
+          sessionId: authResult.session.id,
+          humanName: authResult.name,
+          label,
+          pairedAt: new Date().toISOString(),
+          lastSeen: new Date().toISOString(),
+        };
+        pairedDevices.set(deviceToken, device);
+        await savePairedDevices();
+
+        sessionKeys.set(authResult.session.id, authResult.sessionKey);
+        setEncryptionKey(authResult.sessionKey);
+
+        log.info("Device paired via relay", { label, token: token.slice(0, 8) + "..." });
+        result = { ok: true, deviceToken, sessionId: authResult.session.id, instanceName: getInstanceName() };
+      }
+    }
+  } catch (err) {
+    result = { ok: false, error: err instanceof Error ? err.message : "Pairing failed" };
+  }
+
+  // Send result back through relay
+  try {
+    await fetch("https://runcore.sh/api/relay/pair", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "result", token, result }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    log.warn("Failed to send pair result to relay", { token: token.slice(0, 8) + "..." });
   }
 }
 
@@ -1955,6 +2107,29 @@ app.get("/api/settings", async (c) => {
 
 app.put("/api/settings", async (c) => {
   const body = await c.req.json();
+
+  // Handle human name change — updates identity file, session, and paired devices
+  if (typeof body.humanName === "string" && body.humanName.trim()) {
+    const newName = body.humanName.trim();
+    const sid = c.req.query("sessionId") || c.req.header("x-session-id") || "";
+    // Update identity file
+    try {
+      const { updateHumanName } = await import("./auth/identity.js");
+      await updateHumanName(newName);
+    } catch (err) {
+      log.warn("Failed to update human name in identity file");
+    }
+    // Update current session
+    const session = validateSession(sid);
+    if (session) (session as any).name = newName;
+    // Update all paired devices
+    for (const d of pairedDevices.values()) {
+      d.humanName = newName;
+    }
+    await savePairedDevices();
+    return c.json({ ok: true, humanName: newName });
+  }
+
   const updated = await updateSettings(body);
   return c.json({
     ...updated,
@@ -2277,6 +2452,40 @@ app.delete("/api/threads/:id", async (c) => {
 });
 
 // Activity log: poll for background actions
+// SSE stream — real-time activity push
+app.get("/api/activity/stream", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  const session = validateSession(sessionId);
+  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+
+  const { onActivity } = await import("./activity/log.js");
+
+  return streamSSE(c, async (stream) => {
+    // Send heartbeat immediately
+    await stream.writeSSE({ data: JSON.stringify({ type: "heartbeat" }) });
+
+    const unsub = onActivity((entry) => {
+      stream.writeSSE({
+        data: JSON.stringify({ type: "action", action: entry }),
+      }).catch(() => {});
+    });
+
+    // Heartbeat every 30s to keep connection alive
+    const heartbeat = setInterval(() => {
+      stream.writeSSE({ data: JSON.stringify({ type: "heartbeat" }) }).catch(() => {});
+    }, 30_000);
+
+    stream.onAbort(() => {
+      unsub();
+      clearInterval(heartbeat);
+    });
+
+    // Keep stream open
+    await new Promise(() => {});
+  });
+});
+
 app.get("/api/activity", async (c) => {
   const sessionId = c.req.query("sessionId");
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
@@ -4876,6 +5085,28 @@ app.post("/api/nerve/accept-update", async (c) => {
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
+});
+
+// Poll for new chat messages (phone → PC live feed)
+app.get("/api/chat/poll", async (c) => {
+  const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
+  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+
+  const since = parseInt(c.req.query("since") || "0", 10);
+  const cs = chatSessions.get(sessionId) || (chatSessions.size > 0 ? chatSessions.values().next().value : null);
+  if (!cs) return c.json({ messages: [], total: 0 });
+
+  const total = cs.history.length;
+  if (since >= total) return c.json({ messages: [], total });
+
+  const newMsgs = cs.history.slice(since).map((m: any, i: number) => ({
+    index: since + i,
+    role: m.role,
+    content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+    source: m.source || "pc",
+  }));
+
+  return c.json({ messages: newMsgs, total });
 });
 
 // Chat: streamed response (or learn command)
