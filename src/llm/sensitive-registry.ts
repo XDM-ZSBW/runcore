@@ -24,13 +24,39 @@ export interface SensitivePattern {
 
 /** Built-in patterns — carried over from redact.ts */
 const BUILTIN_PATTERNS: SensitivePattern[] = [
+  // ── PII ──
   { pattern: /\b\d{3}[-\s]\d{2}[-\s]\d{4}\b/g, category: "SSN" },
   { pattern: /\b(?:\d[ -]*?){13,19}\b/g, category: "CARD" },
+  { pattern: /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g, category: "PHONE" },
+  { pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, category: "EMAIL" },
+  { pattern: /\b\d{1,5}\s+(?:[NSEW]\.?\s+)?(?:[A-Z][a-z]+\.?\s+){1,3}(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Dr(?:ive)?|Ln|Lane|Rd|Road|Ct|Court|Cir(?:cle)?|Way|Pl(?:ace)?|Pkwy|Parkway|Terr?(?:ace)?|Hwy|Highway|Pike|Trail|Tr|Run|Loop|Pass|Crossing|Xing)\.?\b(?:\s*,?\s*(?:Apt|Suite|Ste|Unit|#|Bldg)\s*\.?\s*[A-Za-z0-9-]+)?/g, category: "ADDRESS" },
+  { pattern: /\bP\.?\s*O\.?\s*Box\s+\d+/gi, category: "ADDRESS" },
+  { pattern: /\b\d{5}(?:-\d{4})?\b/g, category: "ZIP_CODE" },
+  { pattern: /\b(?:0[1-9]|1[0-2])[\/\-](?:0[1-9]|[12]\d|3[01])[\/\-](?:19|20)\d{2}\b/g, category: "DOB" },
+  { pattern: /\b(?:19|20)\d{2}[\/\-](?:0[1-9]|1[0-2])[\/\-](?:0[1-9]|[12]\d|3[01])\b/g, category: "DOB" },
+  { pattern: /\b[A-Z]\d{7,8}\b/g, category: "PASSPORT" },
+  { pattern: /\b[A-Z]{1,2}\d{4,8}\b/g, category: "DRIVERS_LICENSE" },
+  { pattern: /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g, category: "CARD" },
+  { pattern: /\b\d{9}\b/g, category: "ROUTING_NUMBER" },
+  { pattern: /\b\d{3,4}[-\s]?\d{6,7}[-\s]?\d{1}\b/g, category: "ACCOUNT_NUMBER" },
+
+  // ── PHI (HIPAA) ──
+  { pattern: /\b(?:MRN|Medical Record|Patient ID|Member ID)[#:\s]*[A-Z0-9-]{4,}\b/gi, category: "MEDICAL_ID" },
+  { pattern: /\b(?:NPI)[#:\s]*\d{10}\b/gi, category: "NPI" },
+  { pattern: /\b(?:DEA)[#:\s]*[A-Z]{2}\d{7}\b/gi, category: "DEA_NUMBER" },
+  { pattern: /\b(?:Medicare|Medicaid)[#:\s]*[A-Z0-9-]{6,}\b/gi, category: "MEDICARE_MEDICAID" },
+  { pattern: /\b(?:Policy|Group|Subscriber|Insurance)\s*(?:Number|ID|#)[#:\s]*[A-Z0-9-]{4,}\b/gi, category: "INSURANCE_ID" },
+  { pattern: /\b(?:Rx|prescription)\s*(?:#|number|no)[:\s]*\d{4,}\b/gi, category: "PRESCRIPTION_ID" },
+  { pattern: /\b(?:ICD[-\s]?10|CPT|HCPCS)[:\s]*[A-Z0-9.]{3,7}\b/gi, category: "MEDICAL_CODE" },
+
+  // ── Credentials / secrets ──
   { pattern: /\b(?:sk|pk|api|key|token)[_-][A-Za-z0-9_-]{20,}\b/g, category: "API_KEY" },
   { pattern: /\bBearer\s+[A-Za-z0-9_.-]{20,}\b/g, category: "BEARER_TOKEN" },
   { pattern: /\bAKIA[0-9A-Z]{16}\b/g, category: "AWS_KEY" },
   { pattern: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----/g, category: "PRIVATE_KEY" },
   { pattern: /\b[A-Fa-f0-9]{40,}\b/g, category: "HEX_SECRET" },
+  { pattern: /\bghp_[A-Za-z0-9]{36,}\b/g, category: "GITHUB_TOKEN" },
+  { pattern: /\bxox[bpras]-[A-Za-z0-9-]{10,}\b/g, category: "SLACK_TOKEN" },
 ];
 
 export class SensitiveRegistry {

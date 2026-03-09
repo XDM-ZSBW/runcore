@@ -56,7 +56,7 @@ import { PrivateModeError, isPrivateMode, checkOllamaHealth } from "./llm/guard.
 import { installFetchGuard } from "./llm/fetch-guard.js";
 import { SensitiveRegistry } from "./llm/sensitive-registry.js";
 import { PrivacyMembrane } from "./llm/membrane.js";
-import { setActiveMembrane, rehydrateResponse } from "./llm/redact.js";
+import { setActiveMembrane, getActiveMembrane, rehydrateResponse } from "./llm/redact.js";
 import {
   loadSettings,
   getSettings,
@@ -6030,7 +6030,9 @@ app.post("/api/chat", async (c) => {
           messages: membraneView,
         },
       }) });
-    } catch { /* membrane view is best-effort, don't block chat */ }
+    } catch (memErr) {
+      log.warn("membrane view error", { error: String(memErr) });
+    }
 
     let fullResponse = "";
 

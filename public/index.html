@@ -4491,6 +4491,10 @@
                 addMessage("system", "No items found for that view.");
               }
             }
+            if (data.membrane) {
+              console.log("[membrane] SSE received:", data.membrane.messageCount, "msgs,", data.membrane.totalRedactions, "redactions");
+              renderMembraneView(data.membrane);
+            }
             if (data.error) {
               addMessage("system", friendlyLLMError(data.error));
               // Use raw errorDetail for health drilldown — not the friendly version
@@ -5518,9 +5522,57 @@
     }
   };
 
-  // Close button
+  // Expand button (right rail arrow)
+  var streamExpandBtn = document.getElementById("stream-expand-btn");
+  if (streamExpandBtn) streamExpandBtn.addEventListener("click", function() { toggleStreamPane(); });
+
+  // Close button (collapses back to rail)
   var streamCloseBtn2 = document.getElementById("stream-pane-close");
   if (streamCloseBtn2) streamCloseBtn2.addEventListener("click", function() { toggleStreamPane(); });
+
+  // Stream pane tab switching
+  document.querySelectorAll(".stream-tab").forEach(function(tab) {
+    tab.addEventListener("click", function() {
+      document.querySelectorAll(".stream-tab").forEach(function(t) { t.classList.remove("active"); });
+      document.querySelectorAll(".stream-tab-content").forEach(function(c) { c.classList.remove("active"); });
+      tab.classList.add("active");
+      var target = document.getElementById("stream-tab-" + tab.dataset.streamTab);
+      if (target) target.classList.add("active");
+    });
+  });
+
+  // Membrane view — renders what the LLM sees after redaction
+  function renderMembraneView(membrane) {
+    var view = document.getElementById("membrane-view");
+    var shield = document.getElementById("membrane-shield");
+    if (!view || !shield) return;
+
+    // Update shield badge
+    var count = membrane.totalRedactions || 0;
+    shield.textContent = count + " redaction" + (count !== 1 ? "s" : "");
+    shield.className = "membrane-shield" + (count > 0 ? " has-redactions" : "");
+
+    // Render message previews
+    var html = "";
+    var msgs = membrane.messages || [];
+    if (msgs.length === 0) {
+      html = '<div class="membrane-empty">No messages in context.</div>';
+    } else {
+      for (var i = 0; i < msgs.length; i++) {
+        var m = msgs[i];
+        var roleClass = m.role === "user" ? "user" : m.role === "assistant" ? "assistant" : "system";
+        // Highlight <<PLACEHOLDER>> tokens
+        var preview = (m.preview || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        preview = preview.replace(/&lt;&lt;([A-Z_]+_\d+)&gt;&gt;/g, '<span class="membrane-placeholder">&lt;&lt;$1&gt;&gt;</span>');
+        preview = preview.replace(/\[REDACTED:([^\]]+)\]/g, '<span class="membrane-placeholder">[REDACTED:$1]</span>');
+        html += '<div class="membrane-msg">';
+        html += '<div class="membrane-msg-role ' + roleClass + '">' + m.role + (m.redactions > 0 ? ' (' + m.redactions + ' redacted)' : '') + '</div>';
+        html += '<div class="membrane-msg-preview">' + preview + '</div>';
+        html += '</div>';
+      }
+    }
+    view.innerHTML = html;
+  }
 
   // Clear button
   if (streamClearBtn) streamClearBtn.addEventListener("click", function() {
