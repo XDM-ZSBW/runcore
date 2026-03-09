@@ -651,6 +651,16 @@ app.get("/", async (c) => {
   return c.html(html);
 });
 
+// --- PWA assets (must be served from root for scope) ---
+app.get("/manifest.json", async (c) => {
+  const data = await readFile(join(UI_DIR, "manifest.json"), "utf-8");
+  return c.json(JSON.parse(data));
+});
+app.get("/sw.js", async (c) => {
+  const data = await readFile(join(UI_DIR, "sw.js"), "utf-8");
+  return c.newResponse(data, 200, { "Content-Type": "application/javascript", "Service-Worker-Allowed": "/" });
+});
+
 // --- Nerve endpoint (PWA) ---
 app.get("/nerve", async (c) => {
   const html = await serveHtmlTemplate(join(UI_DIR,"nerve", "index.html"));
