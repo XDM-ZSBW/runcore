@@ -15,7 +15,7 @@ import { acquireLock, releaseLock } from "./runtime-lock.js";
 // Package root — works whether run from CWD or npx
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const PKG_ROOT = join(__dirname, "..");
+const PKG_ROOT = __dirname.endsWith("dist") ? join(__dirname, "..") : __dirname;
 
 // UI directory — resolved at startup. Prefers CDN-synced, falls back to bundled.
 let UI_DIR = getUiPublicDir(PKG_ROOT);
