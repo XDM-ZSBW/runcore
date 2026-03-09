@@ -3406,6 +3406,57 @@
     }
   });
 
+  // --- Auto-title chats after first exchange ---
+  var chatAutoTitled = {}; // threadId → true if already titled
+  function autoTitleChat(threadId) {
+    if (!threadId || chatAutoTitled[threadId]) return;
+    // Skip if already has a real title
+    var existing = threads.find(function(x) { return x.id === threadId; });
+    if (existing && existing.title && existing.title !== "New chat" && existing.title !== "New thread") {
+      chatAutoTitled[threadId] = true;
+      return;
+    }
+    // Get the first user message in the current view
+    var msgs = messagesEl.querySelectorAll(".message.user .content");
+    if (msgs.length === 0) return;
+    var firstMsg = (msgs[0].textContent || "").trim();
+    if (firstMsg.length < 3) return;
+
+    // Generate title: first sentence or first ~40 chars, cleaned up
+    var title = firstMsg
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    // Use first sentence if short enough
+    var sentenceEnd = title.search(/[.!?\n]/);
+    if (sentenceEnd > 0 && sentenceEnd <= 50) {
+      title = title.slice(0, sentenceEnd);
+    } else {
+      title = title.slice(0, 44);
+      // Cut at last word boundary
+      var lastSpace = title.lastIndexOf(" ");
+      if (lastSpace > 20) title = title.slice(0, lastSpace);
+    }
+    title = title.trim();
+    if (title.length < 3) return;
+
+    chatAutoTitled[threadId] = true;
+
+    // Update server
+    fetch("/api/threads/" + encodeURIComponent(threadId), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ sessionId: sessionId, title: title }),
+    }).then(function() {
+      // Update local state and sidebar
+      var t = threads.find(function(x) { return x.id === threadId; });
+      if (t) t.title = title;
+      renderThreadList();
+      updateThreadLabel();
+    }).catch(function() {});
+  }
+
   // --- Attached files ---
   let pendingImages = []; // { data: base64, mimeType: string }
   let pendingFiles = [];  // { name: string, text: string }
@@ -5152,8 +5203,11 @@
       abortController = null;
       setButtonSend();
       chatInput.focus();
-      // Refresh threads to pick up auto-generated titles
-      if (currentThreadId) loadThreads();
+      // Auto-title chat after first assistant response
+      if (currentThreadId) {
+        autoTitleChat(currentThreadId);
+        loadThreads();
+      }
     }
   }
 
