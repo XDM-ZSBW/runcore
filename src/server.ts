@@ -360,6 +360,44 @@ function generateThreadId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+/**
+ * Switch cs to point at the given thread's history (or back to main).
+ * Saves/restores main history transparently.
+ */
+function switchSessionThread(cs: ChatSession, threadId: string | null, sessionId: string): void {
+  const currentThread = cs.activeThreadId;
+  if (currentThread === threadId) return; // already there
+
+  // Save current history back to wherever it belongs
+  if (currentThread) {
+    // Currently on a thread — save back to that thread
+    const threads = getThreadsForSession(sessionId);
+    const t = threads.get(currentThread);
+    if (t) {
+      t.history = cs.history;
+      t.historySummary = cs.historySummary;
+    }
+    // Restore main
+    cs.history = cs.mainHistory;
+    cs.historySummary = cs.mainHistorySummary;
+  }
+
+  if (threadId) {
+    // Switching to a thread — save main, load thread
+    const threads = getThreadsForSession(sessionId);
+    const t = threads.get(threadId);
+    if (t) {
+      cs.mainHistory = cs.history;
+      cs.mainHistorySummary = cs.historySummary;
+      cs.history = t.history;
+      cs.historySummary = t.historySummary;
+      t.updatedAt = new Date().toISOString();
+    }
+  }
+
+  cs.activeThreadId = threadId;
+}
+
 /** One-time startup token for zero-friction local auth. */
 let startupToken: string | null = null;
 
@@ -611,13 +649,13 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
   if (key) {
     const restored = await loadSession(sessionId, key);
     if (restored) {
-      cs = { history: restored.history, historySummary: restored.historySummary ?? "", brain, fileContext: restored.fileContext, learnedPaths: restored.learnedPaths, ingestedContext, turnCount: 0, lastExtractionTurn: 0, foldedBack: false };
+      cs = { history: restored.history, historySummary: restored.historySummary ?? "", brain, fileContext: restored.fileContext, learnedPaths: restored.learnedPaths, ingestedContext, turnCount: 0, lastExtractionTurn: 0, foldedBack: false, activeThreadId: null, mainHistory: [], mainHistorySummary: "" };
       chatSessions.set(sessionId, cs);
       return cs;
     }
   }
 
-  cs = { history: [], historySummary: "", brain, fileContext: "", learnedPaths: [], ingestedContext, turnCount: 0, lastExtractionTurn: 0, foldedBack: false };
+  cs = { history: [], historySummary: "", brain, fileContext: "", learnedPaths: [], ingestedContext, turnCount: 0, lastExtractionTurn: 0, foldedBack: false, activeThreadId: null, mainHistory: [], mainHistorySummary: "" };
   chatSessions.set(sessionId, cs);
   return cs;
 }
@@ -2418,8 +2456,9 @@ app.get("/api/history", async (c) => {
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
   const cs = await getOrCreateChatSession(sessionId, session.name);
-  // Return only user and assistant messages (not system)
-  const messages = cs.history
+  // Always return main history (not active thread's)
+  const historySource = cs.activeThreadId ? cs.mainHistory : cs.history;
+  const messages = historySource
     .filter((m) => m.role === "user" || m.role === "assistant")
     .map((m) => ({ role: m.role, content: m.content }));
 
@@ -2475,16 +2514,31 @@ app.post("/api/threads", async (c) => {
   };
   threads.set(thread.id, thread);
 
-  // Snapshot current main history into the new thread so it's not lost,
-  // then clear main session for a fresh conversation
+  // If currently on a thread, save it back first
   const cs = chatSessions.get(sessionId);
-  if (cs && cs.history.length > 0) {
-    // Move main history into the new thread (it becomes the "archive" of what was being discussed)
-    thread.history = [...cs.history];
-    thread.historySummary = cs.historySummary || "";
-    // Clear main session
+  if (cs) {
+    // Save current thread state if on one
+    if (cs.activeThreadId) {
+      const prevThread = threads.get(cs.activeThreadId);
+      if (prevThread) {
+        prevThread.history = cs.history;
+        prevThread.historySummary = cs.historySummary;
+      }
+      // Restore main
+      cs.history = cs.mainHistory;
+      cs.historySummary = cs.mainHistorySummary;
+      cs.activeThreadId = null;
+    }
+    // Move current main history into the new thread
+    if (cs.history.length > 0) {
+      thread.history = cs.history;
+      thread.historySummary = cs.historySummary || "";
+    }
+    // Clear main for fresh conversation
     cs.history = [];
     cs.historySummary = "";
+    cs.mainHistory = [];
+    cs.mainHistorySummary = "";
     cs.foldedBack = false;
     cs.turnCount = 0;
   }
@@ -2498,11 +2552,15 @@ app.get("/api/threads/:id/history", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid session" }, 401);
 
+  const threadId = c.req.param("id");
   const threads = getThreadsForSession(sessionId);
-  const thread = threads.get(c.req.param("id"));
+  const thread = threads.get(threadId);
   if (!thread) return c.json({ error: "Thread not found" }, 404);
 
-  const messages = thread.history
+  // If this thread is currently active on cs, its live history is in cs.history
+  const cs = chatSessions.get(sessionId);
+  const historySource = (cs && cs.activeThreadId === threadId) ? cs.history : thread.history;
+  const messages = historySource
     .filter((m) => m.role === "user" || m.role === "assistant")
     .map((m) => ({ role: m.role, content: m.content }));
   return c.json({ messages });
@@ -5383,30 +5441,7 @@ app.post("/api/chat", async (c) => {
 
   // Route to thread history if threadId is provided
   const requestThreadId = (body as any).threadId as string | undefined;
-  let threadRef: ChatThread | undefined;
-  if (requestThreadId) {
-    const threads = getThreadsForSession(sessionId);
-    threadRef = threads.get(requestThreadId);
-    if (threadRef) {
-      // Swap cs to use thread's history for this request
-      // Save main history so we can restore later
-      if (!(cs as any)._mainHistory) {
-        (cs as any)._mainHistory = cs.history;
-        (cs as any)._mainSummary = cs.historySummary;
-      }
-      cs.history = threadRef.history;
-      cs.historySummary = threadRef.historySummary || "";
-      threadRef.updatedAt = new Date().toISOString();
-    }
-  } else {
-    // Restore main history if we were previously on a thread
-    if ((cs as any)._mainHistory) {
-      cs.history = (cs as any)._mainHistory;
-      cs.historySummary = (cs as any)._mainSummary || "";
-      delete (cs as any)._mainHistory;
-      delete (cs as any)._mainSummary;
-    }
-  }
+  switchSessionThread(cs, requestThreadId || null, sessionId);
 
   // Reset continuation rounds when user sends a real message
   resetContinuation(sessionId);
