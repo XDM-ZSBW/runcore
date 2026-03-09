@@ -57,6 +57,7 @@ import { installFetchGuard } from "./llm/fetch-guard.js";
 import { SensitiveRegistry } from "./llm/sensitive-registry.js";
 import { PrivacyMembrane } from "./llm/membrane.js";
 import { setActiveMembrane, getActiveMembrane, rehydrateResponse } from "./llm/redact.js";
+import { VolumeManager } from "./volumes/index.js";
 import {
   loadSettings,
   getSettings,
@@ -300,6 +301,13 @@ const alertManager = new AlertManager(health, defaultAlertConfig(), alertDispatc
 
 const metricsStore = new MetricsStore(BRAIN_DIR);
 registerDefaultThresholds();
+
+// --- Volume manager ---
+
+const volumeManager = new VolumeManager(BRAIN_DIR);
+volumeManager.init().catch((err) =>
+  log.warn("Volume manager init failed — single-volume mode", { error: String(err) })
+);
 
 // --- Session state ---
 
@@ -3849,6 +3857,11 @@ app.post("/api/files/upload", async (c) => {
       status: "active",
     });
 
+    // Trigger volume replication (on-write event)
+    volumeManager.handleEvent({ type: "write", fileId: record.id, volume: "primary" }).catch((err) =>
+      log.warn("Volume on-write event failed", { error: String(err) })
+    );
+
     return c.json({ file: record, duplicate: false });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -3928,6 +3941,32 @@ app.put("/api/files/:id", async (c) => {
   return c.json(result);
 });
 
+
+// --- Volume management routes ---
+
+app.get("/api/volumes", async (c) => {
+  const states = volumeManager.getStates();
+  const configs = volumeManager.getConfigs();
+  return c.json({
+    volumes: configs.map((cfg) => {
+      const state = states.find((s) => s.name === cfg.name);
+      return { ...cfg, ...state };
+    }),
+    pendingReplications: volumeManager.getPendingCount(),
+  });
+});
+
+app.post("/api/volumes/probe", async (c) => {
+  const states = await volumeManager.probeAll();
+  return c.json({ volumes: states });
+});
+
+app.post("/api/volumes/event", async (c) => {
+  const event = await c.req.json();
+  if (!event?.type) return c.json({ error: "Missing event type" }, 400);
+  await volumeManager.handleEvent(event);
+  return c.json({ ok: true });
+});
 
 // --- Module discovery routes ---
 

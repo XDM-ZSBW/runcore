@@ -33,6 +33,8 @@ export interface FileRecord {
   tags?: string[];
   source?: string;
   status: "active" | "archived";
+  /** Which volume this file physically lives on. Default: "primary". */
+  volume?: string;
 }
 
 /** Input for registering a new file (system-generated fields omitted). */

@@ -1,0 +1,37 @@
+# Brain Volume Configuration
+# Place this file at: <BRAIN_DIR>/volumes.yaml
+#
+# Three tiers:
+#   sphere  — hot storage, fastest access (SSD, primary drive)
+#   warm    — recent but idle (secondary SSD/HDD)
+#   archive — cold, long-term (external drive, NAS, USB)
+#
+# Triggers (no timers):
+#   on-write     — new file → queue replication to other volumes
+#   on-connect   — volume comes online → drain pending replications
+#   on-disconnect — volume goes away → checkpoint
+#   on-pressure  — disk filling up → migrate cold files to lower tier
+#   on-access    — file read from non-sphere → promote copy to sphere
+#
+# Recovery: any volume with a replicated registry can rebuild the brain.
+
+# Primary brain (always present, auto-added if missing)
+- name: primary
+  path: E:/brain
+  tier: sphere
+
+# Example: second SSD for warm storage
+# - name: secondary
+#   path: D:/brain-warm
+#   tier: warm
+#   pressureThresholdBytes: 107374182400  # 100 GB
+
+# Example: external USB drive for archive
+# - name: archive-usb
+#   path: F:/brain-archive
+#   tier: archive
+
+# Example: NAS mount for redundant archive
+# - name: nas-backup
+#   path: //nas/brain-archive
+#   tier: archive
