@@ -6004,6 +6004,34 @@ app.post("/api/chat", async (c) => {
     // Send metadata first so UI can show which model is responding
     await stream.writeSSE({ data: JSON.stringify({ meta: { provider: activeProvider, model: activeChatModel ?? (activeProvider === "ollama" ? "llama3.2:3b" : "claude-sonnet-4") } }) });
 
+    // --- Membrane view: emit what the LLM will see (redacted) ---
+    try {
+      const membrane = getActiveMembrane();
+      const membraneView: { role: string; preview: string; redactions: number }[] = [];
+      for (const msg of ctx.messages) {
+        const raw = typeof msg.content === "string" ? msg.content
+          : Array.isArray(msg.content) ? msg.content.map((b: any) => b.text || b.type || "").join(" ") : "";
+        if (!raw) continue;
+        const redacted = membrane ? membrane.apply(raw) : raw;
+        // Count redactions by counting placeholders
+        const placeholders = redacted.match(/<<[A-Z_]+_\d+>>|\[REDACTED:[^\]]+\]/g);
+        // Send truncated preview (first 200 chars of each message)
+        membraneView.push({
+          role: msg.role,
+          preview: redacted.slice(0, 300) + (redacted.length > 300 ? "..." : ""),
+          redactions: placeholders ? placeholders.length : 0,
+        });
+      }
+      const totalRedactions = membraneView.reduce((sum, m) => sum + m.redactions, 0);
+      await stream.writeSSE({ data: JSON.stringify({
+        membrane: {
+          messageCount: ctx.messages.length,
+          totalRedactions,
+          messages: membraneView,
+        },
+      }) });
+    } catch { /* membrane view is best-effort, don't block chat */ }
+
     let fullResponse = "";
 
     const savePartial = () => {
