@@ -713,6 +713,38 @@
     user-select: auto;
     background: rgba(239, 68, 68, 0.15);
   }
+  /* Sensitivity flag popup */
+  .flag-popup {
+    position: fixed;
+    z-index: 9999;
+    background: var(--bg-card, #1a1a2e);
+    border: 1px solid var(--border, #333);
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    display: none;
+    font-size: 0.8rem;
+  }
+  .flag-popup.visible { display: flex; gap: 4px; align-items: center; }
+  .flag-popup button {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    border-radius: 5px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .flag-popup button:hover { background: rgba(239, 68, 68, 0.3); }
+  .flag-popup select {
+    background: var(--bg-card, #1a1a2e);
+    border: 1px solid var(--border, #333);
+    color: var(--text, #ccc);
+    border-radius: 5px;
+    padding: 3px 6px;
+    font-size: 0.75rem;
+  }
   /* Block all selection/copy on incognito messages */
   .message.incognito {
     user-select: none;
@@ -4262,6 +4294,60 @@
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  /**
+   * Apply privacy seals to a DOM element — blurs PII in text nodes.
+   * Works on rendered HTML (post-markdown). Hover to reveal.
+   */
+  function applyPrivacySeals(el) {
+    if (!el) return;
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    var textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    for (var i = 0; i < textNodes.length; i++) {
+      var node = textNodes[i];
+      if (!node.textContent || node.parentElement?.closest(".pii-redact")) continue;
+      // Skip nodes inside code blocks
+      if (node.parentElement?.closest("pre, code")) continue;
+      var ranges = [];
+      for (var p = 0; p < PII_PATTERNS.length; p++) {
+        PII_PATTERNS[p].lastIndex = 0;
+        var m;
+        while ((m = PII_PATTERNS[p].exec(node.textContent)) !== null) {
+          ranges.push([m.index, m.index + m[0].length]);
+        }
+      }
+      if (ranges.length === 0) continue;
+      // Sort and merge overlapping
+      ranges.sort(function(a, b) { return a[0] - b[0]; });
+      var merged = [ranges[0]];
+      for (var j = 1; j < ranges.length; j++) {
+        var last = merged[merged.length - 1];
+        if (ranges[j][0] <= last[1]) {
+          last[1] = Math.max(last[1], ranges[j][1]);
+        } else {
+          merged.push(ranges[j]);
+        }
+      }
+      // Replace text node with fragments + sealed spans
+      var frag = document.createDocumentFragment();
+      var cursor = 0;
+      for (var k = 0; k < merged.length; k++) {
+        if (merged[k][0] > cursor) {
+          frag.appendChild(document.createTextNode(node.textContent.slice(cursor, merged[k][0])));
+        }
+        var span = document.createElement("span");
+        span.className = "pii-redact";
+        span.textContent = node.textContent.slice(merged[k][0], merged[k][1]);
+        frag.appendChild(span);
+        cursor = merged[k][1];
+      }
+      if (cursor < node.textContent.length) {
+        frag.appendChild(document.createTextNode(node.textContent.slice(cursor)));
+      }
+      node.parentNode.replaceChild(frag, node);
+    }
+  }
+
   // --- Topic drift tracking (git-style branch indicator) ---
   var topicState = {
     keywords: [],        // main topic keywords extracted from first messages
@@ -4375,6 +4461,8 @@
     } else {
       div.querySelector(".content").textContent = content;
     }
+    // Auto-apply privacy seals to all messages (blur PII, hover to reveal)
+    applyPrivacySeals(div.querySelector(".content"));
 
     // --- Drift tracking ---
     if (role !== "system") {
@@ -4719,6 +4807,7 @@
       if (contentEl) {
         contentEl.classList.remove("streaming-cursor");
         contentEl.innerHTML = finalText ? renderMarkdown(finalText) : "";
+        applyPrivacySeals(contentEl);
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
         // Add drift tracking for assistant response
@@ -6570,6 +6659,91 @@ async function loadPairedDevices() {
     container.innerHTML = '';
   }
 }
+</script>
+<div class="flag-popup" id="flag-popup">
+  <select id="flag-category">
+    <option value="PII">PII</option>
+    <option value="ADDRESS">Address</option>
+    <option value="PERSON">Name</option>
+    <option value="MEDICAL">Medical</option>
+    <option value="FINANCIAL">Financial</option>
+    <option value="CREDENTIAL">Credential</option>
+    <option value="OTHER">Other</option>
+  </select>
+  <button id="flag-btn">Flag sensitive</button>
+</div>
+<script>
+(function() {
+  var popup = document.getElementById("flag-popup");
+  var flagBtn = document.getElementById("flag-btn");
+  var flagCat = document.getElementById("flag-category");
+  var selectedText = "";
+
+  document.getElementById("messages").addEventListener("mouseup", function(e) {
+    var sel = window.getSelection();
+    var text = sel ? sel.toString().trim() : "";
+    if (text.length < 2 || text.length > 500) { popup.classList.remove("visible"); return; }
+    // Only show if selection is inside a message
+    if (!sel.anchorNode || !sel.anchorNode.parentElement.closest(".message")) { popup.classList.remove("visible"); return; }
+    selectedText = text;
+    var rect = sel.getRangeAt(0).getBoundingClientRect();
+    popup.style.left = Math.min(rect.left, window.innerWidth - 220) + "px";
+    popup.style.top = (rect.bottom + 6) + "px";
+    popup.classList.add("visible");
+  });
+
+  document.addEventListener("mousedown", function(e) {
+    if (!e.target.closest(".flag-popup")) {
+      popup.classList.remove("visible");
+    }
+  });
+
+  flagBtn.addEventListener("click", function() {
+    if (!selectedText) return;
+    var category = flagCat.value;
+    // Get context: current thread, model, turn index
+    var threadId = window.currentThreadId || null;
+    var model = null;
+    var provider = null;
+    try {
+      var modelEl = document.getElementById("model-select");
+      if (modelEl) model = modelEl.value;
+      var provEl = document.getElementById("provider-select");
+      if (provEl) provider = provEl.value;
+    } catch(e) {}
+
+    // Count turns in current thread to identify which turn leaked
+    var msgs = document.querySelectorAll("#messages .message");
+    var turnIndex = msgs ? msgs.length : null;
+
+    api("/api/sensitive/flag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        value: selectedText,
+        category: category,
+        model: model,
+        provider: provider,
+        threadId: threadId,
+        turnIndex: turnIndex
+      })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        popup.classList.remove("visible");
+        // Re-apply privacy seals to catch the newly flagged term
+        var messagesEl = document.getElementById("messages");
+        if (messagesEl && typeof applyPrivacySeals === "function") {
+          messagesEl.querySelectorAll(".message .content").forEach(function(el) {
+            applyPrivacySeals(el);
+          });
+        }
+      }
+    }).catch(function() {
+      popup.classList.remove("visible");
+    });
+    selectedText = "";
+  });
+})();
 </script>
 <script>
 if ("serviceWorker" in navigator) {

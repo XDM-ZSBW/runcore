@@ -19,7 +19,8 @@ const PKG_ROOT = join(__dirname, "..");
 
 // UI directory — resolved at startup. Prefers CDN-synced, falls back to bundled.
 let UI_DIR = getUiPublicDir(PKG_ROOT);
-import { writeFileSync, appendFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
+import { appendFile } from "node:fs/promises";
 import { initInstanceName, getInstanceName, setInstanceName, getInstanceNameLower, resolveEnv, getAlertEmailFrom } from "./instance.js";
 import { syncUi, getUiPublicDir } from "./ui-sync.js";
 
@@ -367,6 +368,7 @@ const tracer = new Tracer();
 let instanceManager: AgentInstanceManager | null = null;
 let agentPool: AgentPool | null = null;
 let workflowEngine: WorkflowEngine | null = null;
+let activeSensitiveRegistry: SensitiveRegistry | null = null;
 
 /** Get the current instance manager (or null if not initialized). */
 function getInstanceManager(): AgentInstanceManager | null {
@@ -2107,6 +2109,48 @@ app.get("/api/models", async (c) => {
   } catch {
     return c.json({ models: [], error: "Ollama not reachable" });
   }
+});
+
+// --- Sensitivity trainer ---
+
+app.post("/api/sensitive/flag", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body?.value || typeof body.value !== "string") {
+    return c.json({ error: "value required" }, 400);
+  }
+  const category = (body.category || "FLAGGED").toUpperCase();
+  const value = body.value.trim();
+  if (value.length < 2) {
+    return c.json({ error: "value too short" }, 400);
+  }
+
+  if (!activeSensitiveRegistry) {
+    return c.json({ error: "registry not initialized" }, 503);
+  }
+
+  const isNew = await activeSensitiveRegistry.addTerm(value, category);
+
+  // Append-only exposure log: who saw this, when, which model, which turn
+  const exposure: Record<string, unknown> = {
+    timestamp: new Date().toISOString(),
+    category,
+    valueLength: value.length,
+    model: body.model || null,
+    threadId: body.threadId || null,
+    turnIndex: body.turnIndex ?? null,
+    provider: body.provider || null,
+    action: "flag",
+    isNew,
+  };
+
+  try {
+    const logPath = join(BRAIN_DIR, "memory", "sensitivity-flags.jsonl");
+    await appendFile(logPath, JSON.stringify(exposure) + "\n", "utf-8");
+  } catch {
+    // best-effort logging
+  }
+
+  return c.json({ ok: true, isNew, category });
 });
 
 // --- Settings routes ---
@@ -6132,19 +6176,7 @@ app.post("/api/chat", async (c) => {
       const flushBuf2 = () => {
         if (!tokenBuf2) return;
         // Debug: trace rehydration
-        const hasPh = tokenBuf2.includes("<<") && tokenBuf2.includes(">>");
-        if (hasPh) {
-          appendFileSync("E:/Core/membrane-debug.log",
-            `[${new Date().toISOString()}] pre: ${JSON.stringify(tokenBuf2.slice(0, 300))}\n`);
-        }
         const rehydrated = rehydrateResponse(tokenBuf2);
-        if (hasPh) {
-          appendFileSync("E:/Core/membrane-debug.log",
-            `[${new Date().toISOString()}] post: ${JSON.stringify(rehydrated.slice(0, 300))}\n` +
-            `[${new Date().toISOString()}] changed: ${rehydrated !== tokenBuf2}\n` +
-            `[${new Date().toISOString()}] membrane-exists: ${!!getActiveMembrane()}\n` +
-            `[${new Date().toISOString()}] reverse-map-size: ${getActiveMembrane()?.size ?? "null"}\n---\n`);
-        }
         fullResponse += rehydrated;
         tokenBuf2 = "";
         stream.writeSSE({ data: JSON.stringify({ token: rehydrated }) }).catch(() => {});
@@ -6555,9 +6587,9 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   installFetchGuard();
 
   // Initialize PrivacyMembrane for reversible redaction
-  const sensitiveRegistry = new SensitiveRegistry();
-  await sensitiveRegistry.load(BRAIN_DIR);
-  const membrane = new PrivacyMembrane(sensitiveRegistry);
+  activeSensitiveRegistry = new SensitiveRegistry();
+  await activeSensitiveRegistry.load(BRAIN_DIR);
+  const membrane = new PrivacyMembrane(activeSensitiveRegistry);
   setActiveMembrane(membrane);
 
   // Run independent initialization in parallel: LLM cache, auth, and sidecars

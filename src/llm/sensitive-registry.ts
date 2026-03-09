@@ -6,7 +6,7 @@
  * Hand-rolled YAML parse — no external dependency.
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createLogger } from "../utils/logger.js";
 
@@ -63,6 +63,7 @@ export class SensitiveRegistry {
   private terms: SensitiveTerm[] = [];
   private customPatterns: SensitivePattern[] = [];
   private loaded = false;
+  private brainRoot: string | null = null;
 
   /** All built-in + custom regex patterns. */
   get patterns(): SensitivePattern[] {
@@ -76,6 +77,7 @@ export class SensitiveRegistry {
 
   /** Load sensitive.yaml from brain/knowledge/. Graceful if missing. */
   async load(brainRoot: string): Promise<void> {
+    this.brainRoot = brainRoot;
     const filePath = join(brainRoot, "knowledge", "sensitive.yaml");
     try {
       const raw = await readFile(filePath, "utf-8");
@@ -145,5 +147,41 @@ export class SensitiveRegistry {
 
     this.terms = terms;
     this.customPatterns = customPatterns;
+  }
+
+  /**
+   * Add a term at runtime (user-flagged). Immediately active + persisted to YAML.
+   * Returns true if the term was new, false if it already existed.
+   */
+  async addTerm(value: string, category: string): Promise<boolean> {
+    const cat = category.toUpperCase();
+    const trimmed = value.trim();
+    if (trimmed.length < 2) return false;
+
+    // Skip if already known
+    if (this.terms.some((t) => t.value === trimmed && t.category === cat)) {
+      return false;
+    }
+
+    // Add to in-memory list, re-sort longest-first
+    this.terms.push({ value: trimmed, category: cat });
+    this.terms.sort((a, b) => b.value.length - a.value.length);
+
+    // Persist to sensitive.yaml (append)
+    if (this.brainRoot) {
+      const dir = join(this.brainRoot, "knowledge");
+      const filePath = join(dir, "sensitive.yaml");
+      try {
+        await mkdir(dir, { recursive: true });
+        const entry = `\n- value: "${trimmed.replace(/"/g, '\\"')}"\n  category: ${cat}\n`;
+        await appendFile(filePath, entry, "utf-8");
+        log.info("Flagged sensitive term persisted", { category: cat });
+      } catch (err: any) {
+        log.warn("Failed to persist flagged term", { error: err.message });
+      }
+    }
+
+    log.info("Sensitive term added at runtime", { category: cat, length: trimmed.length });
+    return true;
   }
 }

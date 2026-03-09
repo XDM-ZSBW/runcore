@@ -9,6 +9,7 @@
  */
 
 import type { SensitiveRegistry } from "./sensitive-registry.js";
+import { detectEntities } from "./nlp-detect.js";
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("llm.membrane");
@@ -72,6 +73,22 @@ export class PrivacyMembrane {
         result = result.replace(match, ph);
         categoryCounts[rule.category] = (categoryCounts[rule.category] ?? 0) + 1;
       }
+    }
+
+    // 3. NLP entity detection (catches what regex missed — addresses, names, orgs)
+    const nlpEntities = detectEntities(result);
+    for (const entity of nlpEntities) {
+      // Skip if already inside a placeholder or too short
+      if (entity.value.length < 3) continue;
+      if (!result.includes(entity.value)) continue;
+      // Skip if this span is already redacted (inside a <<...>>)
+      const idx = result.indexOf(entity.value);
+      const before = result.slice(Math.max(0, idx - 2), idx);
+      if (before.endsWith("<<")) continue;
+
+      const ph = this.getOrCreatePlaceholder(entity.value, entity.category);
+      result = result.split(entity.value).join(ph);
+      categoryCounts[entity.category] = (categoryCounts[entity.category] ?? 0) + 1;
     }
 
     if (Object.keys(categoryCounts).length > 0) {
