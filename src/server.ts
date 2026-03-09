@@ -58,6 +58,7 @@ import { installFetchGuard } from "./llm/fetch-guard.js";
 import { SensitiveRegistry } from "./llm/sensitive-registry.js";
 import { PrivacyMembrane } from "./llm/membrane.js";
 import { setActiveMembrane, getActiveMembrane, rehydrateResponse } from "./llm/redact.js";
+import { logLlmCall } from "./llm/call-log.js";
 import { VolumeManager } from "./volumes/index.js";
 import {
   loadSettings,
@@ -2741,12 +2742,17 @@ app.post("/api/branch", async (c) => {
 
       // Token buffer for split-placeholder rehydration
       let tokenBuf = "";
+      let totalOutputChars = 0;
+      const streamStartMs = performance.now();
       const flushBuf = () => {
         if (!tokenBuf) return;
         const rehydrated = rehydrateResponse(tokenBuf);
+        totalOutputChars += rehydrated.length;
         tokenBuf = "";
         stream.writeSSE({ data: JSON.stringify({ token: rehydrated }) }).catch(() => {});
       };
+
+      const streamModel = activeChatModel ?? (activeProvider === "ollama" ? "llama3.2:3b" : "claude-sonnet-4");
 
       stream_fn({
         messages: redactedBranchMessages,
@@ -2763,6 +2769,12 @@ app.post("/api/branch", async (c) => {
           flushBuf(); // flush remainder
           reqSignal?.removeEventListener("abort", onAbort);
           stream.writeSSE({ data: JSON.stringify({ done: true }) }).catch(() => {});
+          const durationMs = Math.round(performance.now() - streamStartMs);
+          logLlmCall({
+            ts: new Date().toISOString(), mode: "stream",
+            provider: activeProvider, model: streamModel,
+            durationMs, outputTokens: Math.ceil(totalOutputChars / 4), ok: true,
+          });
           resolve();
         },
         onError: async (err) => {
@@ -2773,6 +2785,12 @@ app.post("/api/branch", async (c) => {
             const health = await checkOllamaHealth();
             if (!health.ok) errorMsg += " — Check that Ollama is running. " + health.message;
           }
+          const durationMs = Math.round(performance.now() - streamStartMs);
+          logLlmCall({
+            ts: new Date().toISOString(), mode: "stream",
+            provider: activeProvider, model: streamModel,
+            durationMs, ok: false, error: errorMsg,
+          });
           stream.writeSSE({ data: JSON.stringify({ error: errorMsg }) }).catch(() => {});
           resolve();
         },
@@ -6279,6 +6297,8 @@ app.post("/api/chat", async (c) => {
 
       // Token buffer for split-placeholder rehydration
       let tokenBuf2 = "";
+      const streamStartMs2 = performance.now();
+      const streamModel2 = activeChatModel ?? (activeProvider === "ollama" ? "llama3.2:3b" : "claude-sonnet-4");
       const flushBuf2 = () => {
         if (!tokenBuf2) return;
         // Debug: trace rehydration
@@ -6302,6 +6322,12 @@ app.post("/api/chat", async (c) => {
         onDone: async () => {
           flushBuf2(); // flush remainder
           reqSignal?.removeEventListener("abort", onAbort);
+          logLlmCall({
+            ts: new Date().toISOString(), mode: "stream",
+            provider: activeProvider, model: streamModel2,
+            durationMs: Math.round(performance.now() - streamStartMs2),
+            outputTokens: Math.ceil(fullResponse.length / 4), ok: true,
+          });
 
           // Process action blocks BEFORE sending done — ensures SSE events reach client before stream closes.
           // ALWAYS strip [AGENT_REQUEST] blocks from response, even if they can't be parsed.
@@ -6529,6 +6555,12 @@ app.post("/api/chat", async (c) => {
           // If this error is from an abort, save partial and exit quietly
           if (reqSignal?.aborted) {
             savePartial();
+            logLlmCall({
+              ts: new Date().toISOString(), mode: "stream",
+              provider: activeProvider, model: streamModel2,
+              durationMs: Math.round(performance.now() - streamStartMs2),
+              outputTokens: Math.ceil(fullResponse.length / 4), ok: true, error: "client_abort",
+            });
           } else {
             let errorMsg = err instanceof LLMError ? err.userMessage : (err.message || "Stream error");
             // Include raw detail for health drilldown — client shows this, not the friendly version
@@ -6539,6 +6571,12 @@ app.post("/api/chat", async (c) => {
               const health = await checkOllamaHealth();
               if (!health.ok) errorMsg += " — Check that Ollama is running. " + health.message;
             }
+            logLlmCall({
+              ts: new Date().toISOString(), mode: "stream",
+              provider: activeProvider, model: streamModel2,
+              durationMs: Math.round(performance.now() - streamStartMs2),
+              ok: false, error: errorMsg,
+            });
             stream.writeSSE({ data: JSON.stringify({ error: errorMsg, errorDetail: rawDetail }) }).catch(() => {});
           }
           resolve(); // Still resolve so stream closes

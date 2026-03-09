@@ -14,6 +14,7 @@ import { withRetry } from "./retry.js";
 import { rehydrateResponse } from "./redact.js";
 import { createLogger } from "../utils/logger.js";
 import { recordLlmRequest } from "../metrics/collector.js";
+import { logLlmCall } from "./call-log.js";
 
 const log = createLogger("llm");
 
@@ -25,6 +26,12 @@ export interface CompleteChatOptions {
   noCache?: boolean;
   /** Override default TTL for this request (ms). */
   cacheTTLMs?: number;
+  /** How the provider/model was resolved (for call log). */
+  routeSource?: string;
+  /** Task type if routed via taskRoutes (for call log). */
+  taskType?: string;
+  /** Agent ID if called by a spawned agent (for call log). */
+  agentId?: string;
 }
 
 /**
@@ -77,6 +84,12 @@ async function completeChatUncached(options: CompleteChatOptions): Promise<strin
     const durationMs = Math.round(performance.now() - startMs);
     const outputTokens = Math.ceil(result.length / 4);
     recordLlmRequest(options.provider, model, durationMs, inputTokens, outputTokens, true);
+    logLlmCall({
+      ts: new Date().toISOString(), mode: "complete",
+      provider: options.provider, model,
+      routeSource: options.routeSource, taskType: options.taskType, agentId: options.agentId,
+      durationMs, inputTokens, outputTokens, ok: true,
+    });
     return result;
   } catch (err) {
     // On credit/billing errors from cloud providers, try Ollama as a fallback
@@ -103,11 +116,31 @@ async function completeChatUncached(options: CompleteChatOptions): Promise<strin
         // Also record the original provider's failure
         const failDurationMs = Math.round(fallbackStartMs - startMs);
         recordLlmRequest(options.provider, model, failDurationMs, inputTokens, 0, false);
+        // Log both: the failed cloud call and the successful fallback
+        logLlmCall({
+          ts: new Date().toISOString(), mode: "complete",
+          provider: options.provider, model,
+          routeSource: options.routeSource, taskType: options.taskType, agentId: options.agentId,
+          durationMs: failDurationMs, inputTokens, ok: false, error: "credits_exhausted",
+        });
+        logLlmCall({
+          ts: new Date().toISOString(), mode: "complete",
+          provider: "ollama", model: ollama.defaultUtilityModel,
+          routeSource: "fallback", taskType: options.taskType, agentId: options.agentId,
+          durationMs: fallbackDurationMs, inputTokens, outputTokens: fallbackOutputTokens, ok: true,
+        });
         return fallbackResult;
       }
     }
     const durationMs = Math.round(performance.now() - startMs);
     recordLlmRequest(options.provider, model, durationMs, inputTokens, 0, false);
+    logLlmCall({
+      ts: new Date().toISOString(), mode: "complete",
+      provider: options.provider, model,
+      routeSource: options.routeSource, taskType: options.taskType, agentId: options.agentId,
+      durationMs, inputTokens, ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
     throw err;
   }
 }
