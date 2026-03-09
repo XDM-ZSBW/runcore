@@ -4348,6 +4348,57 @@
     }
   }
 
+  /**
+   * Apply server-provided seal values — blurs exact strings the server detected.
+   * Covers NLP-detected entities that client-side regex misses.
+   */
+  function applyServerSeals(el, values) {
+    if (!el || !values || values.length === 0) return;
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    var textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    for (var i = 0; i < textNodes.length; i++) {
+      var node = textNodes[i];
+      if (!node.textContent || node.parentElement?.closest(".pii-redact")) continue;
+      if (node.parentElement?.closest("pre, code")) continue;
+      var ranges = [];
+      for (var v = 0; v < values.length; v++) {
+        var idx = 0;
+        while ((idx = node.textContent.indexOf(values[v], idx)) !== -1) {
+          ranges.push([idx, idx + values[v].length]);
+          idx += values[v].length;
+        }
+      }
+      if (ranges.length === 0) continue;
+      ranges.sort(function(a, b) { return a[0] - b[0]; });
+      var merged = [ranges[0]];
+      for (var j = 1; j < ranges.length; j++) {
+        var last = merged[merged.length - 1];
+        if (ranges[j][0] <= last[1]) {
+          last[1] = Math.max(last[1], ranges[j][1]);
+        } else {
+          merged.push(ranges[j]);
+        }
+      }
+      var frag = document.createDocumentFragment();
+      var cursor = 0;
+      for (var k = 0; k < merged.length; k++) {
+        if (merged[k][0] > cursor) {
+          frag.appendChild(document.createTextNode(node.textContent.slice(cursor, merged[k][0])));
+        }
+        var span = document.createElement("span");
+        span.className = "pii-redact";
+        span.textContent = node.textContent.slice(merged[k][0], merged[k][1]);
+        frag.appendChild(span);
+        cursor = merged[k][1];
+      }
+      if (cursor < node.textContent.length) {
+        frag.appendChild(document.createTextNode(node.textContent.slice(cursor)));
+      }
+      node.parentNode.replaceChild(frag, node);
+    }
+  }
+
   // --- Topic drift tracking (git-style branch indicator) ---
   var topicState = {
     keywords: [],        // main topic keywords extracted from first messages
@@ -4463,6 +4514,7 @@
     }
     // Auto-apply privacy seals to all messages (blur PII, hover to reveal)
     applyPrivacySeals(div.querySelector(".content"));
+    if (window._serverSealValues) applyServerSeals(div.querySelector(".content"), window._serverSealValues);
 
     // --- Drift tracking ---
     if (role !== "system") {
@@ -4761,6 +4813,19 @@
             if (data.membrane) {
               console.log("[membrane] SSE received:", data.membrane.messageCount, "msgs,", data.membrane.totalRedactions, "redactions");
               renderMembraneView(data.membrane);
+              // Sync server-detected values to client-side blur
+              if (data.membrane.sealValues && data.membrane.sealValues.length > 0) {
+                window._serverSealValues = (window._serverSealValues || []).concat(data.membrane.sealValues);
+                // Deduplicate
+                window._serverSealValues = [...new Set(window._serverSealValues)];
+                // Re-apply seals with server knowledge
+                var messagesEl = document.getElementById("messages");
+                if (messagesEl) {
+                  messagesEl.querySelectorAll(".message .content").forEach(function(el) {
+                    applyServerSeals(el, window._serverSealValues);
+                  });
+                }
+              }
             }
             if (data.error) {
               addMessage("system", friendlyLLMError(data.error));
@@ -4808,6 +4873,7 @@
         contentEl.classList.remove("streaming-cursor");
         contentEl.innerHTML = finalText ? renderMarkdown(finalText) : "";
         applyPrivacySeals(contentEl);
+        if (window._serverSealValues) applyServerSeals(contentEl, window._serverSealValues);
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
         // Add drift tracking for assistant response
@@ -6701,6 +6767,7 @@ async function loadPairedDevices() {
   flagBtn.addEventListener("click", function() {
     if (!selectedText) return;
     var category = flagCat.value;
+    var flaggedValue = selectedText;
     // Get context: current thread, model, turn index
     var threadId = window.currentThreadId || null;
     var model = null;
@@ -6716,11 +6783,16 @@ async function loadPairedDevices() {
     var msgs = document.querySelectorAll("#messages .message");
     var turnIndex = msgs ? msgs.length : null;
 
-    api("/api/sensitive/flag", {
+    // Get sessionId from URL or stored value
+    var sid = "";
+    try { sid = new URLSearchParams(window.location.search).get("sessionId") || window.sessionId || ""; } catch(e) {}
+
+    var url = "/api/sensitive/flag" + (sid ? "?sessionId=" + encodeURIComponent(sid) : "");
+    fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        value: selectedText,
+        value: flaggedValue,
         category: category,
         model: model,
         provider: provider,
@@ -6730,15 +6802,43 @@ async function loadPairedDevices() {
     }).then(function(r) { return r.json(); }).then(function(data) {
       if (data.ok) {
         popup.classList.remove("visible");
-        // Re-apply privacy seals to catch the newly flagged term
+        // Immediately blur the flagged value in all messages
         var messagesEl = document.getElementById("messages");
-        if (messagesEl && typeof applyPrivacySeals === "function") {
+        if (messagesEl) {
+          // Add to server seal values for future messages
+          window._serverSealValues = (window._serverSealValues || []);
+          window._serverSealValues.push(flaggedValue);
+          // Walk text nodes and blur matches
           messagesEl.querySelectorAll(".message .content").forEach(function(el) {
-            applyPrivacySeals(el);
+            var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+            var nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            for (var n = 0; n < nodes.length; n++) {
+              var nd = nodes[n];
+              if (!nd.textContent || !nd.textContent.includes(flaggedValue)) continue;
+              if (nd.parentElement && nd.parentElement.closest(".pii-redact")) continue;
+              var parts = nd.textContent.split(flaggedValue);
+              if (parts.length < 2) continue;
+              var frag = document.createDocumentFragment();
+              for (var p = 0; p < parts.length; p++) {
+                if (p > 0) {
+                  var span = document.createElement("span");
+                  span.className = "pii-redact";
+                  span.textContent = flaggedValue;
+                  frag.appendChild(span);
+                }
+                if (parts[p]) frag.appendChild(document.createTextNode(parts[p]));
+              }
+              nd.parentNode.replaceChild(frag, nd);
+            }
           });
         }
+        // Visual feedback
+        flagBtn.textContent = "Flagged!";
+        setTimeout(function() { flagBtn.textContent = "Flag sensitive"; }, 1500);
       }
-    }).catch(function() {
+    }).catch(function(err) {
+      console.error("Flag failed:", err);
       popup.classList.remove("visible");
     });
     selectedText = "";

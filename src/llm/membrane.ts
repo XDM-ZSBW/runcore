@@ -152,6 +152,18 @@ export class PrivacyMembrane {
     return this.forward.size;
   }
 
+  /** All known sensitive values with their categories (for client-side blur sync). */
+  get knownValues(): Array<{ value: string; category: string }> {
+    const result: Array<{ value: string; category: string }> = [];
+    for (const [value, placeholder] of this.forward) {
+      const cat = placeholder.replace(/^<</, "").replace(/_\d+>>$/, "");
+      result.push({ value, category: cat });
+    }
+    // Longest first so client applies in correct order
+    result.sort((a, b) => b.value.length - a.value.length);
+    return result;
+  }
+
   /**
    * Get existing placeholder or create a new one for a value+category pair.
    */

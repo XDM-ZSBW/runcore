@@ -6141,6 +6141,7 @@ app.post("/api/chat", async (c) => {
           messageCount: redactedMessages.length,
           totalRedactions,
           messages: membraneView,
+          sealValues: membrane ? membrane.knownValues.map(v => v.value) : [],
         },
       }) });
     } catch (memErr) {
