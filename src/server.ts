@@ -77,7 +77,11 @@ import { saveSession, loadSession } from "./sessions/store.js";
 import { extractAndLearn } from "./learning/extractor.js";
 import { startSidecar, stopSidecar, isSidecarAvailable } from "./search/sidecar.js";
 import { classifySearchNeed } from "./search/classify.js";
-import { findBrainDocument } from "./search/brain-docs.js";
+import { findBrainDocument, setBrainRAG } from "./search/brain-docs.js";
+import { BrainRAG } from "./search/brain-rag.js";
+import { watchBrain } from "./search/file-watcher.js";
+
+let stopFileWatcher: () => void = () => {};
 import { isSearchAvailable, search } from "./search/client.js";
 import { browseUrl, detectUrl } from "./search/browse.js";
 import { startTtsSidecar, stopTtsSidecar } from "./tts/sidecar.js";
@@ -5915,13 +5919,16 @@ app.post("/api/chat", async (c) => {
     const doc = await findBrainDocument(chatMessage);
     if (doc) {
       brainDocFound = true;
+      const siblingNote = doc.siblings && doc.siblings.length > 0
+        ? `\nAlso in the same directory: ${doc.siblings.join(", ")}\nYou can ask to see any of these files.`
+        : "";
       const docMsg = {
         role: "system" as const,
         content: [
           `--- Brain document: ${doc.filename} ---`,
           doc.content,
           `--- End ${doc.filename} ---`,
-          `This document was found in your brain files. Use it to answer the user's question.`,
+          `This document was found in your brain files. Use it to answer the user's question.${siblingNote}`,
         ].join("\n"),
       };
       ctx.messages.splice(1, 0, docMsg);
@@ -6807,6 +6814,18 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   createLibraryStore(BRAIN_DIR);
   initBrainShadow(BRAIN_DIR);
 
+  // Initialize Brain RAG (semantic file search)
+  const rag = new BrainRAG();
+  await rag.load();
+  setBrainRAG(rag);
+  stopFileWatcher = watchBrain(rag);
+  // Background index — never block startup
+  rag.indexAll().then((r) => {
+    log.info(`Brain RAG index: ${r.indexed} indexed, ${r.skipped} skipped, ${r.errors} errors`);
+  }).catch((err) => {
+    log.error("Brain RAG indexAll failed", { error: err instanceof Error ? err.message : String(err) });
+  });
+
   // Register board provider (local queue, always available)
   const queueProvider = new QueueBoardProvider(BRAIN_DIR);
   queueProvider.setOnProjectlessTask((identifier, title) => {
@@ -7435,6 +7454,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   stopCreditMonitor();
   stopPushMonitor();
   stopMdns();
+  stopFileWatcher();
   stopAvatarSidecar();
   stopTtsSidecar();
   stopSttSidecar();

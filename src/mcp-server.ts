@@ -33,6 +33,7 @@ import { sendAlert } from "./alert.js";
 import { Crystallizer, scoreEntry } from "./crystallizer.js";
 import { createCredentialStore } from "./credentials/store.js";
 import { readSessionKey, isDpapiAvailable } from "./lib/dpapi.js";
+import { BrainRAG } from "./search/brain-rag.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,6 +138,17 @@ async function main(): Promise<void> {
   });
   await crystallizer.init();
   log(`Open loops loaded: ${crystallizer.list("open").length} active`);
+
+  // 6b. Initialize Brain RAG (semantic file search)
+  const mcpRag = new BrainRAG();
+  await mcpRag.load(); // Load existing embeddings (fast, no Ollama needed)
+  log(`Brain RAG loaded: ${mcpRag.ready ? "ready" : "empty"}`);
+  // Background index — catch up on any changed files
+  mcpRag.indexAll().then((r) => {
+    log(`Brain RAG index: ${r.indexed} indexed, ${r.skipped} skipped, ${r.errors} errors`);
+  }).catch((err) => {
+    log(`Brain RAG index failed: ${err instanceof Error ? err.message : String(err)}`);
+  });
 
   // 6. Create MCP server
   const mcp = new McpServer({
@@ -397,6 +409,21 @@ async function main(): Promise<void> {
       }
 
       await scanDir(BRAIN_DIR, "");
+
+      // If keyword search found nothing, try semantic search via RAG
+      if (hits.length === 0 && mcpRag?.ready) {
+        try {
+          const ragResults = await mcpRag.query(query, maxResults);
+          if (ragResults.length > 0) {
+            const result = ragResults.map((r) =>
+              `📄 ${r.filePath} (semantic score: ${r.score.toFixed(3)}, section: ${r.heading})${r.siblings ? `\n   Also in directory: ${r.siblings.join(", ")}` : ""}`
+            ).join("\n\n");
+            return {
+              content: [{ type: "text" as const, text: `Keyword search found nothing. Semantic search found ${ragResults.length} file(s):\n\n${result}` }],
+            };
+          }
+        } catch { /* semantic search failed — fall through */ }
+      }
 
       if (hits.length === 0) {
         return { content: [{ type: "text" as const, text: `No files matched: "${query}"` }] };
