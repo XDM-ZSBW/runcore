@@ -377,6 +377,8 @@ async function main(): Promise<void> {
                   // Bonus for title/filename match
                   if (name.toLowerCase().includes(term)) score += 2;
                 }
+                // Match against full relative path (catches parent directory names)
+                if (childRel.toLowerCase().includes(term)) score += 2;
               }
               if (score > 0) {
                 // Extract a snippet around the first match

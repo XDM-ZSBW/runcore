@@ -60,11 +60,30 @@ function extractKeywords(message: string): string[] {
     "is", "are", "tell", "remind", "we", "were", "was", "been",
     "do", "not", "but", "from", "who", "they",
   ]);
-  return message
+  const tokens = message
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 2 && !stopWords.has(w));
+    .filter(Boolean);
+
+  const keywords: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    // Keep numbers (even single digits) — "book 2" needs the "2"
+    if (/^\d+$/.test(t)) {
+      keywords.push(t);
+      // Fuse with previous token: "book" + "2" → "book2"
+      if (i > 0 && keywords.length >= 2) {
+        const prev = keywords[keywords.length - 2];
+        if (!/^\d+$/.test(prev)) {
+          keywords.push(prev + t);
+        }
+      }
+    } else if (t.length > 2 && !stopWords.has(t)) {
+      keywords.push(t);
+    }
+  }
+  return keywords;
 }
 
 /**
@@ -146,6 +165,7 @@ async function searchByContent(keywords: string[]): Promise<DocMatch | null> {
       try {
         const content = await readBrainFile(file.path);
         const lower = content.toLowerCase();
+        const relPath = file.path.toLowerCase();
         let score = 0;
         let distinctHits = 0;
         for (const term of keywords) {
@@ -154,6 +174,7 @@ async function searchByContent(keywords: string[]): Promise<DocMatch | null> {
             distinctHits++;
             score += 1;
             if (file.filename.toLowerCase().includes(term)) score += 1;
+            if (relPath.includes(term)) score += 1;
             if (lower.substring(0, 500).includes(term)) score += 0.5;
           } else if (term.length >= 5) {
             // Stem match — check if the first 5+ chars appear (catches finances→financial, etc.)
@@ -222,7 +243,9 @@ export async function findBrainDocument(message: string): Promise<DocMatch | nul
 
       const files = await collectFiles(dir);
       for (const file of files) {
-        const score = scoreFilename(file.filename, keywords);
+        // Score against filename + parent directory (catches book2-drafts/ch1.md)
+        const parentDir = basename(join(file.path, ".."));
+        const score = scoreFilename(file.filename, keywords) + scoreFilename(parentDir, keywords);
         if (score > 0) {
           candidates.push({ ...file, score });
         }

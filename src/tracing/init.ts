@@ -36,7 +36,7 @@ export interface TracingConfig {
   exporters?: SpanExporter[];
   /** Use BatchSpanProcessor instead of Simple (better for production). */
   batch?: boolean;
-  /** Enable console exporter. Default: true. */
+  /** Enable console exporter. Default: false (set OTEL_CONSOLE=1 to enable). */
   consoleExport?: boolean;
   /** Additional resource attributes. */
   resourceAttributes?: Record<string, string>;
@@ -71,8 +71,9 @@ export function initTracing(config?: TracingConfig): TracerProvider {
 
   provider = new NodeTracerProvider({ resource });
 
-  // Console exporter (default, for development)
-  if (config?.consoleExport !== false) {
+  // Console exporter (opt-in: pass consoleExport:true or set OTEL_CONSOLE=1)
+  const enableConsole = config?.consoleExport ?? process.env.OTEL_CONSOLE === "1";
+  if (enableConsole) {
     const consoleExporter = new ConsoleSpanExporter();
     if (config?.batch) {
       provider.addSpanProcessor(new BatchSpanProcessor(consoleExporter));

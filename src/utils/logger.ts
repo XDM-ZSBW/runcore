@@ -22,8 +22,8 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 3,
 };
 
-// Initialize from LOG_LEVEL env var, default to "debug"
-const envLevel = (process.env.LOG_LEVEL ?? "debug").toLowerCase();
+// Initialize from LOG_LEVEL env var, default to "info"
+const envLevel = (process.env.LOG_LEVEL ?? "info").toLowerCase();
 let minLevel: LogLevel = envLevel in LEVEL_PRIORITY ? (envLevel as LogLevel) : "debug";
 
 // Pretty-print mode for development (LOG_FORMAT=pretty)

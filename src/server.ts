@@ -6718,7 +6718,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   initTracing({
     serviceName: `${getInstanceNameLower()}-brain`,
     serviceVersion: "0.1.0",
-    consoleExport: process.env.OTEL_CONSOLE_EXPORT !== "false",
+    consoleExport: process.env.OTEL_CONSOLE === "1",
   });
 
   // Load settings (airplane mode, model selection)
