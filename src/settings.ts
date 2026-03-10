@@ -9,11 +9,21 @@ import { checkOllama } from "./llm/ollama.js";
 import type { ProviderName } from "./llm/providers/types.js";
 import { createLogger } from "./utils/logger.js";
 import { setWriteEncryptionEnabled } from "./lib/key-store.js";
-import { BRAIN_DIR } from "./lib/paths.js";
+import { BRAIN_DIR, CONFIG_DIR, isBrainV2 } from "./lib/paths.js";
 
 const log = createLogger("settings");
 
-const SETTINGS_PATH = join(BRAIN_DIR, "settings.json");
+/** Settings live in .config/ (v2) or root (legacy). Check both, prefer v2. */
+const SETTINGS_PATH = (() => {
+  const v2Path = join(CONFIG_DIR, "settings.json");
+  const legacyPath = join(BRAIN_DIR, "settings.json");
+  // At module load time, prefer v2 if brain is v2, otherwise legacy
+  try {
+    const { existsSync } = require("node:fs");
+    if (existsSync(v2Path)) return v2Path;
+  } catch {}
+  return legacyPath;
+})();
 
 // --- Schema ---
 

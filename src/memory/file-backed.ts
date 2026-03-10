@@ -2,6 +2,10 @@
  * Long-term memory backed by the brain/ file system (Personal Brain OS).
  * Append-only JSONL: experiences (episodic), semantic.jsonl, procedural.jsonl.
  * All memory files encrypted at rest when encryption key is available.
+ *
+ * v2 brain: files live under brain/log/memory/
+ * Legacy: files live under brain/memory/
+ * Constructor accepts either — caller resolves via resolveBrainDir("memory").
  */
 
 import { join } from "node:path";

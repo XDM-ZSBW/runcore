@@ -12,14 +12,23 @@ import { join, basename } from "node:path";
 import { readBrainFile } from "../lib/brain-io.js";
 import { resolveEnv } from "../instance.js";
 
-import { BRAIN_DIR } from "../lib/paths.js";
+import { BRAIN_DIR, FILES_DIR, resolveBrainDir } from "../lib/paths.js";
 
-/** Directories to scan for documents the user might reference by description. */
+/**
+ * Directories to scan for documents the user might reference by description.
+ * v2 brain: everything is under brain/files/. Legacy: scattered across subdirs.
+ * We check both — resolveBrainDir handles fallback.
+ */
 const DOC_DIRS = [
-  join(BRAIN_DIR, "content", "drafts"),
-  join(BRAIN_DIR, "knowledge", "notes"),
-  join(BRAIN_DIR, "knowledge", "research"),
-  join(BRAIN_DIR, "knowledge", "protocols"),
+  // v2 structure — flat files dir
+  FILES_DIR,
+  // Legacy paths (resolveBrainDir returns v2 or legacy, whichever exists)
+  resolveBrainDir("content"),
+  resolveBrainDir("knowledge"),
+  resolveBrainDir("identity"),
+  resolveBrainDir("operations"),
+  resolveBrainDir("skills"),
+  resolveBrainDir("templates"),
 ];
 
 /** Does the message reference a document, paper, draft, note, or similar? */
@@ -83,19 +92,32 @@ export async function findBrainDocument(message: string): Promise<DocMatch | nul
   // Scan all doc directories, collect candidates
   const candidates: { path: string; filename: string; score: number }[] = [];
 
-  for (const dir of DOC_DIRS) {
-    try {
-      const files = await readdir(dir);
-      for (const file of files) {
-        if (!file.endsWith(".md")) continue;
-        const score = scoreMatch(file, keywords);
-        if (score > 0) {
-          candidates.push({ path: join(dir, file), filename: file, score });
+  async function scanForDocs(dir: string): Promise<void> {
+    let entries: string[];
+    try { entries = await readdir(dir); } catch { return; }
+    for (const entry of entries) {
+      const full = join(dir, entry);
+      try {
+        const { statSync } = await import("node:fs");
+        const s = statSync(full);
+        if (s.isDirectory()) {
+          await scanForDocs(full);
+        } else if (entry.endsWith(".md") || entry.endsWith(".yaml") || entry.endsWith(".yml")) {
+          const score = scoreMatch(entry, keywords);
+          if (score > 0) {
+            candidates.push({ path: full, filename: entry, score });
+          }
         }
-      }
-    } catch {
-      // Directory might not exist — skip
+      } catch { continue; }
     }
+  }
+
+  // Deduplicate dirs (v2 and legacy may resolve to the same path)
+  const seen = new Set<string>();
+  for (const dir of DOC_DIRS) {
+    if (seen.has(dir)) continue;
+    seen.add(dir);
+    await scanForDocs(dir);
   }
 
   if (candidates.length === 0) return null;

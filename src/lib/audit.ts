@@ -56,8 +56,8 @@ export function getAuditContext(): AuditContext | undefined {
 
 // ── File setup ───────────────────────────────────────────────────────────────
 
-import { BRAIN_DIR } from "./paths.js";
-const OPS_DIR = join(BRAIN_DIR, "ops");
+import { BRAIN_DIR, resolveBrainDir } from "./paths.js";
+const OPS_DIR = resolveBrainDir("ops");
 const AUDIT_FILE = join(OPS_DIR, "audit.jsonl");
 const SCHEMA_LINE = JSON.stringify({
   _schema: "audit",

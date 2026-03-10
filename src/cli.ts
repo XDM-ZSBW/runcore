@@ -119,15 +119,14 @@ async function ensureBrain(root: string): Promise<boolean> {
     await access(templateDir);
     await cp(templateDir, brainDir, { recursive: true });
   } catch {
-    // Fallback: create minimal structure if template not found (dev mode)
+    // Fallback: create minimal v2 structure if template not found (dev mode)
     const dirs = [
-      "brain/memory", "brain/identity", "brain/knowledge/notes",
-      "brain/knowledge/research", "brain/content/templates",
-      "brain/content/drafts", "brain/operations", "brain/agents",
-      "brain/calendar", "brain/contacts", "brain/files",
-      "brain/metrics", "brain/ops", "brain/sessions",
-      "brain/training", "brain/skills", "brain/library",
-      "brain/scheduling", "brain/vault",
+      // v2 structure
+      "brain/log", "brain/files", "brain/.config",
+      // Subdirs under log/ for organization (still flat conceptually)
+      "brain/log/memory", "brain/log/ops", "brain/log/metrics",
+      // Legacy compat — created so existing code paths don't break
+      "brain/agents", "brain/sessions", "brain/vault",
     ];
     for (const dir of dirs) {
       await mkdir(join(root, dir), { recursive: true });
@@ -137,9 +136,7 @@ async function ensureBrain(root: string): Promise<boolean> {
   // Ensure runtime directories exist (not in template — created at boot)
   const runtimeDirs = [
     "brain/agents/logs", "brain/agents/tasks", "brain/agents/runtime",
-    "brain/knowledge/research", "brain/knowledge/protocols",
-    "brain/content/drafts", "brain/files/storage",
-    "brain/sessions", "brain/vault", "brain/identity",
+    "brain/sessions", "brain/vault",
   ];
   for (const dir of runtimeDirs) {
     await mkdir(join(root, dir), { recursive: true });

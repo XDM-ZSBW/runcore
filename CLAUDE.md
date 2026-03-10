@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Core is the runtime for a file-based personal operating system. **Packages are code only, no data ever.** The brain (context, memory, skills in markdown, YAML, and JSONL) lives in a separate repo/directory, configured via the `CORE_BRAIN_DIR` environment variable. Default: `process.cwd() + "brain"` for backward compatibility.
 
-All brain path references flow through `src/lib/paths.ts` → `BRAIN_DIR`. No file defines its own brain path.
+All brain path references flow through `src/lib/paths.ts` → `BRAIN_DIR`, `LOG_DIR`, `FILES_DIR`, `CONFIG_DIR`. No file defines its own brain path.
 
 ## Build commands
 
@@ -38,15 +38,24 @@ Package name is `core-brain` (v0.1.0, ESM, MIT).
 
 ## File-based brain (separate repo)
 
-The brain lives outside this package (default: `E:/brain`, configured via `CORE_BRAIN_DIR`). It has five modules:
+The brain lives outside this package (default: `E:/brain`, configured via `CORE_BRAIN_DIR`).
 
-| Module | Instruction file | Data files |
-|--------|-----------------|------------|
-| **memory** | `memory/README.md` | `*.jsonl` (experiences, decisions, failures, semantic, procedural) |
-| **identity** | — | `tone-of-voice.md`, `brand.md`, `principles.md` |
-| **content** | `content/CONTENT.md` | `templates/blog.md` |
-| **operations** | `operations/OPERATIONS.md` | `goals.yaml`, `todos.md` |
-| **knowledge** | `knowledge/README.md` | `research/`, `bookmarks/`, `notes/` |
+### Brain structure (v2)
+
+```
+brain/
+  log/        ← append-only JSONL. The trail. Never rewrite.
+  files/      ← everything else. Searchable. Flat or shallow.
+  .config/    ← settings, access policies, locked paths. Plumbing.
+```
+
+**`log/`** contains append-only data: memory (experiences, decisions, failures, semantic, procedural), activity logs, audit trail, metrics. The AI searches this via `memory_retrieve`.
+
+**`files/`** contains everything searchable: notes, research, identity, templates, skills, contacts, protocols. The AI searches this via `files_search`. Directory organization within `files/` is for human convenience — the AI greps across all of it.
+
+**`.config/`** contains settings.json, .locked, .access/, vault.policy.yaml.
+
+Legacy brains (30+ top-level directories) are supported via `resolveBrainDir()` in `src/lib/paths.ts`. Migration utility: `src/lib/brain-migrate.ts`.
 
 Content drafts (human-facing writing) live in the publication repo (herrmangroup), not in the brain.
 
@@ -63,7 +72,7 @@ The system prompt has two layers: a **core prompt** (runtime-controlled, not use
 1. **Route first.** Read `SKILL.md` to determine which module(s) a task needs. Load only those — never load everything.
 2. **Progressive disclosure.** Level 1: SKILL.md + AGENT.md (always). Level 2: module instruction file. Level 3: specific data files only when needed.
 3. **Three passes for build/design.** When the user is describing a feature or design, use three passes: intent only (plain language) → spec and build → technical review. Do not interleave intent and implementation. See [docs/THREE-PASSES.md](docs/THREE-PASSES.md).
-4. **JSONL is append-only.** Files in `brain/memory/*.jsonl` must only be appended to. Use `"status": "archived"` to deprecate entries — never delete or rewrite.
+4. **JSONL is append-only.** Files in `brain/log/**/*.jsonl` (or legacy `brain/memory/*.jsonl`) must only be appended to. Use `"status": "archived"` to deprecate entries — never delete or rewrite.
 5. **Read AGENT.md** for the decision table mapping user intents to module sequences (e.g., "write a post" → load content + voice + template → draft → voice check).
 
 ## Skills system (skills/)

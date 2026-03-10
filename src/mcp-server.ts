@@ -36,8 +36,8 @@ import { readSessionKey, isDpapiAvailable } from "./lib/dpapi.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-import { BRAIN_DIR } from "./lib/paths.js";
-const MEMORY_DIR = join(BRAIN_DIR, "memory");
+import { BRAIN_DIR, resolveBrainDir, FILES_DIR } from "./lib/paths.js";
+const MEMORY_DIR = resolveBrainDir("memory");
 
 /** Log to stderr so stdout stays clean for MCP protocol. */
 function log(msg: string): void {
@@ -319,6 +319,96 @@ async function main(): Promise<void> {
           isError: true,
         };
       }
+    })
+  );
+
+  mcp.tool(
+    "files_search",
+    "Search brain files (notes, research, identity, templates, protocols — everything except logs) by keyword. Returns matching filenames with context snippets.",
+    {
+      query: z.string().min(1).max(500).describe("Search query — keywords to find in brain files"),
+      max: z.number().int().min(1).max(20).optional().describe("Max results (default 10)"),
+    },
+    async ({ query, max }) => runWithAuditContext({ caller: "mcp:files_search", channel: "mcp" }, async () => {
+      const maxResults = max ?? 10;
+      const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 1);
+      if (terms.length === 0) {
+        return { content: [{ type: "text" as const, text: "No search terms provided." }] };
+      }
+
+      // Scan all non-log directories for readable files (md, yaml, yml, json, txt)
+      const searchExts = new Set([".md", ".yaml", ".yml", ".json", ".txt", ".jsonl"]);
+      const skipDirs = new Set(["log", ".config", "ops", "metrics", ".obsidian", ".git", "node_modules"]);
+
+      interface FileHit { relPath: string; score: number; snippet: string }
+      const hits: FileHit[] = [];
+
+      async function scanDir(dir: string, rel: string): Promise<void> {
+        let entries: string[];
+        try { entries = await readdir(dir); } catch { return; }
+        for (const name of entries) {
+          if (name.startsWith(".") && rel === "") {
+            // Skip hidden dirs at top level except .config
+            if (skipDirs.has(name)) continue;
+          }
+          if (skipDirs.has(name)) continue;
+          const full = join(dir, name);
+          const childRel = rel ? `${rel}/${name}` : name;
+          try {
+            const s = await stat(full);
+            if (s.isDirectory()) {
+              // Don't recurse into JSONL-heavy log dirs
+              if (name === "memory" || name === "logs" || name === "tasks" || name === "daily" || name === "hourly") continue;
+              await scanDir(full, childRel);
+            } else {
+              const ext = name.substring(name.lastIndexOf(".")).toLowerCase();
+              if (!searchExts.has(ext)) continue;
+              if (isLocked(childRel)) continue;
+              // Skip large JSONL files (those are log data, not knowledge)
+              if (ext === ".jsonl" && s.size > 100_000) continue;
+
+              const content = await readBrainFile(full);
+              const lower = content.toLowerCase();
+              let score = 0;
+              for (const term of terms) {
+                const idx = lower.indexOf(term);
+                if (idx !== -1) {
+                  score++;
+                  // Bonus for title/filename match
+                  if (name.toLowerCase().includes(term)) score += 2;
+                }
+              }
+              if (score > 0) {
+                // Extract a snippet around the first match
+                const firstTerm = terms.find((t) => lower.includes(t))!;
+                const matchIdx = lower.indexOf(firstTerm);
+                const start = Math.max(0, matchIdx - 80);
+                const end = Math.min(content.length, matchIdx + 120);
+                const snippet = (start > 0 ? "..." : "") +
+                  content.substring(start, end).replace(/\n/g, " ").trim() +
+                  (end < content.length ? "..." : "");
+                hits.push({ relPath: childRel, score, snippet });
+              }
+            }
+          } catch { continue; }
+        }
+      }
+
+      await scanDir(BRAIN_DIR, "");
+
+      if (hits.length === 0) {
+        return { content: [{ type: "text" as const, text: `No files matched: "${query}"` }] };
+      }
+
+      hits.sort((a, b) => b.score - a.score);
+      const top = hits.slice(0, maxResults);
+      const result = top.map((h) =>
+        `📄 ${h.relPath} (score: ${h.score})\n   ${h.snippet}`
+      ).join("\n\n");
+
+      return {
+        content: [{ type: "text" as const, text: `Found ${hits.length} file(s) matching "${query}":\n\n${result}` }],
+      };
     })
   );
 
