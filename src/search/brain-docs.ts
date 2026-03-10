@@ -147,20 +147,28 @@ async function searchByContent(keywords: string[]): Promise<DocMatch | null> {
         const content = await readBrainFile(file.path);
         const lower = content.toLowerCase();
         let score = 0;
+        let distinctHits = 0;
         for (const term of keywords) {
           // Exact match
           if (lower.includes(term)) {
-            score++;
-            if (file.filename.toLowerCase().includes(term)) score += 2;
-            if (lower.substring(0, 200).includes(term)) score += 1;
+            distinctHits++;
+            score += 1;
+            if (file.filename.toLowerCase().includes(term)) score += 1;
+            if (lower.substring(0, 500).includes(term)) score += 0.5;
           } else if (term.length >= 5) {
             // Stem match — check if the first 5+ chars appear (catches finances→financial, etc.)
             const stem = term.substring(0, Math.min(term.length - 1, 6));
             if (lower.includes(stem)) {
+              distinctHits++;
               score += 0.5;
-              if (file.filename.toLowerCase().includes(stem)) score += 1;
+              if (file.filename.toLowerCase().includes(stem)) score += 0.5;
             }
           }
+        }
+        // Bonus for matching more distinct keywords — a file matching 3/3 terms
+        // beats a file matching 1/3 very strongly
+        if (distinctHits > 1) {
+          score *= (1 + distinctHits * 0.5);
         }
         if (score > 0) {
           hits.push({ path: file.path, filename: file.filename, score });
