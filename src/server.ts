@@ -5927,8 +5927,9 @@ app.post("/api/chat", async (c) => {
       ctx.messages.splice(1, 0, docMsg);
       logActivity({ source: "system", summary: `Auto-loaded brain document: ${doc.filename}`, actionLabel: "PROMPTED", reason: "user message referenced a brain document" });
     }
-  } catch {
+  } catch (err) {
     // Non-critical — fall through to web search
+    console.error("[brain-docs] findBrainDocument error:", err instanceof Error ? err.message : String(err));
   }
 
   // --- Context provider injection (web search, calendar, email) ---
