@@ -252,8 +252,8 @@ export async function findBrainDocument(message: string): Promise<DocMatch | nul
       }
     }
 
+    log.info(`Filename match: ${candidates.length} candidates, top 5: ${candidates.sort((a, b) => b.score - a.score).slice(0, 5).map(c => `${c.filename}@${basename(join(c.path, ".."))}=${c.score}`).join(", ")}`);
     if (candidates.length > 0) {
-      candidates.sort((a, b) => b.score - a.score);
       if (candidates[0].score >= 2) {
         try {
           const content = await readBrainFile(candidates[0].path);
