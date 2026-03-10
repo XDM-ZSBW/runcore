@@ -15,12 +15,14 @@ import { readBrainFile, readBrainLines, appendBrainLine } from "../lib/brain-io.
 import { BRAIN_DIR, FILES_DIR, resolveBrainDir } from "../lib/paths.js";
 import { embed, embedBatch, isOllamaAvailable, cosine } from "./embedder.js";
 import { chunkMarkdown, type Chunk } from "./chunker.js";
+import { readFile } from "node:fs/promises";
+import { extractPdfText, extractImageText } from "../files/extract.js";
 
 const log = createLogger("brain-rag");
 
 const FILE_EMBEDDINGS = "file-embeddings.jsonl";
 const BATCH_SIZE = 10;
-const SEARCHABLE_EXTS = new Set([".md", ".yaml", ".yml", ".txt"]);
+const SEARCHABLE_EXTS = new Set([".md", ".yaml", ".yml", ".txt", ".pdf"]);
 const SKIP_DIRS = new Set([
   "node_modules", ".git", ".obsidian", "logs", "tasks",
   "daily", "hourly", "memory", "ops", "metrics", "ledger",
@@ -161,10 +163,33 @@ export class BrainRAG {
     return { indexed, skipped, errors };
   }
 
+  /** Read file content, handling PDFs (text and scanned) specially. */
+  private async readFileContent(filePath: string): Promise<string> {
+    const ext = filePath.substring(filePath.lastIndexOf(".")).toLowerCase();
+    if (ext === ".pdf") {
+      const buffer = Buffer.from(await readFile(filePath));
+      // Try text extraction first
+      let text = await extractPdfText(buffer);
+      // If PDF is scanned (no extractable text), fall back to OCR
+      if (!text.trim() || text.trim().length < 50) {
+        try {
+          log.info(`PDF appears scanned, trying OCR: ${basename(filePath)}`);
+          text = await extractImageText(buffer);
+        } catch (err) {
+          log.warn(`OCR failed for ${basename(filePath)}`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      return text;
+    }
+    return readBrainFile(filePath);
+  }
+
   /** Index a single file: chunk, embed, persist. */
   async indexFile(filePath: string): Promise<void> {
     const relPath = relative(BRAIN_DIR, filePath).replace(/\\/g, "/");
-    const content = await readBrainFile(filePath);
+    const content = await this.readFileContent(filePath);
     const fileStat = await stat(filePath);
     const mtime = fileStat.mtimeMs;
 

@@ -4717,7 +4717,7 @@
     // Draw commit node on current lane
     var node = document.createElement("div");
     node.className = "lane-node";
-    node.style.left = (LANE_X[entry.lane] + 1) + "px";
+    node.style.left = LANE_X[entry.lane] + "px";
     node.style.background = LANE_COLORS[entry.lane];
     graph.appendChild(node);
 
@@ -4734,7 +4734,7 @@
         var fx = LANE_X[entry.forkFrom] + 1;
         var tx = LANE_X[entry.lane] + 1;
         var path = document.createElementNS(svgNS, "path");
-        path.setAttribute("d", "M" + fx + ",0 C" + fx + ",18 " + tx + ",22 " + tx + ",40");
+        path.setAttribute("d", "M" + fx + ",0 C" + fx + ",12 " + tx + ",7 " + tx + ",19");
         path.setAttribute("stroke", LANE_COLORS[entry.lane]);
         path.setAttribute("stroke-width", "2");
         path.setAttribute("stroke-linecap", "round");
@@ -4746,7 +4746,7 @@
         var mx = LANE_X[entry.mergeTo] + 1;
         var cx = LANE_X[entry.lane] + 1;
         var path2 = document.createElementNS(svgNS, "path");
-        path2.setAttribute("d", "M" + mx + ",0 C" + mx + ",18 " + cx + ",22 " + cx + ",40");
+        path2.setAttribute("d", "M" + mx + ",0 C" + mx + ",12 " + cx + ",7 " + cx + ",19");
         path2.setAttribute("stroke", LANE_COLORS[entry.mergeTo]);
         path2.setAttribute("stroke-width", "2");
         path2.setAttribute("stroke-linecap", "round");

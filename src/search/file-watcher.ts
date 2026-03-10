@@ -13,7 +13,7 @@ import type { BrainRAG } from "./brain-rag.js";
 const log = createLogger("file-watcher");
 
 const DEBOUNCE_MS = 2000;
-const SEARCHABLE_EXTS = new Set([".md", ".yaml", ".yml", ".txt"]);
+const SEARCHABLE_EXTS = new Set([".md", ".yaml", ".yml", ".txt", ".pdf"]);
 
 const WATCH_DIRS = [
   FILES_DIR,
