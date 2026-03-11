@@ -1,13 +1,12 @@
 /**
  * File registry — lightweight file tracking backed by append-only JSONL.
  *
- * Provides a simplified interface over `brain/files/registry.jsonl` for
- * tracking uploaded/managed files. Follows Core's append-only rule:
- * entries are never modified or deleted, only appended.
+ * @deprecated Use FileStore from `./store.ts` instead. This module is kept
+ * for backward compatibility — `computeChecksum()` is still used externally.
+ * The FileRegistry class and fileRegistry singleton have no remaining consumers.
  *
  * For the full file store with events, versioning, and visibility controls,
- * see `store.ts`. This module is a focused subset for file registration
- * and lookup.
+ * see `store.ts`.
  */
 
 import { readFile, appendFile, mkdir } from "node:fs/promises";

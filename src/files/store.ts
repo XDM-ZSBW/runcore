@@ -9,7 +9,7 @@
 
 import { readFile, appendFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { createLogger } from "../utils/logger.js";
 import type {
   FileEntry,
@@ -51,6 +51,11 @@ function generateEventId(): string {
   const ts = Date.now();
   const rand = randomBytes(4).toString("hex");
   return `evt_${ts}_${rand}`;
+}
+
+/** Compute SHA-256 hex digest for a buffer. */
+export function computeChecksum(data: Buffer): string {
+  return createHash("sha256").update(data).digest("hex");
 }
 
 export class FileStore {
