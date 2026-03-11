@@ -54,7 +54,9 @@ export const openRouterProvider: LLMProvider = {
     log.debug("Streaming chat request", {
       model,
       messageCount: options.messages.length,
+      toolCount: options.tools?.length ?? 0,
     });
+    const fetchStartMs = performance.now();
 
     let response: Response;
     try {
@@ -80,6 +82,12 @@ export const openRouterProvider: LLMProvider = {
       return;
     }
 
+    log.debug("OpenRouter response received", {
+      status: response.status,
+      fetchMs: Math.round(performance.now() - fetchStartMs),
+      model,
+    });
+
     if (!response.ok) {
       const text = await response.text().catch(() => "unknown error");
       log.error("OpenRouter stream API error", {
@@ -99,6 +107,8 @@ export const openRouterProvider: LLMProvider = {
 
     const decoder = new TextDecoder();
     let buffer = "";
+    let firstTokenMs = 0;
+    let tokenCount = 0;
 
     // Accumulator for tool call deltas streamed across multiple chunks
     const toolCallAccum: Array<{
@@ -109,7 +119,10 @@ export const openRouterProvider: LLMProvider = {
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          log.debug("Reader done (stream closed)", { model, tokenCount, totalMs: Math.round(performance.now() - fetchStartMs) });
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -121,6 +134,7 @@ export const openRouterProvider: LLMProvider = {
 
           const data = trimmed.slice(6);
           if (data === "[DONE]") {
+            log.debug("Stream [DONE]", { model, tokenCount, totalMs: Math.round(performance.now() - fetchStartMs), pendingToolCalls: toolCallAccum.length });
             // If tool calls were accumulated but no explicit finish_reason fired, deliver them
             if (toolCallAccum.length > 0 && options.onToolCalls) {
               options.onToolCalls(toolCallAccum);
@@ -132,6 +146,12 @@ export const openRouterProvider: LLMProvider = {
 
           try {
             const parsed = JSON.parse(data);
+            // Log errors from OpenRouter that arrive inside the SSE stream
+            if (parsed.error) {
+              log.error("OpenRouter stream error in SSE", { error: parsed.error });
+              options.onError(new Error(typeof parsed.error === "string" ? parsed.error : parsed.error.message || JSON.stringify(parsed.error)));
+              return;
+            }
             const choice = parsed.choices?.[0];
             const delta = choice?.delta;
 
@@ -155,10 +175,20 @@ export const openRouterProvider: LLMProvider = {
 
             // Stream text content as before
             const content = delta?.content;
-            if (content) options.onToken(content);
+            if (content) {
+              tokenCount++;
+              if (tokenCount === 1) {
+                firstTokenMs = performance.now() - fetchStartMs;
+                log.debug("First token received", { model, ttftMs: Math.round(firstTokenMs) });
+              }
+              options.onToken(content);
+            }
 
             // Check finish_reason
             const finishReason = choice?.finish_reason;
+            if (finishReason) {
+              log.debug("Stream finish", { model, finishReason, tokenCount, totalMs: Math.round(performance.now() - fetchStartMs), toolCalls: toolCallAccum.length });
+            }
             if (finishReason === "tool_calls") {
               if (options.onToolCalls && toolCallAccum.length > 0) {
                 options.onToolCalls(toolCallAccum);

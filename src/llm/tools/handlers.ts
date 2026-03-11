@@ -61,9 +61,12 @@ function formatEntries(entries: MemoryEntry[]): string {
     .join("\n\n---\n\n");
 }
 
-/** Convert a Zod schema to JSON Schema via zod v4 built-in. */
+/** Convert a Zod schema to JSON Schema via zod v4 built-in.
+ *  Strips $schema key — LLM APIs (Anthropic via OpenRouter) reject it. */
 function toJsonSchema(schema: z.ZodType): Record<string, unknown> {
-  return z.toJSONSchema(schema) as Record<string, unknown>;
+  const js = z.toJSONSchema(schema) as Record<string, unknown>;
+  delete js.$schema;
+  return js;
 }
 
 // ── Context type ──────────────────────────────────────────────────────────────

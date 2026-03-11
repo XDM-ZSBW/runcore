@@ -6622,6 +6622,7 @@ app.post("/api/chat", async (c) => {
           flushBuf2();
         },
         onDone: async () => {
+          try {
           flushBuf2(); // flush remainder
           reqSignal?.removeEventListener("abort", onAbort);
           logLlmCall({
@@ -6857,6 +6858,12 @@ app.post("/api/chat", async (c) => {
               resolve();
             });
           } else {
+            stream.writeSSE({ data: JSON.stringify({ done: true }) }).catch(() => {});
+            resolve();
+          }
+          } catch (doneErr: any) {
+            log.error("onDone handler crashed", { error: doneErr?.message ?? String(doneErr), stack: doneErr?.stack?.slice(0, 300) });
+            stream.writeSSE({ data: JSON.stringify({ error: "Internal error processing response", errorDetail: doneErr?.message }) }).catch(() => {});
             stream.writeSSE({ data: JSON.stringify({ done: true }) }).catch(() => {});
             resolve();
           }
