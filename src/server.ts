@@ -2534,7 +2534,7 @@ app.get("/api/history", async (c) => {
   const historySource = cs.activeThreadId ? cs.mainHistory : cs.history;
   const messages = historySource
     .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => ({ role: m.role, content: m.content, ...(m.toolsUsed ? { toolsUsed: m.toolsUsed } : {}) }));
 
   return c.json({ messages });
 });
@@ -6571,6 +6571,9 @@ app.post("/api/chat", async (c) => {
       };
       reqSignal?.addEventListener("abort", onAbort, { once: true });
 
+      // Track tool usage for history persistence
+      const toolsUsedInTurn: Array<{ name: string; isError?: boolean }> = [];
+
       // Token buffer for split-placeholder rehydration
       let tokenBuf2 = "";
       const streamStartMs2 = performance.now();
@@ -6604,6 +6607,7 @@ app.post("/api/chat", async (c) => {
           stream.writeSSE({ data: JSON.stringify({ toolCall: { id: call.id, name: call.name, arguments: call.arguments } }) }).catch(() => {});
         },
         onToolResult: (name, result, isError) => {
+          toolsUsedInTurn.push({ name, isError });
           stream.writeSSE({ data: JSON.stringify({ toolResult: { name, result: result.slice(0, 500), isError } }) }).catch(() => {});
         },
         onToken: (token) => {
@@ -6773,7 +6777,9 @@ app.post("/api/chat", async (c) => {
           }
 
           // Save assistant response to history (with AGENT_REQUEST + BOARD_ACTION + action blocks stripped)
-          cs.history.push({ role: "assistant", content: fullResponse });
+          const historyEntry: ContextMessage = { role: "assistant", content: fullResponse };
+          if (toolsUsedInTurn.length > 0) historyEntry.toolsUsed = toolsUsedInTurn;
+          cs.history.push(historyEntry);
           persistSession();
 
           // Fire-and-forget: extract learnable facts from conversation
