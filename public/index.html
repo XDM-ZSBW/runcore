@@ -2925,7 +2925,7 @@
       </div>
       <!-- Model selection (always visible — local tier needs this) -->
       <div class="settings-section" id="llm-settings-section">
-        <h3 class="settings-section-title">Model <a href="https://ollama.com/library" target="_blank" rel="noopener" style="font-size:11px;font-weight:400;color:var(--accent);text-decoration:none;margin-left:6px;">Browse models &rarr;</a></h3>
+        <h3 class="settings-section-title">Model <a href="https://ollama.com/library" target="_blank" rel="noopener" style="font-size:11px;font-weight:400;color:var(--accent);text-decoration:none;margin-left:6px;">Ollama &rarr;</a> <a href="https://openrouter.ai/models" target="_blank" rel="noopener" style="font-size:11px;font-weight:400;color:var(--accent);text-decoration:none;margin-left:6px;">OpenRouter &rarr;</a></h3>
         <div class="model-field">
           <label>Chat model</label>
           <select id="model-chat" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;">
@@ -5599,6 +5599,9 @@
     try {
       const data = await api("/api/models");
       const models = data.models || [];
+      const ollamaModels = models.filter(function(m) { return m.source === "ollama"; });
+      const openrouterModels = models.filter(function(m) { return m.source === "openrouter"; });
+
       var dropdowns = [
         { el: modelChatSelect, current: selectedChat, autoLabel: "Auto (best available)" },
         { el: modelUtilitySelect, current: selectedUtility, autoLabel: "Auto (best available)" },
@@ -5606,16 +5609,38 @@
       ];
       for (var dd of dropdowns) {
         dd.el.innerHTML = '<option value="auto">' + dd.autoLabel + '</option>';
-        for (const m of models) {
-          const opt = document.createElement("option");
-          opt.value = m.name;
-          const sizeMB = m.size ? Math.round(m.size / 1024 / 1024) : 0;
-          opt.textContent = m.name + (sizeMB ? ` (${sizeMB >= 1024 ? (sizeMB / 1024).toFixed(1) + "GB" : sizeMB + "MB"})` : "");
-          if (m.name === dd.current) opt.selected = true;
-          dd.el.appendChild(opt);
+
+        // Ollama models
+        if (ollamaModels.length > 0) {
+          var ollamaGroup = document.createElement("optgroup");
+          ollamaGroup.label = "Local (Ollama)";
+          for (const m of ollamaModels) {
+            const opt = document.createElement("option");
+            opt.value = m.name;
+            const sizeMB = m.size ? Math.round(m.size / 1024 / 1024) : 0;
+            opt.textContent = m.name + (sizeMB ? " (" + (sizeMB >= 1024 ? (sizeMB / 1024).toFixed(1) + "GB" : sizeMB + "MB") + ")" : "");
+            if (m.name === dd.current) opt.selected = true;
+            ollamaGroup.appendChild(opt);
+          }
+          dd.el.appendChild(ollamaGroup);
         }
+
+        // OpenRouter models
+        if (openrouterModels.length > 0) {
+          var orGroup = document.createElement("optgroup");
+          orGroup.label = "Cloud (OpenRouter)";
+          for (const m of openrouterModels) {
+            const opt = document.createElement("option");
+            opt.value = m.name;
+            opt.textContent = m.name;
+            if (m.name === dd.current) opt.selected = true;
+            orGroup.appendChild(opt);
+          }
+          dd.el.appendChild(orGroup);
+        }
+
         // If the saved model isn't in the list, add it as an option anyway
-        if (dd.current && dd.current !== "auto" && !models.some(m => m.name === dd.current)) {
+        if (dd.current && dd.current !== "auto" && !models.some(function(m) { return m.name === dd.current; })) {
           const opt = document.createElement("option");
           opt.value = dd.current;
           opt.textContent = dd.current + " (not found)";

@@ -714,12 +714,16 @@ async function main(): Promise<void> {
         }
       }
 
-      // Show recently answered questions (last 24h) that Dash should act on
-      const answered = await store.getAnsweredSince(new Date(Date.now() - 86400000).toISOString());
+      // Show ALL answered questions so the agent can act on them
+      const allNodes = await store.list();
+      const answered = allNodes.filter((n: any) => n.type === "question" && n.answer);
       if (answered.length > 0) {
-        lines.push("", "Recently answered (act on these):");
+        lines.push("", "=== ANSWERED QUESTIONS (act on these — do NOT ask the human to repeat) ===");
         for (const a of answered) {
-          lines.push(`  ✓ "${a.question || a.title}" → ${a.answer}`);
+          lines.push(`  Q: "${a.question || a.title}"`);
+          lines.push(`  A: ${a.answer}`);
+          lines.push(`  (id: ${a.id}, status: ${a.status})`);
+          lines.push("");
         }
       }
 

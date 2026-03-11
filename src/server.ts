@@ -594,7 +594,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `- Use parentId to nest under existing goals/tasks when the work relates to them`,
         `- Keep titles short (5-8 words). Put detail in the body field.`,
         `- Tag nodes so ${name} can filter (e.g. "engineering", "design", "p1")`,
-        `- When ${name} answers a question, check answered questions with whiteboard_status and act on the answer`,
+        `- When ${name} answers a question, ACT ON IT IMMEDIATELY. Do not ask "which one should I focus on?" or "what would you like me to do?" — the answer IS the instruction. Read it, do the work, report what you did. If multiple questions are answered, work through them in weight order. ${name} already told you what to do by answering — don't make them say it twice.`,
         ``,
         // Inject instance-readable vault values (CORE_*/DASH_* prefixed only — never secrets)
         ...(() => {
@@ -2178,19 +2178,37 @@ app.put("/api/prompt", async (c) => {
 
 app.get("/api/models", async (c) => {
   const ollamaUrl = process.env.OLLAMA_URL ?? "http://localhost:11434";
+  const results: Array<{ name: string; size?: number; modified?: string; source: string }> = [];
+
+  // Fetch local Ollama models
   try {
     const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return c.json({ models: [], error: "Ollama not responding" });
-    const data = await res.json() as { models?: Array<{ name: string; size: number; modified_at: string }> };
-    const models = (data.models ?? []).map((m) => ({
-      name: m.name,
-      size: m.size,
-      modified: m.modified_at,
-    }));
-    return c.json({ models });
-  } catch {
-    return c.json({ models: [], error: "Ollama not reachable" });
+    if (res.ok) {
+      const data = await res.json() as { models?: Array<{ name: string; size: number; modified_at: string }> };
+      for (const m of data.models ?? []) {
+        results.push({ name: m.name, size: m.size, modified: m.modified_at, source: "ollama" });
+      }
+    }
+  } catch { /* Ollama not reachable */ }
+
+  // Fetch OpenRouter models if API key is set
+  const orKey = process.env.OPENROUTER_API_KEY;
+  if (orKey) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/models", {
+        headers: { Authorization: `Bearer ${orKey}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        const data = await res.json() as { data?: Array<{ id: string; name: string; pricing?: { prompt?: string; completion?: string } }> };
+        for (const m of data.data ?? []) {
+          results.push({ name: m.id, source: "openrouter" });
+        }
+      }
+    } catch { /* OpenRouter not reachable */ }
   }
+
+  return c.json({ models: results });
 });
 
 // --- Sensitivity trainer ---
