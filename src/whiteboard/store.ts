@@ -60,10 +60,9 @@ export class WhiteboardStore {
   }
 
   private async load(): Promise<Map<string, WhiteboardNode>> {
-    if (this.cache) return this.cache;
+    // Always re-read from disk — MCP server writes to the same file from a separate process
     await this.ensureFile();
 
-    log.debug("loading whiteboard", { filePath: this.filePath });
     const raw = await readFile(this.filePath, "utf-8");
     const lines = raw.split("\n").filter((l) => l.trim().length > 0);
 
@@ -79,7 +78,6 @@ export class WhiteboardStore {
     }
 
     this.cache = map;
-    log.info("whiteboard loaded", { nodeCount: map.size });
     return map;
   }
 
