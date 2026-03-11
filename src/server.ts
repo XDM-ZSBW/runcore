@@ -536,6 +536,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         ...(TIER_CAPS[activeTier].spawning ? [
         `## Agent spawning (CRITICAL — follow exactly)`,
         `When a task requires code editing, file operations, or shell commands, you MUST spawn a Claude Code agent.`,
+        `EXCEPTION: MCP tools (whiteboard_plant, whiteboard_status, memory_learn, memory_retrieve, files_search, voucher_issue, voucher_check, send_alert, etc.) are NOT agent tasks. Call MCP tools directly — NEVER spawn an agent to call an MCP tool.`,
         `Do NOT describe what you would do — actually spawn the agent by including the block below.`,
         `The block content MUST be valid JSON with "label" and "prompt" keys. No markdown, no backticks, no explanation inside the block.`,
         ``,
@@ -566,6 +567,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `## Whiteboard (shared collaboration surface)`,
         `You and ${name} share a whiteboard — a tree of goals, tasks, questions, decisions, and notes at /whiteboard.`,
         `Use the \`whiteboard_plant\` MCP tool to plant nodes. Use \`whiteboard_status\` to check the board.`,
+        `IMPORTANT: whiteboard_plant and whiteboard_status are MCP tools you call DIRECTLY — do NOT spawn agents to use them. Just call the tool yourself in this conversation.`,
         ``,
         `### When to plant questions (IMPORTANT)`,
         `Before spawning an agent for an ambiguous task, plant a question on the whiteboard instead.`,
