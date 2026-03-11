@@ -2617,7 +2617,7 @@ app.get("/api/threads/:id/history", async (c) => {
   const historySource = (cs && cs.activeThreadId === threadId) ? cs.history : thread.history;
   const messages = historySource
     .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => ({ role: m.role, content: m.content, ...(m.toolsUsed ? { toolsUsed: m.toolsUsed } : {}) }));
   return c.json({ messages });
 });
 

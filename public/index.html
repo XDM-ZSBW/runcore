@@ -3378,7 +3378,17 @@
             if (typeof content === "string" && content.includes("[AGENT_REQUEST]")) {
               content = content.replace(/\s*\[AGENT_REQUEST\][\s\S]*?\[\/AGENT_REQUEST\]\s*/g, "").trim();
             }
-            addMessage(msg.role === "user" ? "user" : "assistant", content);
+            var el = addMessage(msg.role === "user" ? "user" : "assistant", content);
+            if (msg.toolsUsed && msg.toolsUsed.length > 0 && el) {
+              var th = msg.toolsUsed.map(function(t) {
+                var c2 = t.isError ? "tool-indicator tool-error" : "tool-indicator tool-done";
+                return '<div class="' + c2 + '">' + (t.isError ? "&#10007; " : "&#10003; ") + '<strong>' + t.name.replace(/</g,"&lt;") + '</strong></div>';
+              }).join("");
+              var td = document.createElement("div");
+              td.innerHTML = th;
+              var cd = el.querySelector(".content");
+              if (cd && cd.parentElement) cd.parentElement.insertBefore(td, cd);
+            }
           }
         }
       } catch (err) {
@@ -4182,7 +4192,17 @@
           if (content.includes("[AGENT_REQUEST]")) {
             content = content.replace(/\s*\[AGENT_REQUEST\][\s\S]*?\[\/AGENT_REQUEST\]\s*/g, "").trim();
           }
-          addMessage(msg.role === "user" ? "user" : "assistant", content);
+          var hEl = addMessage(msg.role === "user" ? "user" : "assistant", content);
+          if (msg.toolsUsed && msg.toolsUsed.length > 0 && hEl) {
+            var htHtml = msg.toolsUsed.map(function(t) {
+              var hcls = t.isError ? "tool-indicator tool-error" : "tool-indicator tool-done";
+              return '<div class="' + hcls + '">' + (t.isError ? "&#10007; " : "&#10003; ") + '<strong>' + t.name.replace(/</g,"&lt;") + '</strong></div>';
+            }).join("");
+            var htDiv = document.createElement("div");
+            htDiv.innerHTML = htHtml;
+            var hcDiv = hEl.querySelector(".content");
+            if (hcDiv && hcDiv.parentElement) hcDiv.parentElement.insertBefore(htDiv, hcDiv);
+          }
         }
       }
     } catch (err) {
@@ -4874,7 +4894,19 @@
             if (m.role === "user" && m.source === "phone") {
               label = (userName || "You") + " (phone)";
             }
-            addMessage(m.role === "user" ? "user" : "assistant", m.content, label);
+            var msgEl = addMessage(m.role === "user" ? "user" : "assistant", m.content, label);
+            // Render persisted tool usage indicators
+            if (m.toolsUsed && m.toolsUsed.length > 0 && msgEl) {
+              var toolsHtml = m.toolsUsed.map(function(t) {
+                var cls = t.isError ? "tool-indicator tool-error" : "tool-indicator tool-done";
+                var icon = t.isError ? "&#10007; " : "&#10003; ";
+                return '<div class="' + cls + '">' + icon + '<strong>' + t.name.replace(/</g,"&lt;") + '</strong></div>';
+              }).join("");
+              var toolsDiv = document.createElement("div");
+              toolsDiv.innerHTML = toolsHtml;
+              var contentDiv = msgEl.querySelector(".content");
+              if (contentDiv && contentDiv.parentElement) contentDiv.parentElement.insertBefore(toolsDiv, contentDiv);
+            }
           }
           chatPollIndex = data.total;
           messagesEl.scrollTop = messagesEl.scrollHeight;

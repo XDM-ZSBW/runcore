@@ -83,6 +83,7 @@ export async function streamWithTools(
 
   while (round < MAX_ROUNDS) {
     let toolCalls: ChatToolCall[] = [];
+    let roundText = "";
 
     // Run one streaming round
     try {
@@ -94,6 +95,7 @@ export async function streamWithTools(
             tools,
             signal: options.signal,
             onToken: (token) => {
+              roundText += token;
               options.onToken(token);
             },
             onToolCalls: (calls) => {
@@ -122,12 +124,13 @@ export async function streamWithTools(
       round,
       count: toolCalls.length,
       names: toolCalls.map((tc) => tc.function.name),
+      textLength: roundText.length,
     });
 
-    // Append assistant message with tool_calls to conversation
+    // Append assistant message with tool_calls (include any text produced before the calls)
     messages.push({
       role: "assistant",
-      content: "",
+      content: roundText,
       tool_calls: toolCalls,
     });
 
