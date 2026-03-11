@@ -337,6 +337,8 @@ async function handlePoolCompletion(
   if (task.boardTaskId) {
     if (status === "completed") {
       await updateBoardTaskState(task.boardTaskId, { state: "done" });
+      // Feed back to insight engine so it stops re-detecting this pattern
+      notifyInsightResolved(task.label);
     } else {
       // Failed: move back to todo and clear assignee so it can be retried
       await updateBoardTaskState(task.boardTaskId, { state: "todo", assignee: null });
@@ -612,6 +614,7 @@ async function spawnDirect(task: AgentTask): Promise<void> {
     if (task.boardTaskId) {
       if (finalStatus === "completed") {
         await updateBoardTaskState(task.boardTaskId, { state: "done" });
+        notifyInsightResolved(task.label);
       } else {
         await updateBoardTaskState(task.boardTaskId, { state: "todo", assignee: null });
       }
@@ -1125,4 +1128,14 @@ function clearTaskTimer(taskId: string): void {
     clearTimeout(timer);
     activeTimers.delete(taskId);
   }
+}
+
+/**
+ * Notify the insight engine that a board task (potentially insight-generated) was resolved.
+ * Lazy import to avoid circular dependencies.
+ */
+function notifyInsightResolved(label: string): void {
+  import("../services/traceInsights.js")
+    .then((mod) => mod.markPatternResolved(label))
+    .catch(() => {}); // best-effort
 }

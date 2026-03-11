@@ -36,6 +36,12 @@ export const ROUTINE_PATTERNS: RoutinePattern[] = [
   { pattern: /^Backlog review complete/, label: "backlog-review" },
   { pattern: /^Grooming:/, label: "grooming-check" },
   { pattern: /^Queue compacted:/, label: "queue-compact" },
+  { pattern: /^Trace insights:/, label: "trace-insights" },
+  { pattern: /^Insight escalated to/, label: "insight-escalation" },
+  { pattern: /^Recovery agent spawned/, label: "recovery-spawn" },
+  { pattern: /^\[bottleneck\]/, label: "bottleneck-investigation" },
+  { pattern: /^\[anomaly\]/, label: "anomaly-investigation" },
+  { pattern: /^Promoted .* from backlog/, label: "backlog-promotion" },
 ];
 
 export function isRoutineActivity(summary: string): boolean {

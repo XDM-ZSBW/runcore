@@ -62,7 +62,7 @@ const MAX_ENTRIES_PER_ANALYSIS = 100;
 // ─── Escalation config ──────────────────────────────────────────────────────
 
 /** Categories eligible for auto-escalation to the board. */
-const ESCALATION_CATEGORIES: TraceInsight["category"][] = ["bottleneck", "anomaly"];
+const ESCALATION_CATEGORIES: TraceInsight["category"][] = [];  // disabled — all auto-escalation created junk board items
 
 /** Only escalate high-confidence insights. */
 const ESCALATION_MIN_CONFIDENCE: TraceInsight["confidence"] = "high";
@@ -399,6 +399,10 @@ function filterResolvedPatterns(entries: ActivityEntry[]): ActivityEntry[] {
 // ─── Core analysis run ──────────────────────────────────────────────────────
 
 async function runAnalysis(): Promise<InsightRunSummary | null> {
+  // Refresh resolved patterns from board before each run — catches items
+  // completed since startup (Dash finding: resolvedPatterns only hydrated at boot)
+  await hydrateResolvedPatterns().catch(() => {});
+
   const rawEntries = (await getActivities(lastAnalysisId)).slice(0, MAX_ENTRIES_PER_ANALYSIS);
 
   if (rawEntries.length < 3) {
@@ -613,6 +617,13 @@ async function triageInsightForEscalation(insight: TraceInsight): Promise<string
     if (!parsed.problem || !parsed.investigationSteps) {
       log.warn("Triage response missing required fields");
       return null;
+    }
+
+    // Validate filesToCheck — reject hallucinated paths (.py, .db, .csv, src/brain/, pipe chars)
+    if (parsed.filesToCheck) {
+      parsed.filesToCheck = parsed.filesToCheck.filter((f) =>
+        !(/\.(?:py|db|csv|axi)\b/i.test(f.path) || /src\/brain\//i.test(f.path) || /\|/.test(f.path))
+      );
     }
 
     // Format as markdown
@@ -892,4 +903,15 @@ export function getInsightTimerState(): { timer: boolean; firstRunTimer: boolean
 export async function triggerInsightAnalysis(): Promise<InsightRunSummary | null> {
   if (!timer && !firstRunTimer) return null;
   return runAnalysis();
+}
+
+/**
+ * Mark a pattern as resolved so the insight engine stops re-detecting it.
+ * Called when a board task created by the insight engine is completed.
+ */
+export function markPatternResolved(title: string): void {
+  const stripped = title.toLowerCase().replace(/^\[(bottleneck|anomaly)\]\s*/, "");
+  resolvedPatterns.add(stripped);
+  escalatedTitles.add(stripped);
+  log.info(`Pattern marked resolved: "${stripped}"`);
 }

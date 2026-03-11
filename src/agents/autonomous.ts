@@ -66,6 +66,16 @@ let planningInProgress = false;
 const sessionCumulativeFailures = new Map<string, number>();
 const MAX_SESSION_CUMULATIVE_FAILURES = 8;
 
+/**
+ * Recent spawn failures that happened BEFORE agents started running.
+ * These are validation failures, rate limits, etc. that the batch completion
+ * callback never sees. Fed into the next planAndSpawn call so the planner
+ * knows what went wrong and doesn't regenerate the same broken task.
+ */
+const recentSpawnFailures: Array<{ label: string; reason: string; timestamp: number }> = [];
+const MAX_SPAWN_FAILURE_MEMORY = 20;
+const SPAWN_FAILURE_TTL_MS = 30 * 60_000; // 30 min
+
 /** Persistent cooldown tracker — survives restarts, shared across modules. */
 const cooldownManager = TaskCooldownManager.getInstance();
 
@@ -98,6 +108,29 @@ const labelToBoardTaskId = new Map<string, string>();
  */
 let creditCircuitBreakerUntil: number = 0;
 const CREDIT_CIRCUIT_BREAKER_MS = 30 * 60_000; // 30 minutes
+
+/** Record a spawn-time failure so the planner can learn from it. */
+function recordSpawnFailure(label: string, reason: string): void {
+  recentSpawnFailures.push({ label, reason, timestamp: Date.now() });
+  // Trim old entries
+  while (recentSpawnFailures.length > MAX_SPAWN_FAILURE_MEMORY) {
+    recentSpawnFailures.shift();
+  }
+}
+
+/** Get recent spawn failures as planner context, pruning expired entries. */
+function getSpawnFailureContext(): string | null {
+  const now = Date.now();
+  // Prune expired
+  while (recentSpawnFailures.length > 0 && now - recentSpawnFailures[0].timestamp > SPAWN_FAILURE_TTL_MS) {
+    recentSpawnFailures.shift();
+  }
+  if (recentSpawnFailures.length === 0) return null;
+  const lines = recentSpawnFailures.map((f) =>
+    `- "${f.label}": ${f.reason} (${Math.round((now - f.timestamp) / 60_000)}min ago)`
+  );
+  return `## Recent spawn failures (DO NOT retry these — fix the underlying issue or skip)\n${lines.join("\n")}`;
+}
 
 // ─── Backlog Promotion ───────────────────────────────────────────────────────
 
@@ -423,6 +456,10 @@ export async function checkForWork(): Promise<void> {
     if (t.state !== "todo") return false;
     if (t.assignee && !(t.assignee === agentAssignee && t.state === "todo" && !atCapacity)) return false;
     if (cooldownManager.shouldSkip(t.id)) return false;
+    // Skip self-referential investigation tasks — insight engine creates these,
+    // planner picks them up, agents run and create more activity, which triggers
+    // more insights. Breaks the feedback loop (DASH-66).
+    if (/^\[(bottleneck|anomaly)\]/i.test(t.title)) return false;
     return true;
   });
 
@@ -506,6 +543,7 @@ async function planAndSpawnInner(
       if (t.state !== "todo") return false;
       if (t.assignee && !(t.assignee === agentAssigneeInner && t.state === "todo" && !atCap)) return false;
       if (cooldownManager.shouldSkip(t.id)) return false;
+      if (/^\[(bottleneck|anomaly)\]/i.test(t.title)) return false;
       return true;
     });
 
@@ -557,10 +595,16 @@ async function planAndSpawnInner(
       }
     }
 
+    // Parse WHITEBOARD_QUESTION blocks and plant them
+    const questionBlocks = [...response.matchAll(/\[WHITEBOARD_QUESTION\]\s*([\s\S]*?)\s*\[\/WHITEBOARD_QUESTION\]/g)];
+    if (questionBlocks.length > 0) {
+      await plantWhiteboardQuestions(questionBlocks);
+    }
+
     // Parse AGENT_REQUEST blocks from LLM response
     const blocks = [...response.matchAll(/\[AGENT_REQUEST\]\s*([\s\S]*?)\s*\[\/AGENT_REQUEST\]/g)];
 
-    if (blocks.length === 0 && actionsExecuted === 0) {
+    if (blocks.length === 0 && actionsExecuted === 0 && questionBlocks.length === 0) {
       // Extract a brief reason from the LLM response (strip markdown noise)
       const briefReason = response.replace(/[#*`\[\]]/g, "").trim().slice(0, 150);
       log.info(` LLM decided no agents needed. Response: ${response.slice(0, 300)}`);
@@ -646,6 +690,22 @@ async function planAndSpawnInner(
             summary: `Skipped "${label}": ${dedup.reason}`,
             actionLabel: "AUTONOMOUS",
             reason: "dedup guard",
+          });
+          continue;
+        }
+
+        // Guard: reject hallucinated file paths (planner fabricates .py, .db, .csv, pipe chars)
+        const hallucinated = finalPrompt.match(/(?:src\/brain\/|\.py\b|\.db\b|\.csv\b|\.axi\b|\|[a-z])/i);
+        if (hallucinated) {
+          const reason = `Hallucinated path pattern: "${hallucinated[0]}"`;
+          log.warn(` Rejected "${label}": ${reason}`);
+          recordSpawnFailure(label, reason);
+          if (req.taskId) cooldownManager.recordFailure(req.taskId, label);
+          logActivity({
+            source: "autonomous",
+            summary: `Rejected "${label}": ${reason}`,
+            actionLabel: "AUTONOMOUS",
+            reason: "hallucinated path guard",
           });
           continue;
         }
@@ -753,6 +813,17 @@ Rules:
 - If nothing is ready to implement, output NO [AGENT_REQUEST] blocks and explain why.
 - DO NOT retry tasks that have already been attempted and failed. If the "Recent agent history" section shows a task was tried before, skip it unless you have a fundamentally different approach (not just "try again").
 - If the same board item has failed multiple times, it probably needs human input or a spec change — skip it.
+- ONLY reference files that exist in this TypeScript project. This is a TS/JS codebase — there are NO .py, .db, .csv, or .axi files. No src/brain/ directory exists. If you aren't sure a file exists, tell the agent to check first.
+- If the "Recent spawn failures" section lists tasks that were rejected, DO NOT regenerate similar tasks. The failure reason explains what went wrong.
+- Check the whiteboard section below. If there are ANSWERED questions, treat the answer as a direct instruction — act on it. If there are OPEN questions, DO NOT guess — the human hasn't decided yet.
+- If a backlog item is ambiguous and needs human input, you may output a [WHITEBOARD_QUESTION] block instead of an agent. This plants a question on the whiteboard for the human to answer.
+
+## Whiteboard questions (for ambiguous tasks)
+When a task needs human input before you can proceed, output:
+
+[WHITEBOARD_QUESTION]
+{"title": "Short question title", "question": "The specific question for the human", "tags": ["relevant-tag"]}
+[/WHITEBOARD_QUESTION]
 
 ## Two types of actions
 
@@ -802,11 +873,26 @@ async function buildPlannerPrompt(boardContext: string, priorContext: string | n
     parts.push(``);
   }
 
+  // Include recent spawn failures so planner doesn't regenerate broken tasks
+  const spawnFailureCtx = getSpawnFailureContext();
+  if (spawnFailureCtx) {
+    parts.push(spawnFailureCtx);
+    parts.push(``);
+  }
+
   // Include currently cooling-down tasks
   const cooldownContext = cooldownManager.getCooldownContext();
   if (cooldownContext) {
     parts.push(`## Tasks on cooldown (DO NOT assign these)`);
     parts.push(cooldownContext);
+    parts.push(``);
+  }
+
+  // Include whiteboard context — answered questions are instructions to act on,
+  // open questions mean the human hasn't decided yet (don't guess).
+  const whiteboardContext = await buildWhiteboardContext();
+  if (whiteboardContext) {
+    parts.push(whiteboardContext);
     parts.push(``);
   }
 
@@ -826,6 +912,102 @@ async function buildPlannerPrompt(boardContext: string, priorContext: string | n
  * Optimization: uses `since` filter to skip reading old task files from disk
  * entirely (filename-embedded timestamps are checked before file read).
  */
+/**
+ * Build whiteboard context for the planner — answered questions become
+ * instructions, open questions signal "human hasn't decided yet".
+ */
+async function buildWhiteboardContext(): Promise<string | null> {
+  try {
+    const { WhiteboardStore } = await import("../whiteboard/store.js");
+    const { BRAIN_DIR } = await import("../lib/paths.js");
+    const store = new WhiteboardStore(BRAIN_DIR);
+    const summary = await store.getSummary();
+
+    if (summary.total === 0) return null;
+
+    const parts: string[] = [];
+    parts.push(`## Whiteboard (shared with human)`);
+    parts.push(`${summary.total} items, ${summary.open} open, ${summary.openQuestions} open questions`);
+
+    // Answered questions = instructions to act on
+    const allNodes = await store.list();
+    const answered = allNodes.filter((n: any) =>
+      n.type === "question" && n.answer && n.status === "done"
+    );
+    if (answered.length > 0) {
+      parts.push(``);
+      parts.push(`### Answered questions (ACT ON THESE — the answer IS the instruction)`);
+      for (const a of answered) {
+        parts.push(`- Q: "${a.question || a.title}" → A: ${a.answer}`);
+      }
+    }
+
+    // Open questions = don't guess, wait for human
+    const openQs = await store.getOpenQuestions();
+    if (openQs.length > 0) {
+      parts.push(``);
+      parts.push(`### Open questions (DO NOT guess — human hasn't decided)`);
+      for (const q of openQs) {
+        parts.push(`- "${q.question || q.title}" (planted by: ${q.plantedBy})`);
+      }
+    }
+
+    // Top weighted items for awareness
+    if (summary.topWeighted.length > 0) {
+      parts.push(``);
+      parts.push(`### Top attention items`);
+      for (const n of summary.topWeighted) {
+        const icon = n.type === "question" ? "?" : n.type === "goal" ? "★" : "-";
+        parts.push(`  ${icon} [${n.weight}] ${n.title}`);
+      }
+    }
+
+    return parts.join("\n");
+  } catch (err) {
+    log.debug(`Failed to load whiteboard context: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+/**
+ * Plant whiteboard questions from [WHITEBOARD_QUESTION] blocks in planner response.
+ */
+async function plantWhiteboardQuestions(blocks: RegExpMatchArray[]): Promise<void> {
+  try {
+    const { WhiteboardStore } = await import("../whiteboard/store.js");
+    const { BRAIN_DIR } = await import("../lib/paths.js");
+    const store = new WhiteboardStore(BRAIN_DIR);
+
+    for (const block of blocks) {
+      try {
+        const parsed = JSON.parse(block[1]);
+        if (!parsed.title || !parsed.question) continue;
+
+        const node = await store.create({
+          title: parsed.title,
+          type: "question",
+          parentId: null,
+          tags: parsed.tags ?? [],
+          plantedBy: "agent",
+          question: parsed.question,
+        });
+
+        log.info(`Planted whiteboard question: "${parsed.title}" (${node.id})`);
+        logActivity({
+          source: "autonomous",
+          summary: `Whiteboard question planted: "${parsed.title}"`,
+          actionLabel: "AUTONOMOUS",
+          reason: "planner needs human input",
+        });
+      } catch {
+        log.warn(`Failed to parse WHITEBOARD_QUESTION block`);
+      }
+    }
+  } catch (err) {
+    log.warn(`Whiteboard question planting failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 async function buildAgentHistoryContext(): Promise<string | null> {
   try {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000; // last 24h
