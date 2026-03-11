@@ -9,6 +9,7 @@
  */
 
 import type { Hono, Context } from "hono";
+import { badRequest, unauthorized, notFound } from "../middleware/error-handler.js";
 import { logActivity } from "../activity/log.js";
 import {
   getProvider,
@@ -212,7 +213,7 @@ export function mountWebhookAdmin(app: Hono): void {
     const name = c.req.param("name");
     const provider = getProvider(name);
     if (!provider) {
-      return c.json({ error: `Provider "${name}" not found` }, 404);
+      return notFound(`Provider "${name}" not found`);
     }
 
     const stats = getProviderStats(name);
@@ -277,7 +278,7 @@ export function mountWebhookAdmin(app: Hono): void {
     const id = c.req.param("id");
     const removed = getDeadLetterQueue().remove(id);
     if (!removed) {
-      return c.json({ error: `DLQ entry "${id}" not found` }, 404);
+      return notFound(`DLQ entry "${id}" not found`);
     }
     return c.json({ ok: true, message: `Removed DLQ entry ${id}` });
   });
@@ -289,7 +290,7 @@ export function mountWebhookAdmin(app: Hono): void {
     const entries = queue.list();
     const entry = entries.find((e) => e.id === id);
     if (!entry) {
-      return c.json({ error: `DLQ entry "${id}" not found` }, 404);
+      return notFound(`DLQ entry "${id}" not found`);
     }
 
     const result = await routeWebhook(entry.provider, entry.payload);
@@ -338,18 +339,18 @@ export function mountWebhookAdmin(app: Hono): void {
     const name = c.req.param("name");
     const provider = getProvider(name);
     if (!provider) {
-      return c.json({ error: `Provider "${name}" not found` }, 404);
+      return notFound(`Provider "${name}" not found`);
     }
 
     if (!isProviderEnabled(name)) {
-      return c.json({ error: `Provider "${name}" is disabled` }, 400);
+      return badRequest(`Provider "${name}" is disabled`);
     }
 
     let payload: unknown;
     try {
       payload = await c.req.json();
     } catch {
-      return c.json({ error: "Invalid JSON body" }, 400);
+      return badRequest("Invalid JSON body");
     }
 
     const finish = startEventTimer(name, { eventType: "test" });
@@ -453,7 +454,7 @@ export function createWebhookRoute(
         error: verification.error,
         statusCode: 401,
       });
-      return c.json({ error: verification.error }, 401);
+      return unauthorized(verification.error ?? "Signature verification failed");
     }
 
     // Parse body
@@ -464,7 +465,7 @@ export function createWebhookRoute(
         parsed = JSON.parse(rawBody);
       } catch {
         finish({ success: false, message: "Invalid JSON body", statusCode: 400 });
-        return c.json({ error: "Invalid JSON body" }, 400);
+        return badRequest("Invalid JSON body");
       }
     } else if (contentType.includes("application/x-www-form-urlencoded")) {
       const params: Record<string, string> = {};

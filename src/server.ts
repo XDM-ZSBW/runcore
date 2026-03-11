@@ -653,7 +653,7 @@ let activeTier: TierName = "local";
 const app = new Hono();
 
 // Global error handler — structured JSON errors
-import { errorHandler, notFoundHandler, ApiError } from "./middleware/error-handler.js";
+import { errorHandler, notFoundHandler, ApiError, badRequest, unauthorized, forbidden, notFound } from "./middleware/error-handler.js";
 app.onError((err, c) => {
   // Use structured handler for ApiErrors; preserve original behavior for others
   if (err instanceof ApiError) return errorHandler(err, c);
@@ -850,7 +850,7 @@ app.post("/api/pair", async (c) => {
   const pw = password || safeWord;
 
   if (!code || !name || !pw) {
-    return c.json({ error: "Name and password required" }, 400);
+    return badRequest("Name and password required");
   }
 
   // Auto-token bypass: startup token already proved the user is local.
@@ -858,7 +858,7 @@ app.post("/api/pair", async (c) => {
 
   const result = await pair({ code, name, password: pw, recoveryQuestion, recoveryAnswer, skipCodeCheck });
   if ("error" in result) {
-    return c.json({ error: result.error }, 400);
+    return badRequest(result.error);
   }
 
   sessionKeys.set(result.session.id, result.sessionKey);
@@ -890,12 +890,12 @@ app.post("/api/auth", async (c) => {
   const pw = password || safeWord;
 
   if (!pw) {
-    return c.json({ error: "Password required" }, 400);
+    return badRequest("Password required");
   }
 
   const result = await authenticate(pw);
   if ("error" in result) {
-    return c.json({ error: result.error }, 401);
+    return unauthorized(result.error);
   }
 
   sessionKeys.set(result.session.id, result.sessionKey);
@@ -943,7 +943,7 @@ app.get("/api/auth/token", async (c) => {
 app.get("/api/recover", async (c) => {
   const question = await getRecoveryQuestion();
   if (!question) {
-    return c.json({ error: "Not paired yet" }, 400);
+    return badRequest("Not paired yet");
   }
   return c.json({ question });
 });
@@ -956,12 +956,12 @@ app.post("/api/recover", async (c) => {
   const newPw = newPassword || newSafeWord;
 
   if (!answer || !newPw) {
-    return c.json({ error: "Answer and new password required" }, 400);
+    return badRequest("Answer and new password required");
   }
 
   const result = await recover(answer, newPw);
   if ("error" in result) {
-    return c.json({ error: result.error }, 401);
+    return unauthorized(result.error);
   }
 
   sessionKeys.set(result.session.id, result.sessionKey);
@@ -1025,7 +1025,7 @@ async function savePairedDevices(): Promise<void> {
 app.post("/api/mobile/voucher", async (c) => {
   const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
   if (!sessionId || !validateSession(sessionId)) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return unauthorized("Unauthorized");
   }
 
   const { randomBytes: rng } = await import("node:crypto");
@@ -1090,7 +1090,7 @@ app.get("/api/mobile/info/:token", async (c) => {
   const voucher = deviceVouchers.get(token);
 
   if (!voucher || voucher.consumed || voucher.expiresAt < Date.now()) {
-    return c.json({ error: "Invalid or expired voucher" }, 404);
+    return notFound("Invalid or expired voucher");
   }
 
   return c.json({
@@ -1105,18 +1105,18 @@ app.post("/api/mobile/redeem", async (c) => {
   const { token, password } = body;
 
   if (!token || !password) {
-    return c.json({ error: "Voucher token and password required" }, 400);
+    return badRequest("Voucher token and password required");
   }
 
   const voucher = deviceVouchers.get(token);
   if (!voucher || voucher.consumed || voucher.expiresAt < Date.now()) {
-    return c.json({ error: "Invalid or expired voucher" }, 404);
+    return notFound("Invalid or expired voucher");
   }
 
   // Validate safe word via existing auth
   const authResult = await authenticate(password);
   if ("error" in authResult) {
-    return c.json({ error: "Invalid safe word" }, 401);
+    return unauthorized("Invalid safe word");
   }
 
   // Consume voucher
@@ -1153,7 +1153,7 @@ app.post("/api/mobile/redeem", async (c) => {
 app.get("/api/mobile/devices", async (c) => {
   const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
   if (!sessionId || !validateSession(sessionId)) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return unauthorized("Unauthorized");
   }
   return c.json({
     devices: [...pairedDevices.values()].map((d) => ({
@@ -1168,7 +1168,7 @@ app.get("/api/mobile/devices", async (c) => {
 app.delete("/api/mobile/devices/:label", async (c) => {
   const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
   if (!sessionId || !validateSession(sessionId)) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return unauthorized("Unauthorized");
   }
   const label = c.req.param("label");
   for (const [token, d] of pairedDevices) {
@@ -1178,7 +1178,7 @@ app.delete("/api/mobile/devices/:label", async (c) => {
       return c.json({ ok: true });
     }
   }
-  return c.json({ error: "Device not found" }, 404);
+  return notFound("Device not found");
 });
 
 // --- Relay polling (receive messages from paired phones) ---
@@ -1408,9 +1408,9 @@ async function handleRelayPair(token: string, password: string, label: string, i
 // List vault keys (names + labels only, no values)
 app.get("/api/vault", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   return c.json({ keys: (_vaultStore ? _vaultStore.listVaultKeys() : []) });
 });
@@ -1418,17 +1418,17 @@ app.get("/api/vault", async (c) => {
 // Add or update a vault key
 app.put("/api/vault/:name", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const key = sessionKeys.get(sessionId);
-  if (!key) return c.json({ error: "Session key not found" }, 401);
+  if (!key) return unauthorized("Session key not found");
 
   const name = c.req.param("name");
   const body = await c.req.json();
   const { value, label } = body;
-  if (!value) return c.json({ error: "value required" }, 400);
+  if (!value) return badRequest("value required");
 
   await _vaultStore!.setVaultKey(name, value, key, label);
   return c.json({ ok: true });
@@ -1437,12 +1437,12 @@ app.put("/api/vault/:name", async (c) => {
 // Delete a vault key
 app.delete("/api/vault/:name", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const key = sessionKeys.get(sessionId);
-  if (!key) return c.json({ error: "Session key not found" }, 401);
+  if (!key) return unauthorized("Session key not found");
 
   const name = c.req.param("name");
   await _vaultStore!.deleteVaultKey(name, key);
@@ -1452,13 +1452,13 @@ app.delete("/api/vault/:name", async (c) => {
 // Export vault to portable passphrase-encrypted file
 app.post("/api/vault/export", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const body = await c.req.json<{ passphrase?: string }>();
   if (!body.passphrase || body.passphrase.length < 8) {
-    return c.json({ error: "Passphrase required (min 8 characters)" }, 400);
+    return badRequest("Passphrase required (min 8 characters)");
   }
 
   try {
@@ -1472,16 +1472,16 @@ app.post("/api/vault/export", async (c) => {
 // Import vault from portable passphrase-encrypted file
 app.post("/api/vault/import", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const key = sessionKeys.get(sessionId);
-  if (!key) return c.json({ error: "Session key not found" }, 401);
+  if (!key) return unauthorized("Session key not found");
 
   const body = await c.req.json<{ filePath?: string; passphrase?: string; strategy?: string }>();
   if (!body.filePath || !body.passphrase) {
-    return c.json({ error: "filePath and passphrase required" }, 400);
+    return badRequest("filePath and passphrase required");
   }
 
   const strategy = (body.strategy as "overwrite" | "skip" | "rename") ?? "skip";
@@ -1489,27 +1489,27 @@ app.post("/api/vault/import", async (c) => {
     const result = await _vaultTransfer!.importVault(body.filePath, body.passphrase, strategy, key);
     return c.json({ ok: true, stats: result.stats });
   } catch (e: any) {
-    return c.json({ error: e.message }, 400);
+    return badRequest(e.message);
   }
 });
 
 // Verify a vault export file without importing
 app.post("/api/vault/verify-export", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const body = await c.req.json<{ filePath?: string; passphrase?: string }>();
   if (!body.filePath || !body.passphrase) {
-    return c.json({ error: "filePath and passphrase required" }, 400);
+    return badRequest("filePath and passphrase required");
   }
 
   try {
     const result = await _vaultTransfer!.verifyExport(body.filePath, body.passphrase);
     return c.json({ ok: true, message: result.message, stats: result.stats });
   } catch (e: any) {
-    return c.json({ error: e.message }, 400);
+    return badRequest(e.message);
   }
 });
 
@@ -1590,12 +1590,12 @@ app.get("/api/google/status", async (c) => {
 // Send email via Gmail
 app.post("/api/google/send-email", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   if (!(_googleAuth?.isGoogleAuthenticated() ?? false)) {
-    return c.json({ error: "Google not authenticated" }, 400);
+    return badRequest("Google not authenticated");
   }
 
   const body = await c.req.json<{
@@ -1611,7 +1611,7 @@ app.post("/api/google/send-email", async (c) => {
   }>();
 
   if (!body.to || !body.subject || !body.body) {
-    return c.json({ error: "to, subject, and body are required" }, 400);
+    return badRequest("to, subject, and body are required");
   }
 
   const result = await _googleGmailSend!.sendEmail(body);
@@ -1626,10 +1626,10 @@ app.post("/api/google/send-email", async (c) => {
 // Inbox summary: unread count, categorized messages, high-priority items
 app.get("/api/google/gmail/inbox-summary", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const hours = parseInt(c.req.query("hours") ?? "24", 10);
   const result = await _googleGmail!.getInboxSummary(hours);
@@ -1640,10 +1640,10 @@ app.get("/api/google/gmail/inbox-summary", async (c) => {
 // Categorize recent messages by sender type
 app.get("/api/google/gmail/categorize", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const hours = parseInt(c.req.query("hours") ?? "24", 10);
   const result = await _googleGmail!.categorizeMessages(hours);
@@ -1654,10 +1654,10 @@ app.get("/api/google/gmail/categorize", async (c) => {
 // Prioritize inbox: messages sorted by importance score
 app.get("/api/google/gmail/prioritize", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const hours = parseInt(c.req.query("hours") ?? "24", 10);
   const result = await _googleGmail!.prioritizeInbox(hours);
@@ -1668,10 +1668,10 @@ app.get("/api/google/gmail/prioritize", async (c) => {
 // Mark message as read
 app.post("/api/google/gmail/mark-read", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const body = await c.req.json<{ messageId?: string; messageIds?: string[] }>();
 
@@ -1681,7 +1681,7 @@ app.post("/api/google/gmail/mark-read", async (c) => {
     return c.json(result);
   }
 
-  if (!body.messageId) return c.json({ error: "messageId or messageIds required" }, 400);
+  if (!body.messageId) return badRequest("messageId or messageIds required");
   const result = await _googleGmail!.markAsRead(body.messageId);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
@@ -1690,10 +1690,10 @@ app.post("/api/google/gmail/mark-read", async (c) => {
 // Mark message as unread
 app.post("/api/google/gmail/mark-unread", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const body = await c.req.json<{ messageId?: string; messageIds?: string[] }>();
 
@@ -1703,7 +1703,7 @@ app.post("/api/google/gmail/mark-unread", async (c) => {
     return c.json(result);
   }
 
-  if (!body.messageId) return c.json({ error: "messageId or messageIds required" }, 400);
+  if (!body.messageId) return badRequest("messageId or messageIds required");
   const result = await _googleGmail!.markAsUnread(body.messageId);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
@@ -1713,7 +1713,7 @@ app.post("/api/google/gmail/mark-unread", async (c) => {
 
 // Get today's schedule
 app.get("/api/google/calendar/today", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const result = await _googleCalendar!.getTodaySchedule();
   if (!result.ok) return c.json({ error: result.message }, 500);
@@ -1722,7 +1722,7 @@ app.get("/api/google/calendar/today", async (c) => {
 
 // Get upcoming events
 app.get("/api/google/calendar/upcoming", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const hours = parseInt(c.req.query("hours") ?? "4", 10);
   const result = await _googleCalendar!.getUpcomingEvents(hours);
@@ -1732,10 +1732,10 @@ app.get("/api/google/calendar/upcoming", async (c) => {
 
 // Get free/busy
 app.post("/api/google/calendar/freebusy", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const body = await c.req.json<{ start: string; end: string }>();
-  if (!body.start || !body.end) return c.json({ error: "start and end are required" }, 400);
+  if (!body.start || !body.end) return badRequest("start and end are required");
 
   const result = await _googleCalendar!.getFreeBusy(body.start, body.end);
   if (!result.ok) return c.json({ error: result.message }, 500);
@@ -1744,7 +1744,7 @@ app.post("/api/google/calendar/freebusy", async (c) => {
 
 // Create calendar event
 app.post("/api/google/calendar/events", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const body = await c.req.json<{
     title: string;
@@ -1758,7 +1758,7 @@ app.post("/api/google/calendar/events", async (c) => {
     expectedDayOfWeek?: string;
   }>();
   if (!body.title || !body.start || !body.end) {
-    return c.json({ error: "title, start, and end are required" }, 400);
+    return badRequest("title, start, and end are required");
   }
 
   // Temporal validation: catch day-of-week mismatches before creating events (ts_temporal_mismatch_01)
@@ -1786,7 +1786,7 @@ app.post("/api/google/calendar/events", async (c) => {
 
 // List events with flexible filtering
 app.get("/api/google/calendar/events", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const result = await _googleCalendar!.listEvents({
     timeMin: c.req.query("timeMin"),
@@ -1801,7 +1801,7 @@ app.get("/api/google/calendar/events", async (c) => {
 
 // Update calendar event
 app.patch("/api/google/calendar/events/:eventId", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const eventId = c.req.param("eventId");
   const body = await c.req.json<{
@@ -1837,7 +1837,7 @@ app.patch("/api/google/calendar/events/:eventId", async (c) => {
 
 // Delete calendar event
 app.delete("/api/google/calendar/events/:eventId", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const eventId = c.req.param("eventId");
   const sendUpdates = c.req.query("sendUpdates") as "all" | "externalOnly" | "none" | undefined;
@@ -1851,10 +1851,10 @@ app.delete("/api/google/calendar/events/:eventId", async (c) => {
 
 // Search calendar events by text
 app.get("/api/google/calendar/search", async (c) => {
-  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const query = c.req.query("q");
-  if (!query) return c.json({ error: "q (search query) is required" }, 400);
+  if (!query) return badRequest("q (search query) is required");
 
   const result = await _googleCalendar!.searchEvents(query, {
     timeMin: c.req.query("timeMin"),
@@ -1870,10 +1870,10 @@ app.get("/api/google/calendar/search", async (c) => {
 // List task lists
 app.get("/api/google/tasks/lists", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const result = await _googleTasks!.listTaskLists();
   if (!result.ok) return c.json({ error: result.message }, 500);
@@ -1883,13 +1883,13 @@ app.get("/api/google/tasks/lists", async (c) => {
 // Create task list
 app.post("/api/google/tasks/lists", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const body = await c.req.json<{ title: string }>();
-  if (!body.title) return c.json({ error: "title is required" }, 400);
+  if (!body.title) return badRequest("title is required");
 
   const result = await _googleTasks!.createTaskList(body.title);
   if (!result.ok) return c.json({ error: result.message }, 500);
@@ -1901,14 +1901,14 @@ app.post("/api/google/tasks/lists", async (c) => {
 // Update task list
 app.patch("/api/google/tasks/lists/:listId", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const body = await c.req.json<{ title: string }>();
-  if (!body.title) return c.json({ error: "title is required" }, 400);
+  if (!body.title) return badRequest("title is required");
 
   const result = await _googleTasks!.updateTaskList(listId, body.title);
   if (!result.ok) return c.json({ error: result.message }, 500);
@@ -1918,10 +1918,10 @@ app.patch("/api/google/tasks/lists/:listId", async (c) => {
 // Delete task list
 app.delete("/api/google/tasks/lists/:listId", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const result = await _googleTasks!.deleteTaskList(listId);
@@ -1934,10 +1934,10 @@ app.delete("/api/google/tasks/lists/:listId", async (c) => {
 // Create recurring weekly tasks (must be before :listId param routes)
 app.post("/api/google/tasks/recurring", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const body = await c.req.json<{
     title: string;
@@ -1950,9 +1950,9 @@ app.post("/api/google/tasks/recurring", async (c) => {
     expectedDayName?: string;
   }>();
 
-  if (!body.title) return c.json({ error: "title is required" }, 400);
-  if (body.dayOfWeek === undefined) return c.json({ error: "dayOfWeek is required (0=Sun, 6=Sat)" }, 400);
-  if (body.hour === undefined) return c.json({ error: "hour is required (0-23)" }, 400);
+  if (!body.title) return badRequest("title is required");
+  if (body.dayOfWeek === undefined) return badRequest("dayOfWeek is required (0=Sun, 6=Sat)");
+  if (body.hour === undefined) return badRequest("hour is required (0-23)");
 
   // Temporal validation: cross-check dayOfWeek number against expectedDayName (ts_temporal_mismatch_01)
   if (body.expectedDayName) {
@@ -1980,10 +1980,10 @@ app.post("/api/google/tasks/recurring", async (c) => {
 // List tasks in a list
 app.get("/api/google/tasks/:listId", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const showCompleted = c.req.query("showCompleted") === "true";
@@ -2002,10 +2002,10 @@ app.get("/api/google/tasks/:listId", async (c) => {
 // Get single task
 app.get("/api/google/tasks/:listId/:taskId", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
@@ -2017,10 +2017,10 @@ app.get("/api/google/tasks/:listId/:taskId", async (c) => {
 // Create task
 app.post("/api/google/tasks/:listId", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const body = await c.req.json<{
@@ -2029,7 +2029,7 @@ app.post("/api/google/tasks/:listId", async (c) => {
     due?: string;
     parent?: string;
   }>();
-  if (!body.title) return c.json({ error: "title is required" }, 400);
+  if (!body.title) return badRequest("title is required");
 
   const result = await _googleTasks!.createTask(listId, body);
   if (!result.ok) return c.json({ error: result.message }, 500);
@@ -2041,10 +2041,10 @@ app.post("/api/google/tasks/:listId", async (c) => {
 // Update task
 app.patch("/api/google/tasks/:listId/:taskId", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
@@ -2065,10 +2065,10 @@ app.patch("/api/google/tasks/:listId/:taskId", async (c) => {
 // Complete task
 app.post("/api/google/tasks/:listId/:taskId/complete", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
@@ -2082,10 +2082,10 @@ app.post("/api/google/tasks/:listId/:taskId/complete", async (c) => {
 // Uncomplete task (reopen)
 app.post("/api/google/tasks/:listId/:taskId/uncomplete", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
@@ -2097,10 +2097,10 @@ app.post("/api/google/tasks/:listId/:taskId/uncomplete", async (c) => {
 // Delete task
 app.delete("/api/google/tasks/:listId/:taskId", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
+  if (!session) return unauthorized("Invalid or expired session");
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return badRequest("Google not authenticated");
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
@@ -2116,9 +2116,9 @@ app.delete("/api/google/tasks/:listId/:taskId", async (c) => {
 // Read personality prompt
 app.get("/api/prompt", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   let prompt = "";
   try {
@@ -2131,9 +2131,9 @@ app.get("/api/prompt", async (c) => {
 app.put("/api/prompt", async (c) => {
   const body = await c.req.json();
   const { sessionId, prompt } = body;
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   await mkdir(join(BRAIN_DIR, "identity"), { recursive: true });
   await writeBrainFile(PERSONALITY_PATH, prompt ?? "");
@@ -2164,12 +2164,12 @@ app.get("/api/models", async (c) => {
 app.post("/api/sensitive/flag", async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body?.value || typeof body.value !== "string") {
-    return c.json({ error: "value required" }, 400);
+    return badRequest("value required");
   }
   const category = (body.category || "FLAGGED").toUpperCase();
   const value = body.value.trim();
   if (value.length < 2) {
-    return c.json({ error: "value too short" }, 400);
+    return badRequest("value too short");
   }
 
   if (!activeSensitiveRegistry) {
@@ -2302,7 +2302,7 @@ app.get("/api/voice-status", async (c) => {
 // TTS: synthesize text to WAV audio via Piper
 app.get("/api/tts", async (c) => {
   const text = c.req.query("text");
-  if (!text) return c.json({ error: "text query param required" }, 400);
+  if (!text) return badRequest("text query param required");
   if (!(_ttsClient?.isTtsAvailable() ?? false)) return c.json({ error: "TTS not available" }, 503);
 
   const wav = await _ttsClient!.synthesize(text);
@@ -2321,7 +2321,7 @@ app.post("/api/stt", async (c) => {
   if (!(_sttClient?.isSttAvailable() ?? false)) return c.json({ error: "STT not available" }, 503);
 
   const body = await c.req.arrayBuffer();
-  if (!body || body.byteLength === 0) return c.json({ error: "Audio body required" }, 400);
+  if (!body || body.byteLength === 0) return badRequest("Audio body required");
 
   const text = await _sttClient!.transcribe(Buffer.from(body));
   if (!text) return c.json({ error: "Transcription failed" }, 502);
@@ -2361,7 +2361,7 @@ app.get("/api/avatar/video/:hash", async (c) => {
   const hash = c.req.param("hash");
   // Sanitize: only allow alphanumeric + .mp4
   if (!/^[a-f0-9]+\.mp4$/.test(hash)) {
-    return c.json({ error: "Invalid hash" }, 400);
+    return badRequest("Invalid hash");
   }
 
   const filePath = join(UI_DIR,"avatar", "cache", hash);
@@ -2375,21 +2375,21 @@ app.get("/api/avatar/video/:hash", async (c) => {
       },
     });
   } catch {
-    return c.json({ error: "Not found" }, 404);
+    return notFound();
   }
 });
 
 // Upload a new reference photo, re-prepare, clear cache
 app.post("/api/avatar/photo", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   if (!(_avatarSidecar?.isAvatarAvailable() ?? false)) return c.json({ error: "Avatar not available" }, 503);
 
   const body = await c.req.arrayBuffer();
-  if (!body || body.byteLength === 0) return c.json({ error: "Photo body required" }, 400);
+  if (!body || body.byteLength === 0) return badRequest("Photo body required");
 
   const avatarConfig = _settingsVoice ? _settingsVoice.getAvatarConfig() : { photoPath: "public/avatar/photo.png", port: 0, enabled: false };
   const photoPath = join(process.cwd(), avatarConfig.photoPath);
@@ -2411,7 +2411,7 @@ app.post("/api/extract", async (c) => {
   try {
     const formData = await c.req.formData();
     const file = formData.get("file") as File | null;
-    if (!file) return c.json({ error: "No file provided" }, 400);
+    if (!file) return badRequest("No file provided");
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const name = file.name.toLowerCase();
@@ -2443,10 +2443,10 @@ app.post("/api/extract", async (c) => {
 
 app.get("/api/history", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
 
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const cs = await getOrCreateChatSession(sessionId, session.name);
   // Always return main history (not active thread's)
@@ -2462,9 +2462,9 @@ app.get("/api/history", async (c) => {
 app.post("/api/history/intro", async (c) => {
   const body = await c.req.json();
   const { sessionId, message } = body;
-  if (!sessionId || !message) return c.json({ error: "sessionId and message required" }, 400);
+  if (!sessionId || !message) return badRequest("sessionId and message required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid session" }, 401);
+  if (!session) return unauthorized("Invalid session");
   const cs = await getOrCreateChatSession(sessionId, session.name);
   // Only add if history is empty (first run)
   if (cs.history.length === 0) {
@@ -2477,9 +2477,9 @@ app.post("/api/history/intro", async (c) => {
 
 app.get("/api/threads", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid session" }, 401);
+  if (!session) return unauthorized("Invalid session");
 
   const threads = getThreadsForSession(sessionId);
   const list = [...threads.values()]
@@ -2491,9 +2491,9 @@ app.get("/api/threads", async (c) => {
 app.post("/api/threads", async (c) => {
   const body = await c.req.json<{ sessionId?: string; title?: string }>();
   const sessionId = body.sessionId;
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid session" }, 401);
+  if (!session) return unauthorized("Invalid session");
 
   const threads = getThreadsForSession(sessionId);
   const now = new Date().toISOString();
@@ -2522,14 +2522,14 @@ app.post("/api/threads", async (c) => {
 
 app.get("/api/threads/:id/history", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid session" }, 401);
+  if (!session) return unauthorized("Invalid session");
 
   const threadId = c.req.param("id");
   const threads = getThreadsForSession(sessionId);
   const thread = threads.get(threadId);
-  if (!thread) return c.json({ error: "Thread not found" }, 404);
+  if (!thread) return notFound("Thread not found");
 
   // If this thread is currently active on cs, its live history is in cs.history
   const cs = chatSessions.get(sessionId);
@@ -2543,13 +2543,13 @@ app.get("/api/threads/:id/history", async (c) => {
 app.patch("/api/threads/:id", async (c) => {
   const body = await c.req.json<{ sessionId?: string; title?: string }>();
   const sessionId = body.sessionId;
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid session" }, 401);
+  if (!session) return unauthorized("Invalid session");
 
   const threads = getThreadsForSession(sessionId);
   const thread = threads.get(c.req.param("id"));
-  if (!thread) return c.json({ error: "Thread not found" }, 404);
+  if (!thread) return notFound("Thread not found");
 
   if (body.title) thread.title = body.title;
   thread.updatedAt = new Date().toISOString();
@@ -2558,9 +2558,9 @@ app.patch("/api/threads/:id", async (c) => {
 
 app.delete("/api/threads/:id", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid session" }, 401);
+  if (!session) return unauthorized("Invalid session");
 
   const threadId = c.req.param("id");
   const threads = getThreadsForSession(sessionId);
@@ -2579,9 +2579,9 @@ app.delete("/api/threads/:id", async (c) => {
 // SSE stream — real-time activity push
 app.get("/api/activity/stream", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const { onActivity } = await import("./activity/log.js");
 
@@ -2612,9 +2612,9 @@ app.get("/api/activity/stream", async (c) => {
 
 app.get("/api/activity", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const since = parseInt(c.req.query("since") ?? "0", 10) || 0;
   return c.json({ activities: await getActivities(since) });
@@ -2630,15 +2630,15 @@ app.post("/api/branch", async (c) => {
   };
 
   if (!sessionId || !entryIds?.length || !question) {
-    return c.json({ error: "sessionId, entryIds, and question required" }, 400);
+    return badRequest("sessionId, entryIds, and question required");
   }
 
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const selected = await getActivitiesByIds(entryIds);
   if (selected.length === 0) {
-    return c.json({ error: "No matching activity entries" }, 404);
+    return notFound("No matching activity entries");
   }
 
   // Generate a trace for this branch, backreffing the first selected entry
@@ -2780,7 +2780,7 @@ app.post("/api/branch", async (c) => {
 app.post("/api/agents/tasks", async (c) => {
   const body = await c.req.json();
   const { label, prompt, cwd, origin, sessionId: sid, timeoutMs } = body;
-  if (!prompt) return c.json({ error: "prompt required" }, 400);
+  if (!prompt) return badRequest("prompt required");
   try {
     const task = await submitTask({
       label: label || prompt.slice(0, 60),
@@ -2803,7 +2803,7 @@ app.get("/api/agents/tasks", async (c) => {
 
 app.get("/api/agents/tasks/:id", async (c) => {
   const task = await getTask(c.req.param("id"));
-  if (!task) return c.json({ error: "Not found" }, 404);
+  if (!task) return notFound();
   return c.json(task);
 });
 
@@ -2814,7 +2814,7 @@ app.get("/api/agents/tasks/:id/output", async (c) => {
 
 app.post("/api/agents/tasks/:id/cancel", async (c) => {
   const ok = await cancelTask(c.req.param("id"));
-  if (!ok) return c.json({ error: "Not found" }, 404);
+  if (!ok) return notFound();
   return c.json({ ok: true });
 });
 
@@ -2829,7 +2829,7 @@ app.post("/api/agents/locks/acquire", async (c) => {
   const body = await c.req.json();
   const { agentId, agentLabel, filePaths, timeoutMs } = body;
   if (!agentId || !filePaths || !Array.isArray(filePaths)) {
-    return c.json({ error: "agentId and filePaths[] required" }, 400);
+    return badRequest("agentId and filePaths[] required");
   }
   const result = await _agentLocks!.acquireLocks(agentId, agentLabel || agentId, filePaths, timeoutMs);
   return c.json(result, result.acquired ? 200 : 409);
@@ -2838,7 +2838,7 @@ app.post("/api/agents/locks/acquire", async (c) => {
 app.post("/api/agents/locks/release", async (c) => {
   const body = await c.req.json();
   const { agentId, filePath } = body;
-  if (!agentId) return c.json({ error: "agentId required" }, 400);
+  if (!agentId) return badRequest("agentId required");
 
   if (filePath) {
     const ok = await _agentLocks!.releaseFileLock(agentId, filePath);
@@ -2851,7 +2851,7 @@ app.post("/api/agents/locks/release", async (c) => {
 app.post("/api/agents/locks/force-release", async (c) => {
   const body = await c.req.json();
   const { filePath } = body;
-  if (!filePath) return c.json({ error: "filePath required" }, 400);
+  if (!filePath) return badRequest("filePath required");
   const ok = await _agentLocks!.forceReleaseLock(filePath);
   return c.json({ released: ok });
 });
@@ -2860,7 +2860,7 @@ app.post("/api/agents/locks/check", async (c) => {
   const body = await c.req.json();
   const { filePaths } = body;
   if (!filePaths || !Array.isArray(filePaths)) {
-    return c.json({ error: "filePaths[] required" }, 400);
+    return badRequest("filePaths[] required");
   }
   const conflicts = await _agentLocks!.checkLocks(filePaths);
   return c.json({ locked: conflicts.length > 0, conflicts });
@@ -2902,7 +2902,7 @@ app.get("/api/runtime/instances/:id", async (c) => {
   const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   const inst = rt.getInstance(c.req.param("id"));
-  if (!inst) return c.json({ error: "Not found" }, 404);
+  if (!inst) return notFound();
   return c.json(inst);
 });
 
@@ -2911,7 +2911,7 @@ app.post("/api/runtime/spawn", async (c) => {
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   const body = await c.req.json();
   const { taskId, label, prompt, cwd, origin, parentId, tags, config, resources } = body;
-  if (!prompt) return c.json({ error: "prompt required" }, 400);
+  if (!prompt) return badRequest("prompt required");
 
   try {
     // Create the underlying AgentTask first
@@ -2991,7 +2991,7 @@ app.post("/api/runtime/instances/:id/message", async (c) => {
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   const body = await c.req.json();
   const { to, type, payload } = body;
-  if (!to || !type) return c.json({ error: "to and type required" }, 400);
+  if (!to || !type) return badRequest("to and type required");
   const msg = rt.sendMessage(c.req.param("id"), to, type, payload);
   return c.json(msg);
 });
@@ -3085,7 +3085,7 @@ app.get("/api/workflows/:id", async (c) => {
   const engine = getWorkflowEngine();
   if (!engine) return c.json({ error: "Workflow engine not initialized" }, 503);
   const wf = engine.getOrchestrator().getWorkflow(c.req.param("id"));
-  if (!wf) return c.json({ error: "Workflow not found" }, 404);
+  if (!wf) return notFound("Workflow not found");
 
   // Serialize Map<string, WorkflowTask> to plain object
   const tasks: Record<string, unknown> = {};
@@ -3102,7 +3102,7 @@ app.get("/api/workflows/:id/results", async (c) => {
     const result = engine.getOrchestrator().getResult(c.req.param("id"));
     return c.json(result);
   } catch {
-    return c.json({ error: "Workflow not found" }, 404);
+    return notFound("Workflow not found");
   }
 });
 
@@ -3116,15 +3116,15 @@ app.get("/api/traces", async (c) => {
 
 app.get("/api/traces/:traceId", async (c) => {
   const detail = tracer.getTraceDetail(c.req.param("traceId"));
-  if (!detail) return c.json({ error: "Trace not found" }, 404);
+  if (!detail) return notFound("Trace not found");
   return c.json(detail);
 });
 
 app.get("/api/traces/agent/:agentId", async (c) => {
   const traceId = tracer.getAgentTraceId(c.req.param("agentId"));
-  if (!traceId) return c.json({ error: "No trace for agent" }, 404);
+  if (!traceId) return notFound("No trace for agent");
   const detail = tracer.getTraceDetail(traceId);
-  if (!detail) return c.json({ error: "Trace not found" }, 404);
+  if (!detail) return notFound("Trace not found");
   return c.json(detail);
 });
 
@@ -3141,12 +3141,12 @@ app.post("/api/github/webhooks", async (c) => {
 
   if (secret && signature) {
     if (!_githubWebhooks!.verifyWebhookSignature(rawBody, signature, secret)) {
-      return c.json({ error: "Invalid signature" }, 401);
+      return unauthorized("Invalid signature");
     }
   }
 
   let payload: unknown;
-  try { payload = JSON.parse(rawBody); } catch { return c.json({ error: "Invalid JSON" }, 400); }
+  try { payload = JSON.parse(rawBody); } catch { return badRequest("Invalid JSON"); }
 
   const result = await _integrationsGithub!.processWebhook(eventType, payload);
   return c.json(result);
@@ -3161,13 +3161,13 @@ app.get("/api/github/status", async (c) => {
 // GitHub PR review
 app.post("/api/github/pr/review", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const body = await c.req.json();
   const { prNumber, repo, postComment } = body;
-  if (!prNumber) return c.json({ error: "prNumber required" }, 400);
+  if (!prNumber) return badRequest("prNumber required");
 
   const result = postComment
     ? await _integrationsGithub!.reviewAndCommentPR(prNumber, repo)
@@ -3179,13 +3179,13 @@ app.post("/api/github/pr/review", async (c) => {
 // GitHub issue triage
 app.post("/api/github/issues/triage", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const body = await c.req.json();
   const { issueNumber, repo, apply } = body;
-  if (!issueNumber) return c.json({ error: "issueNumber required" }, 400);
+  if (!issueNumber) return badRequest("issueNumber required");
 
   const result = apply
     ? await _integrationsGithub!.triageAndLabelIssue(issueNumber, repo)
@@ -3197,9 +3197,9 @@ app.post("/api/github/issues/triage", async (c) => {
 // GitHub batch issue triage
 app.post("/api/github/issues/triage/batch", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const body = await c.req.json();
   const { repo, apply } = body;
@@ -3210,9 +3210,9 @@ app.post("/api/github/issues/triage/batch", async (c) => {
 // GitHub commit analysis
 app.post("/api/github/commits/analyze", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const body = await c.req.json();
   const { sha, repo, count, since } = body;
@@ -3321,15 +3321,15 @@ app.get("/api/slack/status", async (c) => {
 // Slack send: post a message to a channel (requires sessionId)
 app.post("/api/slack/send", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const client = (_slackClient?.getClient() ?? null);
   if (!client) return c.json({ error: "Slack not available" }, 503);
 
   const body = await c.req.json<{ channel: string; text: string; thread_ts?: string; blocks?: any[] }>();
-  if (!body.channel || !body.text) return c.json({ error: "channel and text required" }, 400);
+  if (!body.channel || !body.text) return badRequest("channel and text required");
 
   const result = await client.sendMessage(body.channel, body.text, {
     thread_ts: body.thread_ts,
@@ -3344,15 +3344,15 @@ app.post("/api/slack/send", async (c) => {
 // Slack DM: send a direct message to a user (requires sessionId)
 app.post("/api/slack/dm", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const client = (_slackClient?.getClient() ?? null);
   if (!client) return c.json({ error: "Slack not available" }, 503);
 
   const body = await c.req.json<{ user: string; text: string; blocks?: any[] }>();
-  if (!body.user || !body.text) return c.json({ error: "user and text required" }, 400);
+  if (!body.user || !body.text) return badRequest("user and text required");
 
   const result = await client.sendDm(body.user, body.text, { blocks: body.blocks });
   if (!result.ok) return c.json({ error: result.error }, 500);
@@ -3364,9 +3364,9 @@ app.post("/api/slack/dm", async (c) => {
 // Slack channels: list channels
 app.get("/api/slack/channels", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const types = c.req.query("types") || undefined;
   const result = await _slackChannels!.listChannels({ types });
@@ -3377,9 +3377,9 @@ app.get("/api/slack/channels", async (c) => {
 // Slack channel info
 app.get("/api/slack/channels/:id", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const result = await _slackChannels!.getChannelInfo(c.req.param("id"));
   if (!result.ok) return c.json({ error: result.message }, 502);
@@ -3389,9 +3389,9 @@ app.get("/api/slack/channels/:id", async (c) => {
 // Slack channel join
 app.post("/api/slack/channels/:id/join", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const result = await _slackChannels!.joinChannel(c.req.param("id"));
   if (!result.ok) return c.json({ error: result.message }, 502);
@@ -3401,9 +3401,9 @@ app.post("/api/slack/channels/:id/join", async (c) => {
 // Slack channel history
 app.get("/api/slack/channels/:id/history", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!, 10) : undefined;
   const result = await _slackChannels!.getChannelHistory(c.req.param("id"), { limit });
@@ -3414,9 +3414,9 @@ app.get("/api/slack/channels/:id/history", async (c) => {
 // Slack user lookup
 app.get("/api/slack/users/:id", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const client = (_slackClient?.getClient() ?? null);
   if (!client) return c.json({ error: "Slack not available" }, 503);
@@ -3429,7 +3429,7 @@ app.get("/api/slack/users/:id", async (c) => {
 // Slack events: receive Events API webhooks from Slack
 // Routed through the generic webhook system with challenge response handling.
 app.post("/api/slack/events", async (c) => {
-  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  if (!_webhooksMount) return forbidden("Webhooks require BYOK tier");
   return _webhooksMount.createWebhookRoute({
     provider: "slack-events",
     transformResponse: (result: any, ctx: any) => {
@@ -3441,13 +3441,13 @@ app.post("/api/slack/events", async (c) => {
 
 // Slack slash commands: routed through the generic webhook system.
 app.post("/api/slack/commands", async (c) => {
-  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  if (!_webhooksMount) return forbidden("Webhooks require BYOK tier");
   return _webhooksMount.createWebhookRoute({ provider: "slack-commands" })(c);
 });
 
 // Slack interactions: routed through the generic webhook system.
 app.post("/api/slack/interactions", async (c) => {
-  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  if (!_webhooksMount) return forbidden("Webhooks require BYOK tier");
   return _webhooksMount.createWebhookRoute({ provider: "slack-interactions" })(c);
 });
 
@@ -3455,16 +3455,16 @@ app.post("/api/slack/interactions", async (c) => {
 
 // Resend webhook: receive inbound emails via Svix-signed webhooks (direct path).
 app.post("/api/resend/webhooks", async (c) => {
-  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  if (!_webhooksMount) return forbidden("Webhooks require BYOK tier");
   return _webhooksMount.createWebhookRoute({ provider: "resend" })(c);
 });
 
 // Resend inbox: manually trigger inbox check (pulls from Worker KV).
 app.post("/api/resend/check-inbox", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const { forceCheckResendInbox } = await import("./resend/inbox.js");
   const count = await forceCheckResendInbox();
@@ -3539,7 +3539,7 @@ app.post("/api/relay/whatsapp", async (c) => {
   const relaySecret = process.env.RELAY_SECRET ?? "";
   const verification = _webhooksRelay!.verifyRelaySignature(rawBody, headers, relaySecret);
   if (!verification.valid) {
-    return c.json({ error: verification.error ?? "Invalid relay signature" }, 401);
+    return unauthorized(verification.error ?? "Invalid relay signature");
   }
 
   const params = _webhooksTwilio!.parseFormBody(rawBody);
@@ -3573,7 +3573,7 @@ app.post("/api/relay/resend", async (c) => {
   const relaySecret = process.env.RELAY_SECRET ?? "";
   const verification = _webhooksRelay!.verifyRelaySignature(rawBody, headers, relaySecret);
   if (!verification.valid) {
-    return c.json({ error: verification.error ?? "Invalid relay signature" }, 401);
+    return unauthorized(verification.error ?? "Invalid relay signature");
   }
 
   let payload: {
@@ -3590,7 +3590,7 @@ app.post("/api/relay/resend", async (c) => {
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
+    return badRequest("Invalid JSON");
   }
 
   if (payload.type !== "email.received" || !payload.body?.trim()) {
@@ -3636,15 +3636,15 @@ app.post("/api/relay/resend", async (c) => {
 // WhatsApp send: send a message (requires sessionId)
 app.post("/api/whatsapp/send", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const client = (_channelsWhatsapp?.getClient() ?? null);
   if (!client) return c.json({ error: "WhatsApp not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER to vault." }, 503);
 
   const body = await c.req.json() as { to: string; message: string };
-  if (!body.to || !body.message) return c.json({ error: "to and message required" }, 400);
+  if (!body.to || !body.message) return badRequest("to and message required");
 
   const result = await client.sendMessage(body.to, body.message);
   if (!result.ok) return c.json({ error: result.message }, 502);
@@ -3654,9 +3654,9 @@ app.post("/api/whatsapp/send", async (c) => {
 // WhatsApp contacts: list known contacts
 app.get("/api/whatsapp/contacts", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const client = (_channelsWhatsapp?.getClient() ?? null);
   if (!client) return c.json({ error: "WhatsApp not configured" }, 503);
@@ -3668,9 +3668,9 @@ app.get("/api/whatsapp/contacts", async (c) => {
 // WhatsApp history: get message history
 app.get("/api/whatsapp/history", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const client = (_channelsWhatsapp?.getClient() ?? null);
   if (!client) return c.json({ error: "WhatsApp not configured" }, 503);
@@ -3723,9 +3723,9 @@ app.get("/api/board/status", async (c) => {
 // Board teams
 app.get("/api/board/teams", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const board = getBoardProvider();
   if (!board || !board.isAvailable()) return c.json({ teams: [] });
@@ -3736,9 +3736,9 @@ app.get("/api/board/teams", async (c) => {
 // List issues (GET with optional filters)
 app.get("/api/board/issues", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const board = getBoardProvider();
   if (!board || !board.isAvailable()) return c.json({ issues: [] });
@@ -3751,15 +3751,15 @@ app.get("/api/board/issues", async (c) => {
 // Create issue
 app.post("/api/board/issues", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const board = getBoardProvider();
   if (!board || !board.isAvailable()) return c.json({ error: "No board provider configured" }, 503);
   const body = await c.req.json();
   const { title, description, teamId, priority } = body;
-  if (!title) return c.json({ error: "title required" }, 400);
+  if (!title) return badRequest("title required");
 
   const issue = await board.createIssue(title, { description, teamId, priority });
   if (!issue) return c.json({ error: "Failed to create issue" }, 502);
@@ -3769,9 +3769,9 @@ app.post("/api/board/issues", async (c) => {
 // Update issue
 app.patch("/api/board/issues/:id", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const board = getBoardProvider();
   if (!board || !board.isAvailable()) return c.json({ error: "No board provider configured" }, 503);
@@ -3787,16 +3787,16 @@ app.patch("/api/board/issues/:id", async (c) => {
 // Add comment to issue
 app.post("/api/board/issues/:id/comments", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const board = getBoardProvider();
   if (!board || !board.isAvailable()) return c.json({ error: "No board provider configured" }, 503);
   const id = c.req.param("id");
   const body = await c.req.json();
   const { body: commentBody } = body;
-  if (!commentBody) return c.json({ error: "body required" }, 400);
+  if (!commentBody) return badRequest("body required");
 
   const ok = await board.addComment(id, commentBody);
   return ok ? c.json({ ok: true }) : c.json({ error: "Failed to add comment" }, 502);
@@ -3806,9 +3806,9 @@ app.post("/api/board/issues/:id/comments", async (c) => {
 
 app.get("/api/board/issues/:id/exchanges", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const board = getBoardProvider();
   const store = (board as any)?.getStore?.();
@@ -3820,9 +3820,9 @@ app.get("/api/board/issues/:id/exchanges", async (c) => {
 
 app.post("/api/board/issues/:id/exchanges", async (c) => {
   const sessionId = c.req.query("sessionId");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
   const session = validateSession(sessionId);
-  if (!session) return c.json({ error: "Invalid or expired session" }, 401);
+  if (!session) return unauthorized("Invalid or expired session");
 
   const board = getBoardProvider();
   const store = (board as any)?.getStore?.();
@@ -3830,7 +3830,7 @@ app.post("/api/board/issues/:id/exchanges", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const { author, body: exBody, source } = body;
-  if (!author || !exBody) return c.json({ error: "author and body required" }, 400);
+  if (!author || !exBody) return badRequest("author and body required");
 
   const exchange = await store.addExchange(id, {
     author,
@@ -3841,7 +3841,7 @@ app.post("/api/board/issues/:id/exchanges", async (c) => {
     logActivity({ source: "board", summary: `Exchange on issue ${id} from ${author}`, actionLabel: "PROMPTED", reason: "user added board exchange" });
     return c.json({ exchange });
   }
-  return c.json({ error: "Task not found or archived" }, 404);
+  return notFound("Task not found or archived");
 });
 
 // --- Weekly backlog review endpoints (DASH-59) ---
@@ -3884,7 +3884,7 @@ app.get("/api/skills", async (c) => {
 app.get("/api/skills/:name", async (c) => {
   const name = c.req.param("name");
   const skill = await _skillRegistry.get(name);
-  if (!skill) return c.json({ error: "Skill not found" }, 404);
+  if (!skill) return notFound("Skill not found");
 
   const content = await _skillRegistry.getContent(name);
 
@@ -3897,10 +3897,10 @@ app.get("/api/skills/:name", async (c) => {
 // Resolve trigger → matching skill
 app.post("/api/skills/resolve", async (c) => {
   const { trigger } = await c.req.json<{ trigger: string }>();
-  if (!trigger) return c.json({ error: "trigger is required" }, 400);
+  if (!trigger) return badRequest("trigger is required");
 
   const skill = await _skillRegistry.findByTrigger(trigger);
-  if (!skill) return c.json({ error: "No matching skill" }, 404);
+  if (!skill) return notFound("No matching skill");
 
   return c.json({
     id: skill.id,
@@ -3933,7 +3933,7 @@ app.post("/api/files/upload", async (c) => {
   try {
     const formData = await c.req.formData();
     const file = formData.get("file") as File | null;
-    if (!file) return c.json({ error: "No file provided" }, 400);
+    if (!file) return badRequest("No file provided");
 
     const source = (formData.get("source") as string) || "user-upload";
     const tagsRaw = formData.get("tags") as string;
@@ -3949,7 +3949,7 @@ app.post("/api/files/upload", async (c) => {
     // Validate: extension allowlist, magic bytes, size, content scan
     const validation = await validateUpload(buffer, file.name, file.type, maxUploadBytes);
     if (!validation.valid) {
-      return c.json({ error: validation.rejected }, 400);
+      return badRequest(validation.rejected ?? "Upload rejected");
     }
 
     // Generate storage path: brain/files/data/YYYY-MM-DD/slug_id.ext
@@ -4013,7 +4013,7 @@ app.post("/api/files/upload", async (c) => {
 // Download / serve a stored file
 app.get("/api/files/:id/download", async (c) => {
   const record = await fileRegistry.get(c.req.param("id"));
-  if (!record) return c.json({ error: "File not found" }, 404);
+  if (!record) return notFound("File not found");
 
   const fullPath = join(BRAIN_DIR, record.storagePath);
   try {
@@ -4024,7 +4024,7 @@ app.get("/api/files/:id/download", async (c) => {
       "Content-Length": String(data.length),
     });
   } catch {
-    return c.json({ error: "File data not found on disk" }, 404);
+    return notFound("File data not found on disk");
   }
 });
 
@@ -4067,7 +4067,7 @@ app.put("/api/files/:id", async (c) => {
   const id = c.req.param("id");
 
   const record = await fileRegistry.get(id);
-  if (!record) return c.json({ error: "File not found" }, 404);
+  if (!record) return notFound("File not found");
 
   // Handle virtual folder: stored as tag "folder:Name"
   let updatedTags = tags ?? [...(record.tags ?? [])];
@@ -4103,7 +4103,7 @@ app.post("/api/volumes/probe", async (c) => {
 
 app.post("/api/volumes/event", async (c) => {
   const event = await c.req.json();
-  if (!event?.type) return c.json({ error: "Missing event type" }, 400);
+  if (!event?.type) return badRequest("Missing event type");
   await volumeManager.handleEvent(event);
   return c.json({ ok: true });
 });
@@ -4173,7 +4173,7 @@ app.get("/api/alerts/history", (c) => {
 // Get a single alert by ID.
 app.get("/api/alerts/:id", (c) => {
   const alert = alertManager.getAlert(c.req.param("id"));
-  if (!alert) return c.json({ error: "alert not found" }, 404);
+  if (!alert) return notFound("alert not found");
   return c.json(alert);
 });
 
@@ -4182,14 +4182,14 @@ app.post("/api/alerts/:id/acknowledge", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const by = (body as Record<string, unknown>).by as string | undefined;
   const ok = alertManager.acknowledge(c.req.param("id"), by);
-  if (!ok) return c.json({ error: "alert not found or not in firing state" }, 404);
+  if (!ok) return notFound("alert not found or not in firing state");
   return c.json({ acknowledged: true });
 });
 
 // Manually resolve an alert.
 app.post("/api/alerts/:id/resolve", (c) => {
   const ok = alertManager.resolve(c.req.param("id"));
-  if (!ok) return c.json({ error: "alert not found" }, 404);
+  if (!ok) return notFound("alert not found");
   return c.json({ resolved: true });
 });
 
@@ -4284,7 +4284,7 @@ app.post("/api/scheduling/blocks", async (c) => {
   if (!store) return c.json({ error: "Scheduling not initialized" }, 503);
   const body = await c.req.json();
   if (!body.type || !body.title) {
-    return c.json({ error: "type and title required" }, 400);
+    return badRequest("type and title required");
   }
   const block = await store.create(body);
   return c.json(block, 201);
@@ -4297,7 +4297,7 @@ app.patch("/api/scheduling/blocks/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const updated = await store.update(id, body);
-  if (!updated) return c.json({ error: "Block not found" }, 404);
+  if (!updated) return notFound("Block not found");
   return c.json(updated);
 });
 
@@ -4326,7 +4326,7 @@ app.post("/api/contacts/entities", async (c) => {
   if (!store) return c.json({ error: "Contacts not initialized" }, 503);
   const body = await c.req.json();
   if (!body.type || !body.name) {
-    return c.json({ error: "type and name required" }, 400);
+    return badRequest("type and name required");
   }
   const entity = await store.createEntity(body);
   return c.json(entity, 201);
@@ -4339,7 +4339,7 @@ app.patch("/api/contacts/entities/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const updated = await store.updateEntity(id, body);
-  if (!updated) return c.json({ error: "Entity not found" }, 404);
+  if (!updated) return notFound("Entity not found");
   return c.json(updated);
 });
 
@@ -4358,7 +4358,7 @@ app.post("/api/contacts/edges", async (c) => {
   if (!store) return c.json({ error: "Contacts not initialized" }, 503);
   const body = await c.req.json();
   if (!body.from || !body.to || !body.type) {
-    return c.json({ error: "from, to, and type required" }, 400);
+    return badRequest("from, to, and type required");
   }
   const edge = await store.createEdge(body);
   return c.json(edge, 201);
@@ -4392,7 +4392,7 @@ app.get("/api/credentials/:id", async (c) => {
   const store = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const cred = await store.get(c.req.param("id"));
-  if (!cred) return c.json({ error: "Credential not found" }, 404);
+  if (!cred) return notFound("Credential not found");
   return c.json(cred);
 });
 
@@ -4402,7 +4402,7 @@ app.post("/api/credentials", async (c) => {
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const body = await c.req.json();
   if (!body.name || !body.service || !body.type || !body.value) {
-    return c.json({ error: "name, service, type, and value required" }, 400);
+    return badRequest("name, service, type, and value required");
   }
   const cred = await store.create(body);
   // Hydrate immediately if envVar set
@@ -4419,7 +4419,7 @@ app.patch("/api/credentials/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const updated = await store.update(id, body);
-  if (!updated) return c.json({ error: "Credential not found" }, 404);
+  if (!updated) return notFound("Credential not found");
   // Re-hydrate if envVar changed
   if (updated.envVar && updated.value && updated.status === "active") {
     process.env[updated.envVar] = updated.value;
@@ -4433,7 +4433,7 @@ app.delete("/api/credentials/:id", async (c) => {
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const id = c.req.param("id");
   const archived = await store.archive(id);
-  if (!archived) return c.json({ error: "Credential not found" }, 404);
+  if (!archived) return notFound("Credential not found");
   // Remove from process.env
   if (archived.envVar) {
     delete process.env[archived.envVar];
@@ -4573,17 +4573,17 @@ app.put("/api/open-loops/:id/resolve", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({})) as { resolvedBy?: string };
   const updated = await transitionLoop(id, "resonant", body.resolvedBy);
-  if (!updated) return c.json({ error: "Loop not found" }, 404);
+  if (!updated) return notFound("Loop not found");
   return c.json({ ok: true, loop: updated });
 });
 
 // Trigger fold-back for a session.
 app.post("/api/open-loops/foldback", async (c) => {
   const body = await c.req.json() as { sessionId?: string };
-  if (!body.sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!body.sessionId) return badRequest("sessionId required");
 
   const cs = chatSessions.get(body.sessionId);
-  if (!cs) return c.json({ error: "Session not found" }, 404);
+  if (!cs) return notFound("Session not found");
 
   const result = await foldBack({
     history: cs.history,
@@ -4625,7 +4625,7 @@ app.get("/api/metrics", async (c) => {
 // Summarize a named metric over a window.
 app.get("/api/metrics/summary", async (c) => {
   const name = c.req.query("name");
-  if (!name) return c.json({ error: "name parameter required" }, 400);
+  if (!name) return badRequest("name parameter required");
   const windowMs = parseInt(c.req.query("window") ?? "60000", 10);
   const summary = await metricsStore.summarize(name, { windowMs });
   return c.json({ summary });
@@ -4640,7 +4640,7 @@ app.get("/api/metrics/names", async (c) => {
 // Time-series bucketed data for a named metric.
 app.get("/api/metrics/series", async (c) => {
   const name = c.req.query("name");
-  if (!name) return c.json({ error: "name parameter required" }, 400);
+  if (!name) return badRequest("name parameter required");
   const now = Date.now();
   const since = c.req.query("since") ?? new Date(now - 60 * 60 * 1000).toISOString();
   const until = c.req.query("until") ?? new Date(now).toISOString();
@@ -4725,7 +4725,7 @@ app.get("/api/metrics/firewall/compare", async (c) => {
   const afterSince = c.req.query("after_since");
   const afterUntil = c.req.query("after_until");
   if (!beforeSince || !beforeUntil || !afterSince) {
-    return c.json({ error: "Required: before_since, before_until, after_since" }, 400);
+    return badRequest("Required: before_since, before_until, after_since");
   }
   const report = await generateComparisonReport(
     metricsStore,
@@ -4842,7 +4842,7 @@ app.get("/api/roadmap", async (c) => {
 app.get("/api/roadmap/recent", async (c) => {
   const hours = parseInt(c.req.query("hours") || "24", 10);
   if (isNaN(hours) || hours < 1 || hours > 168) {
-    return c.json({ error: "hours must be between 1 and 168" }, 400);
+    return badRequest("hours must be between 1 and 168");
   }
 
   try {
@@ -4917,12 +4917,12 @@ app.get("/life", async (c) => {
 // Browse API — fetch a URL and return what the agent sees (stripped text)
 app.get("/api/browse", async (c) => {
   const url = c.req.query("url");
-  if (!url) return c.json({ error: "url parameter required" }, 400);
+  if (!url) return badRequest("url parameter required");
 
   try {
     new URL(url);
   } catch {
-    return c.json({ error: "Invalid URL" }, 400);
+    return badRequest("Invalid URL");
   }
 
   const result = await _browse!.browseUrl(url);
@@ -4937,7 +4937,7 @@ app.post("/api/share", async (c) => {
   const { email, note } = await c.req.json<{ email: string; note?: string }>();
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return c.json({ error: "Valid email address required" }, 400);
+    return badRequest("Valid email address required");
   }
 
   const resendKey = process.env.RESEND_API_KEY;
@@ -5112,7 +5112,7 @@ app.post("/api/ops/sidecars/:name/restart", async (c) => {
       ok = await _avatarSidecar?.startAvatarSidecar() ?? false;
       break;
     default:
-      return c.json({ error: `Unknown sidecar: ${name}` }, 400);
+      return badRequest(`Unknown sidecar: ${name}`);
   }
   logActivity({ source: "system", summary: `Restarted sidecar: ${name} (${ok ? "up" : "failed"})` });
   return c.json({ name, available: ok });
@@ -5208,7 +5208,7 @@ app.patch("/api/ops/queue/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const updated = await store.update(id, body);
-  if (!updated) return c.json({ error: "Task not found" }, 404);
+  if (!updated) return notFound("Task not found");
   return c.json(updated);
 });
 
@@ -5228,7 +5228,7 @@ app.post("/api/ops/projects", async (c) => {
   if (!projectStore) return c.json({ error: "No project store available" }, 503);
   const body = await c.req.json();
   const { name, prefix, description } = body;
-  if (!name || !prefix) return c.json({ error: "name and prefix required" }, 400);
+  if (!name || !prefix) return badRequest("name and prefix required");
   try {
     const project = await projectStore.create({ name, prefix, description });
     return c.json(project, 201);
@@ -5244,7 +5244,7 @@ app.patch("/api/ops/projects/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const updated = await projectStore.update(id, body);
-  if (!updated) return c.json({ error: "Project not found" }, 404);
+  if (!updated) return notFound("Project not found");
   return c.json(updated);
 });
 
@@ -5263,7 +5263,7 @@ app.delete("/api/ops/projects/:id", async (c) => {
     }
   }
   const ok = await projectStore.delete(id);
-  if (!ok) return c.json({ error: "Project not found" }, 404);
+  if (!ok) return notFound("Project not found");
   return c.json({ ok: true });
 });
 
@@ -5344,7 +5344,7 @@ app.post("/api/nerve/subscribe", async (c) => {
     label?: string;
   };
   if (!subscription?.endpoint || !subscription?.keys) {
-    return c.json({ error: "Invalid subscription" }, 400);
+    return badRequest("Invalid subscription");
   }
   const id = await addSubscription(subscription, label);
   return c.json({ id });
@@ -5404,7 +5404,7 @@ app.post("/api/nerve/accept-update", async (c) => {
 // Poll for new chat messages (phone → PC live feed)
 app.get("/api/chat/poll", async (c) => {
   const sessionId = c.req.query("sessionId") || c.req.header("x-session-id");
-  if (!sessionId) return c.json({ error: "sessionId required" }, 400);
+  if (!sessionId) return badRequest("sessionId required");
 
   const since = parseInt(c.req.query("since") || "0", 10);
   const cs = chatSessions.get(sessionId) || (chatSessions.size > 0 ? chatSessions.values().next().value : null);
@@ -5434,12 +5434,12 @@ app.post("/api/chat", async (c) => {
   };
 
   if (!sessionId || !message) {
-    return c.json({ error: "sessionId and message required" }, 400);
+    return badRequest("sessionId and message required");
   }
 
   const session = validateSession(sessionId);
   if (!session) {
-    return c.json({ error: "Invalid or expired session" }, 401);
+    return unauthorized("Invalid or expired session");
   }
 
   const cs = await getOrCreateChatSession(sessionId, session.name);
@@ -6576,7 +6576,7 @@ app.post("/api/chat", async (c) => {
 
 app.post("/api/freeze", async (c) => {
   const body = await c.req.json().catch(() => null);
-  if (!body?.signal) return c.json({ error: "Missing freeze signal" }, 400);
+  if (!body?.signal) return badRequest("Missing freeze signal");
 
   const { freeze, isFrozen } = await import("./tier/freeze.js");
   if (isFrozen()) return c.json({ error: "Already frozen" }, 409);
@@ -6601,7 +6601,7 @@ app.get("/api/freeze/status", async (c) => {
 app.post("/api/import/folder", async (c) => {
   const body = await c.req.json() as { paths: string[]; dryRun?: boolean };
   if (!body.paths || !Array.isArray(body.paths) || body.paths.length === 0) {
-    return c.json({ error: "paths[] required" }, 400);
+    return badRequest("paths[] required");
   }
 
   const { resolve } = await import("node:path");
@@ -6662,7 +6662,7 @@ app.get("/api/import/deep-index/results", async (c) => {
 app.post("/api/import/files", async (c) => {
   const formData = await c.req.formData();
   const files = formData.getAll("files") as File[];
-  if (files.length === 0) return c.json({ error: "No files provided" }, 400);
+  if (files.length === 0) return badRequest("No files provided");
 
   const { mkdir: mkdirFs, writeFile: writeFs } = await import("node:fs/promises");
   const { join: joinPath } = await import("node:path");

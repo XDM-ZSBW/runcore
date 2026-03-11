@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { createLogger } from "../utils/logger.js";
 import { getCalendarStore } from "./store.js";
 import { getGoogleCalendarAdapter } from "./google-adapter.js";
+import { badRequest, notFound } from "../middleware/error-handler.js";
 
 const log = createLogger("calendar.routes");
 
@@ -43,7 +44,7 @@ calendarRoutes.get("/events", async (c) => {
 calendarRoutes.get("/events/:id", async (c) => {
   try {
     const event = await store().get(c.req.param("id"));
-    if (!event) return c.json({ error: "Event not found" }, 404);
+    if (!event) return notFound("Event not found");
     return c.json({ ok: true, event });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -56,7 +57,7 @@ calendarRoutes.post("/events", async (c) => {
   try {
     const body = await c.req.json();
     if (!body.title || !body.start || !body.end) {
-      return c.json({ error: "title, start, and end are required" }, 400);
+      return badRequest("title, start, and end are required");
     }
 
     const event = await store().create(body);
@@ -84,7 +85,7 @@ calendarRoutes.patch("/events/:id", async (c) => {
   try {
     const body = await c.req.json();
     const event = await store().update(c.req.param("id"), body);
-    if (!event) return c.json({ error: "Event not found" }, 404);
+    if (!event) return notFound("Event not found");
 
     // Push to Google if available and event is Google-synced
     const adapter = getGoogleCalendarAdapter();
@@ -109,7 +110,7 @@ calendarRoutes.delete("/events/:id", async (c) => {
   try {
     const reason = c.req.query("reason") ?? undefined;
     const event = await store().cancel(c.req.param("id"), reason);
-    if (!event) return c.json({ error: "Event not found" }, 404);
+    if (!event) return notFound("Event not found");
 
     // Remove from Google if applicable
     const adapter = getGoogleCalendarAdapter();
@@ -135,7 +136,7 @@ calendarRoutes.delete("/events/:id", async (c) => {
 calendarRoutes.post("/freebusy", async (c) => {
   try {
     const body = await c.req.json<{ start: string; end: string }>();
-    if (!body.start || !body.end) return c.json({ error: "start and end are required" }, 400);
+    if (!body.start || !body.end) return badRequest("start and end are required");
 
     const busy = await store().freeBusy(body.start, body.end);
     return c.json({ ok: true, busy, message: `${busy.length} busy blocks` });
@@ -162,7 +163,7 @@ calendarRoutes.get("/calendars", async (c) => {
 calendarRoutes.post("/calendars", async (c) => {
   try {
     const body = await c.req.json();
-    if (!body.name) return c.json({ error: "name is required" }, 400);
+    if (!body.name) return badRequest("name is required");
     const cal = await store().createCalendar(body);
     return c.json({ ok: true, calendar: cal, message: `Calendar created: ${cal.name}` }, 201);
   } catch (err) {
@@ -176,7 +177,7 @@ calendarRoutes.patch("/calendars/:id", async (c) => {
   try {
     const body = await c.req.json();
     const cal = await store().updateCalendar(c.req.param("id"), body);
-    if (!cal) return c.json({ error: "Calendar not found" }, 404);
+    if (!cal) return notFound("Calendar not found");
     return c.json({ ok: true, calendar: cal, message: `Calendar updated: ${cal.name}` });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

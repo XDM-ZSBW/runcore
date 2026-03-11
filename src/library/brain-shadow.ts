@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { readdir, stat, readFile } from "node:fs/promises";
 import { join, basename, extname } from "node:path";
 import { createLogger } from "../utils/logger.js";
+import { forbidden, notFound } from "../middleware/error-handler.js";
 
 const log = createLogger("library.brain-shadow");
 
@@ -143,7 +144,7 @@ brainShadowRoutes.get("/:category", async (c) => {
   try {
     const key = c.req.param("category");
     const cat = CATEGORY_MAP.get(key);
-    if (!cat) return c.json({ error: "Unknown category" }, 404);
+    if (!cat) return notFound("Unknown category");
 
     const files = await scanCategory(cat);
     return c.json({
@@ -162,13 +163,13 @@ brainShadowRoutes.get("/:category/:filename/download", async (c) => {
   try {
     const key = c.req.param("category");
     const cat = CATEGORY_MAP.get(key);
-    if (!cat) return c.json({ error: "Unknown category" }, 404);
+    if (!cat) return notFound("Unknown category");
 
     const rawFilename = c.req.param("filename");
     const safe = basename(rawFilename);
 
     if (!isAllowed(safe, cat.mdOnly)) {
-      return c.json({ error: "File type not allowed" }, 403);
+      return forbidden("File type not allowed");
     }
 
     const filePath = join(brainDir, cat.relPath, safe);
@@ -183,7 +184,7 @@ brainShadowRoutes.get("/:category/:filename/download", async (c) => {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("ENOENT")) return c.json({ error: "File not found" }, 404);
+    if (msg.includes("ENOENT")) return notFound("File not found");
     log.error(`Failed to download brain file: ${msg}`);
     return c.json({ error: msg }, 500);
   }

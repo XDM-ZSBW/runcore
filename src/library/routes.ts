@@ -8,6 +8,7 @@ import { createLogger } from "../utils/logger.js";
 import { FileManager } from "../files/manager.js";
 import { getLibraryStore } from "./store.js";
 import type { FileCategory } from "../files/types.js";
+import { badRequest, unauthorized, forbidden, notFound } from "../middleware/error-handler.js";
 
 const log = createLogger("library.routes");
 
@@ -60,7 +61,7 @@ libraryRoutes.get("/folders/:id", async (c) => {
     const id = c.req.param("id");
 
     const folder = await lib.getFolder(id);
-    if (!folder) return c.json({ error: "Folder not found" }, 404);
+    if (!folder) notFound("Folder not found");
 
     const subfolders = await lib.listFolders(id);
     const breadcrumb = await lib.getBreadcrumb(id);
@@ -103,7 +104,7 @@ libraryRoutes.post("/folders", async (c) => {
     const lib = store();
     const body = await c.req.json();
 
-    if (!body.name) return c.json({ error: "name required" }, 400);
+    if (!body.name) badRequest("name required");
 
     const folder = await lib.createFolder({
       name: body.name,
@@ -127,7 +128,7 @@ libraryRoutes.patch("/folders/:id", async (c) => {
     const body = await c.req.json();
 
     const updated = await lib.updateFolder(id, body);
-    if (!updated) return c.json({ error: "Folder not found or not modifiable" }, 404);
+    if (!updated) notFound("Folder not found or not modifiable");
     return c.json(updated);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -185,7 +186,7 @@ libraryRoutes.post("/files/upload", async (c) => {
     const fileMgr = fm();
     const formData = await c.req.formData();
     const file = formData.get("file") as File | null;
-    if (!file) return c.json({ error: "No file provided" }, 400);
+    if (!file) badRequest("No file provided");
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const folderId = formData.get("folderId") as string | null;
@@ -202,7 +203,7 @@ libraryRoutes.post("/files/upload", async (c) => {
     });
 
     if (!result.ok || !result.file) {
-      return c.json({ error: result.message }, 400);
+      badRequest(result.message);
     }
 
     // Assign to folder via meta
@@ -231,7 +232,7 @@ libraryRoutes.get("/files/:id", async (c) => {
     const id = c.req.param("id");
 
     const file = await fileMgr.get(id);
-    if (!file) return c.json({ error: "File not found" }, 404);
+    if (!file) notFound("File not found");
 
     // Record access
     await lib.recordAccess(id, "file");
@@ -256,7 +257,7 @@ libraryRoutes.get("/files/:id/content", async (c) => {
 
     const result = await fileMgr.read(id);
     if (!result.ok || !result.data || !result.entry) {
-      return c.json({ error: result.message }, 404);
+      notFound(result.message);
     }
 
     const textMimes = [
@@ -290,7 +291,7 @@ libraryRoutes.get("/files/:id/download", async (c) => {
 
     const result = await fileMgr.read(id);
     if (!result.ok || !result.data || !result.entry) {
-      return c.json({ error: result.message }, 404);
+      notFound(result.message);
     }
 
     return new Response(result.data, {
@@ -323,7 +324,7 @@ libraryRoutes.patch("/files/:id", async (c) => {
     }
 
     const result = await fileMgr.updateMetadata(id, patch);
-    if (!result.ok) return c.json({ error: result.message }, 404);
+    if (!result.ok) notFound(result.message);
     return c.json({ file: result.file });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

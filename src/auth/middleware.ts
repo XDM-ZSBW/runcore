@@ -4,6 +4,7 @@
  */
 
 import type { MiddlewareHandler } from "hono";
+import { unauthorized } from "../middleware/error-handler.js";
 import { validateSession } from "./identity.js";
 
 // --- Public routes (no session required) ---
@@ -61,12 +62,12 @@ export function requireSession(): MiddlewareHandler {
       "";
 
     if (!sessionId) {
-      return c.json({ error: "Authentication required" }, 401);
+      return unauthorized("Authentication required");
     }
 
     const session = validateSession(sessionId);
     if (!session) {
-      return c.json({ error: "Invalid or expired session" }, 401);
+      return unauthorized("Invalid or expired session");
     }
 
     // Store in context for downstream handlers
