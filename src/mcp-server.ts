@@ -4,7 +4,7 @@
  * stdio-only transport. No network port. All logging to stderr.
  *
  * Tools: memory_retrieve, memory_learn, memory_list, read_brain_file,
- *        get_settings, list_locked, list_rooms
+ *        get_settings, list_locked, list_rooms, web_fetch
  * Resources: brain://memory/*, brain://identity, brain://operations
  */
 
@@ -43,6 +43,42 @@ const MEMORY_DIR = resolveBrainDir("memory");
 /** Log to stderr so stdout stays clean for MCP protocol. */
 function log(msg: string): void {
   process.stderr.write(`[core-brain-mcp] ${msg}\n`);
+}
+
+/** Lightweight HTML → markdown. Strips tags, converts common elements. */
+function htmlToMarkdown(html: string): string {
+  let s = html;
+  // Remove script, style, head blocks entirely
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
+  s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
+  // Convert common block elements
+  s = s.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n");
+  s = s.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n");
+  s = s.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n");
+  s = s.replace(/<h[4-6][^>]*>([\s\S]*?)<\/h[4-6]>/gi, "\n#### $1\n");
+  s = s.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "\n$1\n");
+  s = s.replace(/<br\s*\/?>/gi, "\n");
+  s = s.replace(/<hr\s*\/?>/gi, "\n---\n");
+  // Inline formatting
+  s = s.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, "**$2**");
+  s = s.replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, "*$2*");
+  s = s.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, "`$1`");
+  s = s.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, "\n```\n$1\n```\n");
+  // Links and images
+  s = s.replace(/<a[^>]+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)");
+  s = s.replace(/<img[^>]+alt="([^"]*)"[^>]*>/gi, "![$1]");
+  // Lists
+  s = s.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n");
+  s = s.replace(/<\/?(ul|ol|dl|dt|dd|nav|header|footer|main|article|section|aside|div|span|table|thead|tbody|tr|td|th|figure|figcaption|blockquote)[^>]*>/gi, "\n");
+  // Strip remaining tags
+  s = s.replace(/<[^>]+>/g, "");
+  // Decode common entities
+  s = s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+       .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+  // Collapse whitespace
+  s = s.replace(/\n{3,}/g, "\n\n").trim();
+  return s;
 }
 
 /**
@@ -863,6 +899,72 @@ async function main(): Promise<void> {
         content: [{ type: "text" as const, text: `${instanceHealth}\n\n${handoffSummary}` }],
       };
     }
+  );
+
+  // ── Web fetch ──────────────────────────────────────────────────────────
+
+  mcp.tool(
+    "web_fetch",
+    "Fetch a URL and return its content as markdown. Only use when the user provides a specific URL — never browse autonomously.",
+    {
+      url: z.string().url().describe("The URL to fetch"),
+      prompt: z.string().max(500).optional().describe("Optional: what to extract from the page"),
+    },
+    async ({ url, prompt }) => runWithAuditContext({ caller: "mcp:web_fetch", channel: "mcp" }, async () => {
+      log(`web_fetch: ${url}`);
+
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Core/1.0 (runcore.sh)",
+            "Accept": "text/html,application/xhtml+xml,text/plain,application/json,*/*",
+          },
+          signal: AbortSignal.timeout(15_000),
+          redirect: "follow",
+        });
+
+        if (!res.ok) {
+          return {
+            content: [{ type: "text" as const, text: `Fetch failed: HTTP ${res.status} ${res.statusText}` }],
+          };
+        }
+
+        const contentType = res.headers.get("content-type") ?? "";
+        const raw = await res.text();
+
+        let body: string;
+        if (contentType.includes("application/json")) {
+          // Pretty-print JSON
+          try {
+            body = "```json\n" + JSON.stringify(JSON.parse(raw), null, 2) + "\n```";
+          } catch {
+            body = raw;
+          }
+        } else if (contentType.includes("text/html")) {
+          // Strip HTML to readable text
+          body = htmlToMarkdown(raw);
+        } else {
+          // Plain text or other
+          body = raw;
+        }
+
+        // Truncate if massive
+        const MAX_CHARS = 50_000;
+        if (body.length > MAX_CHARS) {
+          body = body.slice(0, MAX_CHARS) + `\n\n... (truncated at ${MAX_CHARS} chars)`;
+        }
+
+        const header = `**Fetched:** ${url}\n**Content-Type:** ${contentType}\n**Size:** ${raw.length} bytes\n\n---\n\n`;
+        const result = prompt
+          ? `${header}${body}\n\n---\n\n**Extraction prompt:** ${prompt}`
+          : `${header}${body}`;
+
+        return { content: [{ type: "text" as const, text: result }] };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text" as const, text: `Fetch error: ${msg}` }] };
+      }
+    })
   );
 
   // ── Resources ────────────────────────────────────────────────────────────
