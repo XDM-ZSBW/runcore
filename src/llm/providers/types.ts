@@ -29,6 +29,7 @@ export interface StreamOptions {
   onToolCalls?: (
     calls: Array<{
       id: string;
+      type?: "function";
       function: { name: string; arguments: string };
     }>,
   ) => void;

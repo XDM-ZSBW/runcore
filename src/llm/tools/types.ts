@@ -21,6 +21,7 @@ export interface ChatTool {
 /** A tool call requested by the model in its response. */
 export interface ChatToolCall {
   id: string;
+  type?: "function";
   function: {
     name: string;
     arguments: string; // JSON string

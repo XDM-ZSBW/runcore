@@ -48,6 +48,7 @@ export async function completeChat(options: CompleteChatOptions): Promise<string
 function estimateTokens(messages: ContextMessage[]): number {
   let chars = 0;
   for (const m of messages) {
+    if (m.content == null) continue;
     if (typeof m.content === "string") chars += m.content.length;
     else {
       for (const block of m.content) {

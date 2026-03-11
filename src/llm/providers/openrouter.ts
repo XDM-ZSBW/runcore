@@ -64,6 +64,7 @@ export const openRouterProvider: LLMProvider = {
         model,
         messages: formatMessages(options.messages),
         stream: true,
+        max_tokens: 4096,
       };
       if (options.tools && options.tools.length > 0) {
         body.tools = options.tools;
@@ -113,6 +114,7 @@ export const openRouterProvider: LLMProvider = {
     // Accumulator for tool call deltas streamed across multiple chunks
     const toolCallAccum: Array<{
       id: string;
+      type: "function";
       function: { name: string; arguments: string };
     }> = [];
 
@@ -162,6 +164,7 @@ export const openRouterProvider: LLMProvider = {
                 if (!toolCallAccum[idx]) {
                   toolCallAccum[idx] = {
                     id: tc.id ?? "",
+                    type: "function",
                     function: { name: tc.function?.name ?? "", arguments: "" },
                   };
                 }
@@ -242,6 +245,7 @@ export const openRouterProvider: LLMProvider = {
         model: resolvedModel,
         messages: formatMessages(messages),
         stream: false,
+        max_tokens: 4096,
       }),
       signal,
     });

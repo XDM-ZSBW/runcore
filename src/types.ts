@@ -37,12 +37,13 @@ export type ContentBlock =
 /** One message in a conversation (for context assembly). */
 export interface ContextMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string | ContentBlock[];
+  content: string | ContentBlock[] | null;
   /** For role "tool" — the ID of the tool call this result corresponds to. */
   tool_call_id?: string;
   /** For role "assistant" — tool calls the model is requesting. */
   tool_calls?: Array<{
     id: string;
+    type?: "function";
     function: { name: string; arguments: string };
   }>;
   /** Persisted summary of tools used during this response (for history rendering). */

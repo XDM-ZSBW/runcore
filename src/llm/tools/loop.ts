@@ -129,9 +129,10 @@ export async function streamWithTools(
     });
 
     // Append assistant message with tool_calls (include any text produced before the calls)
+    // Note: content must be null (not "") when there's no text — some providers reject empty string
     messages.push({
       role: "assistant",
-      content: roundText,
+      content: roundText || null,
       tool_calls: toolCalls,
     });
 
@@ -183,9 +184,10 @@ export async function streamWithTools(
     }
 
     round++;
+    log.info("Tool loop advancing to next round", { round, maxRounds: MAX_ROUNDS });
   }
 
   // Max rounds reached — end gracefully
-  log.warn("Tool loop hit max rounds", { maxRounds: MAX_ROUNDS });
+  log.warn("Tool loop hit max rounds without text response", { maxRounds: MAX_ROUNDS });
   options.onDone();
 }

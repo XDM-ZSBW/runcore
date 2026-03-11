@@ -57,11 +57,13 @@ export function generateCacheKey(options: CompleteChatOptions): string {
 /** Normalise a ContextMessage to a stable {role, content} form. */
 function normaliseMessage(m: ContextMessage): { role: string; content: string } {
   const content =
-    typeof m.content === "string"
-      ? m.content
-      : m.content
-          .map((b) => ("text" in b ? b.text : b.image_url.url))
-          .join("|");
+    m.content == null
+      ? ""
+      : typeof m.content === "string"
+        ? m.content
+        : m.content
+            .map((b) => ("text" in b ? b.text : b.image_url.url))
+            .join("|");
   return { role: m.role, content };
 }
 

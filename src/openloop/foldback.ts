@@ -65,7 +65,7 @@ export async function foldBack(input: FoldBackInput): Promise<FoldBackResult | n
 
   const transcriptText = history
     .map((m) => {
-      const content = typeof m.content === "string" ? m.content : m.content.map((b) => b.type === "text" ? b.text : "[image]").join(" ");
+      const content = m.content == null ? "" : typeof m.content === "string" ? m.content : m.content.map((b) => b.type === "text" ? b.text : "[image]").join(" ");
       return `${m.role}: ${content}`;
     })
     .join("\n");
