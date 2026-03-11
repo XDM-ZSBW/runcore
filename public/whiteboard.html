@@ -415,13 +415,11 @@
   var openDetails = {};
 
   function getSessionId() {
-    return localStorage.getItem("sessionId") || "";
+    return sessionStorage.getItem("dash_sid") || new URLSearchParams(window.location.search).get("sessionId") || "";
   }
   function authHeaders() {
-    var h = {};
-    var t = localStorage.getItem("authToken");
-    if (t) h["Authorization"] = "Bearer " + t;
-    return h;
+    var sid = getSessionId();
+    return sid ? { "x-session-id": sid } : {};
   }
   function qs(params) {
     params.sessionId = getSessionId();
@@ -435,6 +433,12 @@
     if (body) opts.body = JSON.stringify(body);
     var sep = path.includes("?") ? "&" : "?";
     var res = await fetch(path + sep + "sessionId=" + encodeURIComponent(getSessionId()), opts);
+    if (!res.ok) {
+      var text = "";
+      try { var j = await res.json(); text = j.error || j.message || res.statusText; } catch { text = res.statusText; }
+      console.error("API error:", method, path, res.status, text);
+      return { error: text || "Request failed (" + res.status + ")" };
+    }
     return res.json();
   }
 
@@ -684,18 +688,21 @@
 
     if (!title) { document.getElementById("create-title").focus(); return; }
 
-    await api("POST", "/api/whiteboard", {
-      title: title,
-      type: type,
-      parentId: parentId,
-      tags: tags,
-      plantedBy: "human",
-      question: question,
-      body: body,
-    });
+    try {
+      var payload = { title: title, type: type, parentId: parentId, tags: tags, plantedBy: "human" };
+      if (question) payload.question = question;
+      if (body) payload.body = body;
 
-    closeCreateModal();
-    loadAll();
+      var result = await api("POST", "/api/whiteboard", payload);
+      if (result.error) {
+        alert("Error: " + result.error);
+        return;
+      }
+      closeCreateModal();
+      await loadAll();
+    } catch (err) {
+      alert("Failed to create: " + (err.message || err));
+    }
   };
 
   // Escape key closes modal
