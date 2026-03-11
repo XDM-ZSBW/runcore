@@ -194,7 +194,7 @@ export async function processSlashCommand(
 
   switch (cmd.command) {
     case `/${getInstanceNameLower()}`:
-      return handleDashCommand(cmd);
+      return handleInstanceCommand(cmd);
     case "/status":
       return handleStatusCommand(cmd);
     default:
@@ -206,7 +206,7 @@ export async function processSlashCommand(
   }
 }
 
-async function handleDashCommand(
+async function handleInstanceCommand(
   cmd: SlackSlashCommand,
 ): Promise<{ ok: boolean; response_type: "in_channel" | "ephemeral"; text: string }> {
   const args = cmd.text.trim().split(/\s+/);

@@ -31,7 +31,7 @@ import type { LongTermMemoryType, MemoryEntry } from "./types.js";
 import { issueVoucher, checkVoucherWithAlert, setVoucherAlertFn } from "./voucher.js";
 import { sendAlert } from "./alert.js";
 import { Crystallizer, scoreEntry } from "./crystallizer.js";
-import { createCredentialStore } from "./credentials/store.js";
+// credentials is byok-tier — dynamic import
 import { readSessionKey, isDpapiAvailable } from "./lib/dpapi.js";
 import { BrainRAG } from "./search/brain-rag.js";
 
@@ -102,9 +102,14 @@ async function main(): Promise<void> {
   setWriteEncryptionEnabled(settings.encryptBrainFiles);
 
   // 4b. Hydrate credentials into process.env (encrypted at rest)
-  const credStore = createCredentialStore(BRAIN_DIR);
-  const hydrated = await credStore.hydrate();
-  log(`Credentials hydrated: ${hydrated}`);
+  try {
+    const { createCredentialStore } = await import("./credentials/store.js");
+    const credStore = createCredentialStore(BRAIN_DIR);
+    const hydrated = await credStore.hydrate();
+    log(`Credentials hydrated: ${hydrated}`);
+  } catch {
+    log("Credentials module not available (requires BYOK tier)");
+  }
 
   // 5. Construct LTM + Brain
   const ltm = new FileSystemLongTermMemory(MEMORY_DIR, encryptionKey);

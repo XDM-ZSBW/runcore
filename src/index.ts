@@ -17,29 +17,8 @@ export type { BrainConfig, GetContextOptions, GetContextResult, LearnInput, Cont
 export type { LongTermMemoryStore } from "./memory/long-term.js";
 export type { ContextAssemblerConfig } from "./context/assembler.js";
 
-// Distributed tracing
-export {
-  initTracing,
-  shutdownTracing,
-  getTracer,
-  generateCorrelationId,
-  withCorrelation,
-  getCorrelationId,
-  getCorrelationContext,
-  CORRELATION_HEADER,
-  withSpan,
-  withSpanSync,
-  traceAgentSpawn,
-  traceAgentExecution,
-  traceApiCall,
-  traceFileOp,
-  traceHttpRequest,
-  tracingMiddleware,
-  attachOTelToBus,
-  Tracer,
-  generateTraceId,
-  generateSpanId,
-} from "./tracing/index.js";
+// Distributed tracing — hosted tier, load via: await import("./tracing/index.js")
+// Type re-exports are safe (zero runtime cost):
 export type { TracingConfig, CorrelationContext, Span, SpanEvent, Trace, TraceDetail } from "./tracing/index.js";
 
 // Structured logging

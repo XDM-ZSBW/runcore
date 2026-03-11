@@ -5,7 +5,14 @@
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, extname, relative } from "node:path";
-import { extractPdfText, extractImageText } from "./extract.js";
+// extract.js is hosted-tier (tesseract/OCR) — dynamic import with graceful fallback
+let _extract: typeof import("./extract.js") | null = null;
+async function getExtract() {
+  if (!_extract) {
+    try { _extract = await import("./extract.js"); } catch { _extract = null; }
+  }
+  return _extract;
+}
 
 const READABLE_EXTENSIONS = new Set([
   ".md", ".txt", ".json", ".yaml", ".yml", ".csv",
@@ -93,11 +100,15 @@ export async function ingestDirectory(
 
       let content: string;
       if (ext === ".pdf") {
+        const extract = await getExtract();
+        if (!extract) continue; // OCR not available on this tier
         const buf = await readFile(fullPath);
-        content = await extractPdfText(buf);
+        content = await extract.extractPdfText(buf);
       } else if (IMAGE_EXTENSIONS.has(ext)) {
+        const extract = await getExtract();
+        if (!extract) continue; // OCR not available on this tier
         const buf = await readFile(fullPath);
-        content = await extractImageText(buf);
+        content = await extract.extractImageText(buf);
       } else {
         content = await readFile(fullPath, "utf-8");
         // Skip files that look binary (contain null bytes)

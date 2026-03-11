@@ -8,12 +8,18 @@
  * and passed directly to the form-fill target, bypassing the LLM context.
  */
 
-import { listPersonalFields } from "../../vault/personal.js";
 import type {
   ContextProviderCapability,
   ContextInjection,
   ActionContext,
 } from "../types.js";
+
+// Lazy-loaded byok-tier module
+let _vault: typeof import("../../vault/personal.js") | null = null;
+async function getVault() {
+  if (!_vault) { try { _vault = await import("../../vault/personal.js"); } catch { _vault = null; } }
+  return _vault;
+}
 
 const KEYWORDS =
   /\b(form|fill|auto.?fill|personal|address|name|tax|ssn|credit.?card|checkout|sign.?up|register|application)\b/i;
@@ -45,7 +51,9 @@ export const vaultContextProvider: ContextProviderCapability = {
   },
 
   async getContext(_message: string): Promise<ContextInjection | null> {
-    const fields = await listPersonalFields();
+    const vault = await getVault();
+    if (!vault) return null;
+    const fields = await vault.listPersonalFields();
     if (fields.length === 0) return null;
 
     // Group by category for a clean summary

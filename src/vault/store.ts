@@ -127,7 +127,7 @@ export function getVaultEntries(): Array<{ name: string; value: string; label?: 
  */
 const NEVER_EXPOSE = new Set(["SAFE_WORD", "RECOVERY_QUESTION"]);
 
-export function getDashReadableVault(): Array<{ name: string; value: string; label?: string }> {
+export function getInstanceReadableVault(): Array<{ name: string; value: string; label?: string }> {
   return Object.entries(vaultCache)
     .filter(([name]) => (name.startsWith("CORE_") || name.startsWith("DASH_")) && !NEVER_EXPOSE.has(name))
     .map(([name, entry]) => ({ name, value: entry.value, label: entry.label }));

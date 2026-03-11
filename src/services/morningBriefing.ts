@@ -16,18 +16,43 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { createLogger } from "../utils/logger.js";
 import { getTrainingSummary } from "./training.js";
-import { isCalendarAvailable, getTodaySchedule, formatEventsForContext } from "../google/calendar.js";
 import { resolveEnv, getInstanceName } from "../instance.js";
 
 const log = createLogger("morning-briefing");
+
+// google/calendar.js is byok-tier — dynamic import
+let _calMod: typeof import("../google/calendar.js") | null = null;
+async function getCalMod() {
+  if (!_calMod) { try { _calMod = await import("../google/calendar.js"); } catch {} }
+  return _calMod;
+}
+
+// google/gmail.js is byok-tier — dynamic import
+let _gmailMod: typeof import("../google/gmail.js") | null = null;
+async function getGmailMod() {
+  if (!_gmailMod) { try { _gmailMod = await import("../google/gmail.js"); } catch {} }
+  return _gmailMod;
+}
+
+// google/gmail-send.js is byok-tier — dynamic import
+let _gmailSendMod: typeof import("../google/gmail-send.js") | null = null;
+async function getGmailSendMod() {
+  if (!_gmailSendMod) { try { _gmailSendMod = await import("../google/gmail-send.js"); } catch {} }
+  return _gmailSendMod;
+}
+
+// channels/whatsapp.js is byok-tier — dynamic import
+let _whatsappMod: typeof import("../channels/whatsapp.js") | null = null;
+async function getWhatsAppMod() {
+  if (!_whatsappMod) { try { _whatsappMod = await import("../channels/whatsapp.js"); } catch {} }
+  return _whatsappMod;
+}
+
 import type { CalendarEvent } from "../google/calendar.js";
-import { isGmailAvailable, getInboxSummary, formatInboxSummaryForContext } from "../google/gmail.js";
 import type { InboxSummary } from "../google/gmail.js";
-import { sendEmail } from "../google/gmail-send.js";
 import { QueueStore } from "../queue/store.js";
 import type { QueueTask, QueueTaskState } from "../queue/types.js";
 import { stateDisplayName } from "../queue/types.js";
-import { getClient as getWhatsAppClient, isWhatsAppConfigured } from "../channels/whatsapp.js";
 import { logActivity, getActivities } from "../activity/log.js";
 import type { ActivityEntry } from "../activity/log.js";
 import { BRAIN_DIR } from "../lib/paths.js";
@@ -170,11 +195,12 @@ let lastDelivery: BriefingDeliveryResult | null = null;
 // ─── Data gathering ──────────────────────────────────────────────────────────
 
 async function gatherCalendar(): Promise<MorningBriefing["calendar"]> {
-  if (!isCalendarAvailable()) {
+  const calMod = await getCalMod();
+  if (!calMod?.isCalendarAvailable()) {
     return { available: false, eventCount: 0, events: [], formatted: "Calendar not connected." };
   }
 
-  const result = await getTodaySchedule();
+  const result = await calMod.getTodaySchedule();
   if (!result.ok || !result.events) {
     return { available: true, eventCount: 0, events: [], formatted: `Calendar error: ${result.message}` };
   }
@@ -183,16 +209,17 @@ async function gatherCalendar(): Promise<MorningBriefing["calendar"]> {
     available: true,
     eventCount: result.events.length,
     events: result.events,
-    formatted: formatEventsForContext(result.events),
+    formatted: calMod.formatEventsForContext(result.events),
   };
 }
 
 async function gatherEmail(): Promise<MorningBriefing["email"]> {
-  if (!isGmailAvailable()) {
+  const gmailMod = await getGmailMod();
+  if (!gmailMod?.isGmailAvailable()) {
     return { available: false, unreadCount: 0, highPriorityCount: 0, summary: null, formatted: "Gmail not connected." };
   }
 
-  const result = await getInboxSummary(12); // last 12 hours (overnight)
+  const result = await gmailMod.getInboxSummary(12); // last 12 hours (overnight)
   if (!result.ok || !result.summary) {
     return { available: true, unreadCount: 0, highPriorityCount: 0, summary: null, formatted: `Gmail error: ${result.message}` };
   }
@@ -202,7 +229,7 @@ async function gatherEmail(): Promise<MorningBriefing["email"]> {
     unreadCount: result.summary.unreadCount,
     highPriorityCount: result.summary.highPriority.length,
     summary: result.summary,
-    formatted: formatInboxSummaryForContext(result.summary),
+    formatted: gmailMod.formatInboxSummaryForContext(result.summary),
   };
 }
 
@@ -650,7 +677,10 @@ async function sendBriefingEmail(
     day: "numeric",
   });
 
-  const result = await sendEmail({
+  const gmailSendMod = await getGmailSendMod();
+  if (!gmailSendMod) return false;
+
+  const result = await gmailSendMod.sendEmail({
     to: recipients,
     subject: `${getInstanceName()} Morning Briefing — ${date}`,
     body: text,
@@ -661,9 +691,10 @@ async function sendBriefingEmail(
 }
 
 async function sendWhatsApp(text: string, recipients: string[]): Promise<boolean> {
-  if (!isWhatsAppConfigured()) return false;
+  const whatsappMod = await getWhatsAppMod();
+  if (!whatsappMod?.isWhatsAppConfigured()) return false;
 
-  const client = getWhatsAppClient();
+  const client = whatsappMod.getClient();
   if (!client) return false;
 
   // Truncate for WhatsApp (1600 char limit)

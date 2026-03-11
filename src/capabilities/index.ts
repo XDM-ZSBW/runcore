@@ -36,7 +36,16 @@ export { calendarCapability } from "./definitions/calendar.js";
 export { emailCapability } from "./definitions/email.js";
 export { docsCapability } from "./definitions/docs.js";
 export { boardCapability } from "./definitions/board.js";
-export { browserCapability, closeBrowser } from "./definitions/browser.js";
+// browser.js is hosted-tier — load dynamically
+// export { browserCapability, closeBrowser } from "./definitions/browser.js";
+let _browser: typeof import("./definitions/browser.js") | null = null;
+export async function loadBrowserCapability() {
+  if (!_browser) { try { _browser = await import("./definitions/browser.js"); } catch { return null; } }
+  return _browser;
+}
+export async function closeBrowser() {
+  if (_browser) await _browser.closeBrowser();
+}
 
 // Definitions — meta capabilities
 export { taskDoneCapability } from "./definitions/task-done.js";

@@ -10,9 +10,21 @@ import type { ContextMessage } from "../types.js";
 import type { ProviderName } from "../llm/providers/types.js";
 import { completeChat } from "../llm/complete.js";
 import { isSearchAvailable, search } from "../search/client.js";
-import { makeCall } from "../twilio/call.js";
+// twilio/call.js is byok-tier — dynamic import
+let _twilioMod: typeof import("../twilio/call.js") | null = null;
+async function getTwilioMod() {
+  if (!_twilioMod) { try { _twilioMod = await import("../twilio/call.js"); } catch {} }
+  return _twilioMod;
+}
+
+// google/calendar.js is byok-tier — dynamic import
+let _calMod: typeof import("../google/calendar.js") | null = null;
+async function getCalMod() {
+  if (!_calMod) { try { _calMod = await import("../google/calendar.js"); } catch {} }
+  return _calMod;
+}
+
 import { pushNotification } from "./notifications.js";
-import { isCalendarAvailable, getUpcomingEvents, formatEventsForContext } from "../google/calendar.js";
 import { readBrainFile } from "../lib/brain-io.js";
 import { emitCdt } from "../pulse/activation-event.js";
 import { getInstanceName, getAlertEmailFrom, resolveEnv } from "../instance.js";
@@ -81,11 +93,12 @@ export async function runGoalCheck(options: GoalCheckOptions): Promise<GoalCheck
 
     // 2b. Retrieve upcoming calendar events (if available)
     let calendarText = "(calendar not connected)";
-    if (isCalendarAvailable()) {
+    const calMod = await getCalMod();
+    if (calMod?.isCalendarAvailable()) {
       try {
-        const calResult = await getUpcomingEvents(4);
+        const calResult = await calMod.getUpcomingEvents(4);
         if (calResult.ok && calResult.events && calResult.events.length > 0) {
-          calendarText = formatEventsForContext(calResult.events);
+          calendarText = calMod.formatEventsForContext(calResult.events);
         } else {
           calendarText = "(no upcoming events in next 4 hours)";
         }
@@ -266,7 +279,9 @@ async function executeAction(decision: Decision, options: GoalCheckOptions): Pro
 
     case "call": {
       const msg = decision.message ?? `Hey, ${getInstanceName()} here. You have a P0 item that needs attention today.`;
-      const result = await makeCall({ message: msg });
+      const twilioMod = await getTwilioMod();
+      if (!twilioMod) return "Call unavailable — Twilio module not loaded";
+      const result = await twilioMod.makeCall({ message: msg });
       return result.message;
     }
 

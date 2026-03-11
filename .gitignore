@@ -3,9 +3,10 @@ node_modules/
 dist/
 *.log
 
-# Environment
+# Environment & local config
 .env
 .env.local
+.mcp.json
 
 # Brain data lives in its own repo — packages are code only
 brain/

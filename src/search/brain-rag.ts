@@ -16,7 +16,12 @@ import { BRAIN_DIR, FILES_DIR, resolveBrainDir } from "../lib/paths.js";
 import { embed, embedBatch, isOllamaAvailable, cosine } from "./embedder.js";
 import { chunkMarkdown, type Chunk } from "./chunker.js";
 import { readFile } from "node:fs/promises";
-import { extractPdfText, extractImageText } from "../files/extract.js";
+// extract.js is hosted-tier (tesseract/OCR) — dynamic import with fallback
+let _extract: typeof import("../files/extract.js") | null = null;
+async function getExtract() {
+  if (_extract === null) { try { _extract = await import("../files/extract.js"); } catch { _extract = null as any; } }
+  return _extract;
+}
 
 const log = createLogger("brain-rag");
 
@@ -169,12 +174,14 @@ export class BrainRAG {
     if (ext === ".pdf") {
       const buffer = Buffer.from(await readFile(filePath));
       // Try text extraction first
-      let text = await extractPdfText(buffer);
+      const extract = await getExtract();
+      if (!extract) return `[PDF: ${basename(filePath)} — OCR not available on this tier]`;
+      let text = await extract.extractPdfText(buffer);
       // If PDF is scanned (no extractable text), fall back to OCR
       if (!text.trim() || text.trim().length < 50) {
         try {
           log.info(`PDF appears scanned, trying OCR: ${basename(filePath)}`);
-          text = await extractImageText(buffer);
+          text = await extract.extractImageText(buffer);
         } catch (err) {
           log.warn(`OCR failed for ${basename(filePath)}`, {
             error: err instanceof Error ? err.message : String(err),

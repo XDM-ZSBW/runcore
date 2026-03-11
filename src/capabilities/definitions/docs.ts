@@ -2,8 +2,14 @@
  * Docs/Sheets capability — create Google Docs and Spreadsheets.
  */
 
-import { createDocWithContent, createSpreadsheet } from "../../google/docs.js";
 import { logActivity } from "../../activity/log.js";
+
+// Lazy-loaded byok-tier module
+let _docs: typeof import("../../google/docs.js") | null = null;
+async function getDocs() {
+  if (!_docs) { try { _docs = await import("../../google/docs.js"); } catch { _docs = null; } }
+  return _docs;
+}
 import { pushNotification } from "../../goals/notifications.js";
 import { getInstanceName } from "../../instance.js";
 import type { ActionBlockCapability, ActionContext, ActionExecutionResult } from "../types.js";
@@ -44,9 +50,11 @@ export const docsCapability: ActionBlockCapability = {
   async execute(payload, ctx): Promise<ActionExecutionResult> {
     const req = payload as Record<string, any>;
     const label = actionLabel(ctx);
+    const docs = await getDocs();
+    if (!docs) return { capabilityId: "docs", ok: false, message: "Google Docs module not available (byok tier required)" };
 
     if (req.action === "create_doc" && req.title) {
-      const result = await createDocWithContent(req.title, req.content ?? "");
+      const result = await docs.createDocWithContent(req.title, req.content ?? "");
       if (result.ok && result.url) {
         logActivity({ source: "google", summary: `Created Google Doc: ${req.title}`, detail: result.url, actionLabel: label, reason: reason(ctx) });
         pushNotification({ timestamp: new Date().toISOString(), source: "google", message: `Created Google Doc: [${req.title}](${result.url})` });
@@ -57,7 +65,7 @@ export const docsCapability: ActionBlockCapability = {
     }
 
     if (req.action === "create_sheet" && req.title) {
-      const result = await createSpreadsheet(req.title, req.data);
+      const result = await docs.createSpreadsheet(req.title, req.data);
       if (result.ok && result.data) {
         logActivity({ source: "google", summary: `Created Google Sheet: ${req.title}`, detail: result.data.spreadsheetUrl, actionLabel: label, reason: reason(ctx) });
         pushNotification({ timestamp: new Date().toISOString(), source: "google", message: `Created Google Sheet: [${req.title}](${result.data.spreadsheetUrl})` });

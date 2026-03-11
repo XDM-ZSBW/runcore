@@ -45,6 +45,8 @@ export function getInstanceNameLower(): string {
 /**
  * Resolve an environment variable with instance-aware prefix.
  * Checks CORE_ first, then falls back to DASH_ for backwards compatibility.
+ * The DASH_ fallback ensures existing deployments using DASH_* env vars
+ * continue to work without reconfiguration.
  */
 export function resolveEnv(suffix: string): string | undefined {
   return process.env[`CORE_${suffix}`] ?? process.env[`DASH_${suffix}`];

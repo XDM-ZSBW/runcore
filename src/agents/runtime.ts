@@ -28,9 +28,21 @@ import type {
 } from "./runtime/types.js";
 import { TERMINAL_STATES } from "./runtime/types.js";
 import { RuntimeManager } from "./runtime/manager.js";
-import { createRuntime, getRuntime, shutdownRuntime } from "./runtime/index.js";
-import { AgentInstanceManager, type HealthSummary, type InstanceHealth } from "./instance-manager.js";
+import type { AgentInstanceManager, HealthSummary, InstanceHealth } from "./instance-manager.js";
 import { logActivity } from "../activity/log.js";
+
+// Lazy-loaded spawn-tier modules
+let _runtimeIndex: typeof import("./runtime/index.js") | null = null;
+let _instanceMgr: typeof import("./instance-manager.js") | null = null;
+
+async function getRuntimeIndex() {
+  if (!_runtimeIndex) { try { _runtimeIndex = await import("./runtime/index.js"); } catch { _runtimeIndex = null; } }
+  return _runtimeIndex;
+}
+async function getInstanceMgr() {
+  if (!_instanceMgr) { try { _instanceMgr = await import("./instance-manager.js"); } catch { _instanceMgr = null; } }
+  return _instanceMgr;
+}
 
 // ===========================================================================
 // ErrorRecovery — Retry policies and circuit breakers
@@ -570,8 +582,13 @@ export class AgentPool {
       runtimeConfig.maxConcurrentAgents = merged.maxConcurrent;
     }
 
-    const runtime = await createRuntime(runtimeConfig);
-    const instanceManager = new AgentInstanceManager(runtime);
+    const rtMod = await getRuntimeIndex();
+    if (!rtMod) throw new Error("Agent runtime module not available (spawn tier required)");
+    const imMod = await getInstanceMgr();
+    if (!imMod) throw new Error("Instance manager module not available (spawn tier required)");
+
+    const runtime = await rtMod.createRuntime(runtimeConfig);
+    const instanceManager = new imMod.AgentInstanceManager(runtime);
     await instanceManager.init();
 
     const pool = new AgentPool(runtime, instanceManager, merged);

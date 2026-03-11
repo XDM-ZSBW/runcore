@@ -10,7 +10,12 @@ import { Brain } from "../brain.js";
 import { FileSystemLongTermMemory } from "../memory/file-backed.js";
 import { completeChat } from "../llm/complete.js";
 import { resolveProvider, resolveChatModel } from "../settings.js";
-import { getClient } from "../channels/whatsapp.js";
+// channels/whatsapp.js is byok-tier — dynamic import
+let _whatsappMod: typeof import("../channels/whatsapp.js") | null = null;
+async function getWhatsAppMod() {
+  if (!_whatsappMod) { try { _whatsappMod = await import("../channels/whatsapp.js"); } catch {} }
+  return _whatsappMod;
+}
 import { logActivity } from "../activity/log.js";
 import type { ContextMessage } from "../types.js";
 import { join } from "node:path";
@@ -163,7 +168,8 @@ export async function handleWhatsAppMessage(
     session.history.push({ role: "assistant", content: formatted });
 
     // Send response back via WhatsApp
-    const client = getClient();
+    const whatsappMod = await getWhatsAppMod();
+    const client = whatsappMod?.getClient() ?? null;
     if (client) {
       const sendResult = await client.sendMessage(phone, formatted);
       if (!sendResult.ok) {

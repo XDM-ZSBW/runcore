@@ -5,13 +5,15 @@
  */
 
 import { createLogger } from "../utils/logger.js";
-import {
-  isCalendarAvailable,
-  listEvents as googleListEvents,
-  createEvent as googleCreateEvent,
-  updateEvent as googleUpdateEvent,
-  deleteEvent as googleDeleteEvent,
-} from "../google/calendar.js";
+// google/calendar.js is byok-tier — dynamic import
+let _calMod: typeof import("../google/calendar.js") | null = null;
+async function getCalMod() {
+  if (!_calMod) { try { _calMod = await import("../google/calendar.js"); } catch {} }
+  return _calMod;
+}
+function isCalendarAvailable(): boolean {
+  return _calMod?.isCalendarAvailable() ?? false;
+}
 import type { CalendarEvent, CalendarAdapter, SyncResult } from "./types.js";
 import { getCalendarStore } from "./store.js";
 
@@ -73,7 +75,10 @@ export class GoogleCalendarAdapter implements CalendarAdapter {
       const timeMin = since ?? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const timeMax = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-      const result = await googleListEvents({
+      const calMod = await getCalMod();
+      if (!calMod) return { created, updated, deleted, errors: ["Google calendar module unavailable"], syncedAt: new Date().toISOString() };
+
+      const result = await calMod.listEvents({
         timeMin,
         timeMax,
         maxResults: 250,
@@ -137,11 +142,17 @@ export class GoogleCalendarAdapter implements CalendarAdapter {
     }
 
     const store = getCalendarStore();
+    const calMod = await getCalMod();
+    if (!calMod) {
+      log.warn("Cannot push to Google — calendar module unavailable");
+      return;
+    }
+
     const googleId = event.externalIds.google;
 
     if (googleId) {
       // Update existing Google event
-      const result = await googleUpdateEvent(googleId, {
+      const result = await calMod.updateEvent(googleId, {
         title: event.title,
         start: event.start,
         end: event.end,
@@ -156,7 +167,7 @@ export class GoogleCalendarAdapter implements CalendarAdapter {
       }
     } else {
       // Create new Google event
-      const result = await googleCreateEvent(event.title, event.start, event.end, {
+      const result = await calMod.createEvent(event.title, event.start, event.end, {
         description: event.description,
         location: event.location,
         attendees: event.attendees.map((a) => a.email),
@@ -177,7 +188,10 @@ export class GoogleCalendarAdapter implements CalendarAdapter {
   async remove(externalId: string): Promise<void> {
     if (!this.isAvailable()) return;
 
-    const result = await googleDeleteEvent(externalId);
+    const calMod = await getCalMod();
+    if (!calMod) return;
+
+    const result = await calMod.deleteEvent(externalId);
     if (!result.ok) {
       log.error("Failed to remove event from Google", { externalId, error: result.message });
     }

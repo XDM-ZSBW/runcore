@@ -215,7 +215,6 @@ let _webhooksTwilio: typeof import("./webhooks/twilio.js") | null = null;
 let _resendWebhooks: typeof import("./resend/webhooks.js") | null = null;
 let _servicesWhatsapp: typeof import("./services/whatsapp.js") | null = null;
 import { initLLMCache, shutdownLLMCache, getCacheDiagnostics } from "./cache/llm-cache.js";
-import { createWebhookRoute, verifyWebhookRequest } from "./webhooks/mount.js";
 let _webhooksMount: typeof import("./webhooks/mount.js") | null = null;
 let _webhooksConfig: typeof import("./webhooks/config.js") | null = null;
 let _webhooksRegistry: typeof import("./webhooks/registry.js") | null = null;
@@ -565,7 +564,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         ] : []),  // end spawning gate
         // Inject instance-readable vault values (CORE_*/DASH_* prefixed only — never secrets)
         ...(() => {
-          const readable = (_vaultStore ? _vaultStore.getDashReadableVault() : []) as any[];
+          const readable = (_vaultStore ? _vaultStore.getInstanceReadableVault() : []) as any[];
           if (readable.length === 0) return [];
           const lines = readable.map((r) => `- ${r.name}: ${r.value}`);
           return [
@@ -2508,8 +2507,7 @@ app.post("/api/threads", async (c) => {
   };
   threads.set(thread.id, thread);
 
-  // New thread starts blank. Main chat keeps its history.
-  // If currently on a thread, save it back first.
+  // Save current thread's history before creating new one
   const cs = chatSessions.get(sessionId);
   if (cs && cs.activeThreadId) {
     const prevThread = threads.get(cs.activeThreadId);
@@ -2517,9 +2515,6 @@ app.post("/api/threads", async (c) => {
       prevThread.history = cs.history;
       prevThread.historySummary = cs.historySummary;
     }
-    cs.history = cs.mainHistory;
-    cs.historySummary = cs.mainHistorySummary;
-    cs.activeThreadId = null;
   }
 
   return c.json({ thread: { id: thread.id, title: thread.title, createdAt: thread.createdAt, updatedAt: thread.updatedAt } });
@@ -2569,10 +2564,12 @@ app.delete("/api/threads/:id", async (c) => {
 
   const threadId = c.req.param("id");
   const threads = getThreadsForSession(sessionId);
-  // If deleting the active thread, switch back to main first
+  // If deleting the active thread, clear it (frontend creates a new one)
   const cs = chatSessions.get(sessionId);
   if (cs && cs.activeThreadId === threadId) {
-    switchSessionThread(cs, null, sessionId);
+    cs.history = [];
+    cs.historySummary = "";
+    cs.activeThreadId = null;
   }
   threads.delete(threadId);
   return c.json({ ok: true });
@@ -3431,30 +3428,36 @@ app.get("/api/slack/users/:id", async (c) => {
 
 // Slack events: receive Events API webhooks from Slack
 // Routed through the generic webhook system with challenge response handling.
-app.post("/api/slack/events", createWebhookRoute({
-  provider: "slack-events",
-  transformResponse: (result, c) => {
-    // Slack URL verification: return challenge for initial handshake
-    if (result.data?.challenge) {
-      return c.json({ challenge: result.data.challenge });
-    }
-    return null; // default JSON response
-  },
-}));
+app.post("/api/slack/events", async (c) => {
+  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  return _webhooksMount.createWebhookRoute({
+    provider: "slack-events",
+    transformResponse: (result: any, ctx: any) => {
+      if (result.data?.challenge) return ctx.json({ challenge: result.data.challenge });
+      return null;
+    },
+  })(c);
+});
 
 // Slack slash commands: routed through the generic webhook system.
-// The slack-commands provider handles URL-encoded form → SlackSlashCommand mapping.
-app.post("/api/slack/commands", createWebhookRoute({ provider: "slack-commands" }));
+app.post("/api/slack/commands", async (c) => {
+  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  return _webhooksMount.createWebhookRoute({ provider: "slack-commands" })(c);
+});
 
 // Slack interactions: routed through the generic webhook system.
-// The slack-interactions provider handles extracting JSON from the form "payload" field.
-app.post("/api/slack/interactions", createWebhookRoute({ provider: "slack-interactions" }));
+app.post("/api/slack/interactions", async (c) => {
+  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  return _webhooksMount.createWebhookRoute({ provider: "slack-interactions" })(c);
+});
 
 // --- Resend inbound email ---
 
 // Resend webhook: receive inbound emails via Svix-signed webhooks (direct path).
-// Uses generic webhook route with Svix signature verification.
-app.post("/api/resend/webhooks", createWebhookRoute({ provider: "resend" }));
+app.post("/api/resend/webhooks", async (c) => {
+  if (!_webhooksMount) return c.json({ error: "Webhooks require BYOK tier" }, 403);
+  return _webhooksMount.createWebhookRoute({ provider: "resend" })(c);
+});
 
 // Resend inbox: manually trigger inbox check (pulls from Worker KV).
 app.post("/api/resend/check-inbox", async (c) => {
@@ -3491,7 +3494,7 @@ app.post("/api/twilio/whatsapp", async (c) => {
   const host = headers["host"] ?? "localhost";
   const url = `${proto}://${host}/api/twilio/whatsapp`;
 
-  const verification = verifyWebhookRequest("twilio", rawBody, headers, { url, params });
+  const verification = _webhooksMount!.verifyWebhookRequest("twilio", rawBody, headers, { url, params });
   if (!verification.valid) {
     return c.text(verification.error ?? "Invalid signature", 401);
   }

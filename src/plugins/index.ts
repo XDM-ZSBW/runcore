@@ -9,7 +9,13 @@ import { PluginRegistry } from "../lib/PluginRegistry.js";
 import type { PluginContext } from "../types/plugin.js";
 import { BRAIN_DIR } from "../lib/paths.js";
 import { logActivity } from "../activity/log.js";
-import { registerProvider } from "../webhooks/registry.js";
+// webhooks/registry.js is byok-tier — dynamic import
+let _webhookMod: typeof import("../webhooks/registry.js") | null = null;
+async function getWebhookMod() {
+  if (!_webhookMod) { try { _webhookMod = await import("../webhooks/registry.js"); } catch {} }
+  return _webhookMod;
+}
+
 import { createLogger } from "../utils/logger.js";
 
 const log = createLogger("plugins");
@@ -24,6 +30,9 @@ export const registry = new PluginRegistry();
  * Build the PluginContext passed to all plugin lifecycle methods.
  * Vault keys read from process.env for now — real vault integration later.
  */
+// Eagerly load webhook module so it's available for sync registerWebhookProvider calls
+getWebhookMod();
+
 export function buildPluginContext(): PluginContext {
   return {
     brainDir: BRAIN_DIR,
@@ -56,7 +65,10 @@ export function buildPluginContext(): PluginContext {
       log.debug("Vault key set (env-only)", { key });
     },
 
-    registerWebhookProvider: registerProvider,
+    registerWebhookProvider: (...args: Parameters<typeof import("../webhooks/registry.js").registerProvider>) => {
+      if (_webhookMod) _webhookMod.registerProvider(...args);
+      else log.warn("registerWebhookProvider called but webhooks module unavailable");
+    },
   };
 }
 

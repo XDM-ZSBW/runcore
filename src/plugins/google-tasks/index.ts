@@ -27,45 +27,56 @@ import type {
   AuthResult,
   PluginContext,
 } from "../../types/plugin.js";
-import {
-  isGoogleConfigured,
-  isGoogleAuthenticated,
-  getAuthUrl,
-  exchangeCode,
-  clearTokenCache,
-} from "../../google/auth.js";
-import {
-  isTasksAvailable,
-  listTasks,
-  formatTasksForContext,
-} from "../../google/tasks.js";
-import {
-  startTasksTimer,
-  stopTasksTimer,
-  isTasksTimerRunning,
-} from "../../google/tasks-timer.js";
+// google/auth.js is byok-tier — dynamic import
+let _authMod: typeof import("../../google/auth.js") | null = null;
+async function getAuthMod() {
+  if (!_authMod) { try { _authMod = await import("../../google/auth.js"); } catch {} }
+  return _authMod;
+}
+
+// google/tasks.js is byok-tier — dynamic import
+let _tasksMod: typeof import("../../google/tasks.js") | null = null;
+async function getTasksMod() {
+  if (!_tasksMod) { try { _tasksMod = await import("../../google/tasks.js"); } catch {} }
+  return _tasksMod;
+}
+
+// google/tasks-timer.js is byok-tier — dynamic import
+let _timerMod: typeof import("../../google/tasks-timer.js") | null = null;
+async function getTimerMod() {
+  if (!_timerMod) { try { _timerMod = await import("../../google/tasks-timer.js"); } catch {} }
+  return _timerMod;
+}
+
+// Eagerly start loading so modules are ready when sync methods are called
+getAuthMod();
+getTasksMod();
+getTimerMod();
 
 // ── Auth Provider ────────────────────────────────────────────────────────────
 
 class GoogleTasksAuth implements PluginAuthProvider {
   isConfigured(): boolean {
-    return isGoogleConfigured();
+    return _authMod?.isGoogleConfigured() ?? false;
   }
 
   isAuthenticated(): boolean {
-    return isGoogleAuthenticated();
+    return _authMod?.isGoogleAuthenticated() ?? false;
   }
 
   getAuthUrl(redirectUri: string): PluginResult<string> {
+    if (!_authMod) return { ok: false, message: "Google auth module unavailable" };
     if (!this.isConfigured()) {
       return { ok: false, message: "Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET" };
     }
-    const result = getAuthUrl(redirectUri);
+    const result = _authMod.getAuthUrl(redirectUri);
     return { ok: true, data: result.url, message: "Auth URL generated" };
   }
 
   async exchangeCode(code: string, redirectUri: string): Promise<AuthResult> {
-    const result = await exchangeCode(code, redirectUri);
+    const authMod = await getAuthMod();
+    if (!authMod) return { ok: false, message: "Google auth module unavailable" };
+    const result = await authMod.exchangeCode(code, redirectUri);
     if (!result.ok) {
       return { ok: false, message: result.message };
     }
@@ -73,7 +84,7 @@ class GoogleTasksAuth implements PluginAuthProvider {
   }
 
   clearCredentials(): void {
-    clearTokenCache();
+    _authMod?.clearTokenCache();
   }
 }
 
@@ -85,7 +96,7 @@ class GoogleTasksClient implements PluginClient {
   private lastErrorAt: string | null = null;
 
   isAvailable(): boolean {
-    return isTasksAvailable();
+    return _tasksMod?.isTasksAvailable() ?? false;
   }
 
   getHealth(): PluginClientHealth {
@@ -112,15 +123,15 @@ class GoogleTasksClient implements PluginClient {
 
 class GoogleTasksTimer implements PluginTimerProvider {
   startTimer(intervalMs?: number): void {
-    startTasksTimer(intervalMs);
+    _timerMod?.startTasksTimer(intervalMs);
   }
 
   stopTimer(): void {
-    stopTasksTimer();
+    _timerMod?.stopTasksTimer();
   }
 
   isTimerRunning(): boolean {
-    return isTasksTimerRunning();
+    return _timerMod?.isTasksTimerRunning() ?? false;
   }
 }
 
@@ -132,17 +143,18 @@ class GoogleTasksContext implements PluginContextProvider {
   constructor(private client: GoogleTasksClient) {}
 
   async getContext(_userMessage: string): Promise<ContextInjection | null> {
-    if (!isTasksAvailable()) return null;
+    const tasksMod = await getTasksMod();
+    if (!tasksMod?.isTasksAvailable()) return null;
 
     try {
-      const result = await listTasks("@default", { showCompleted: false });
+      const result = await tasksMod.listTasks("@default", { showCompleted: false });
       if (!result.ok || !result.data || result.data.length === 0) return null;
 
       this.client.clearError();
 
       return {
         label: "Google Tasks",
-        content: formatTasksForContext(result.data),
+        content: tasksMod.formatTasksForContext(result.data),
         priority: 60, // after calendar (40) and board (50)
       };
     } catch (err) {

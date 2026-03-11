@@ -3,8 +3,14 @@
  * Includes placeholder threadId/inReplyTo sanitization.
  */
 
-import { sendEmail } from "../../google/gmail-send.js";
 import { logActivity } from "../../activity/log.js";
+
+// Lazy-loaded byok-tier module
+let _gmailSend: typeof import("../../google/gmail-send.js") | null = null;
+async function getGmailSend() {
+  if (!_gmailSend) { try { _gmailSend = await import("../../google/gmail-send.js"); } catch { _gmailSend = null; } }
+  return _gmailSend;
+}
 import { pushNotification } from "../../goals/notifications.js";
 import { getInstanceName } from "../../instance.js";
 import type { ActionBlockCapability, ActionContext, ActionExecutionResult } from "../types.js";
@@ -76,7 +82,10 @@ export const emailCapability: ActionBlockCapability = {
     const threadId = req.threadId && !PLACEHOLDER_RE.test(req.threadId) ? req.threadId : undefined;
     const inReplyTo = req.inReplyTo && !PLACEHOLDER_RE.test(req.inReplyTo) ? req.inReplyTo : undefined;
 
-    const result = await sendEmail({
+    const gmailSend = await getGmailSend();
+    if (!gmailSend) return { capabilityId: "email", ok: false, message: "Gmail send module not available (byok tier required)" };
+
+    const result = await gmailSend.sendEmail({
       to: req.to,
       cc: req.cc,
       bcc: req.bcc,

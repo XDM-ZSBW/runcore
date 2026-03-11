@@ -6,7 +6,8 @@
  */
 
 import { isSidecarAvailable } from "./sidecar.js";
-import { perplexitySearch } from "./perplexity.js";
+// perplexity.js is byok-tier — dynamic import
+let _perplexity: typeof import("./perplexity.js") | null = null;
 import { resolveEnv } from "../instance.js";
 
 const SIDECAR_URL = `http://127.0.0.1:${resolveEnv("SEARCH_PORT") ?? "3578"}`;
@@ -67,8 +68,11 @@ export function isSearchAvailable(): boolean {
  */
 export async function search(query: string): Promise<SearchResult | null> {
   if (process.env.PERPLEXITY_API_KEY) {
-    const result = await perplexitySearch(query);
-    if (result) return result;
+    if (!_perplexity) { try { _perplexity = await import("./perplexity.js"); } catch {} }
+    if (_perplexity) {
+      const result = await _perplexity.perplexitySearch(query);
+      if (result) return result;
+    }
   }
 
   if (isSidecarAvailable()) {

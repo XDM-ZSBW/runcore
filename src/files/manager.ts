@@ -14,8 +14,14 @@ import { FileStore, generateFileId } from "./store.js";
 import { validateUpload, slugify, sanitizeSvgBuffer, mimeForExtension } from "./validate.js";
 import { compressFile, generateThumbnail } from "./compress.js";
 import { createVersion, listVersions, rollbackToVersion } from "./version.js";
-import { GDriveSyncStore, syncToDrive, getDriveSyncStatus } from "./gdrive.js";
 import { initAgentFileApi } from "./agent-api.js";
+
+// Lazy-loaded byok-tier module (Google Drive sync)
+let _gdrive: typeof import("./gdrive.js") | null = null;
+async function getGdrive() {
+  if (!_gdrive) { try { _gdrive = await import("./gdrive.js"); } catch { _gdrive = null; } }
+  return _gdrive;
+}
 import type {
   FileEntry,
   FileCategory,
@@ -50,7 +56,7 @@ let instance: FileManager | null = null;
 
 export class FileManager {
   private readonly store: FileStore;
-  private readonly syncStore: GDriveSyncStore;
+  private syncStore: InstanceType<typeof import("./gdrive.js").GDriveSyncStore> | null = null;
   private readonly storageRoot: string;
   private readonly brainDir: string;
   private settings: FileSettings;
@@ -60,8 +66,16 @@ export class FileManager {
     this.brainDir = brainDir;
     this.storageRoot = storageRoot;
     this.store = new FileStore(brainDir);
-    this.syncStore = new GDriveSyncStore(brainDir);
     this.settings = { ...DEFAULTS, ...settings };
+  }
+
+  /** Lazily initialize the Google Drive sync store. Returns null if gdrive module unavailable. */
+  private async ensureSyncStore() {
+    if (this.syncStore) return this.syncStore;
+    const gdrive = await getGdrive();
+    if (!gdrive) return null;
+    this.syncStore = new gdrive.GDriveSyncStore(this.brainDir);
+    return this.syncStore;
   }
 
   /**
@@ -83,8 +97,9 @@ export class FileManager {
     // Wire up the agent API
     initAgentFileApi(fm.store, storageRoot);
 
-    // Start Drive sync timer if enabled
+    // Start Drive sync timer if enabled (lazily initializes sync store)
     if (fm.settings.gdrive.syncEnabled) {
+      await fm.ensureSyncStore();
       fm.startSyncTimer();
     }
 
@@ -339,11 +354,17 @@ export class FileManager {
   // ── Google Drive ──────────────────────────────────────────────────────
 
   async syncDrive(): Promise<{ ok: boolean; synced: number; errors: number; message: string }> {
-    return syncToDrive(this.store, this.syncStore, this.storageRoot, this.settings.gdrive);
+    const gdrive = await getGdrive();
+    const syncStore = await this.ensureSyncStore();
+    if (!gdrive || !syncStore) return { ok: false, synced: 0, errors: 0, message: "Google Drive module not available (byok tier required)" };
+    return gdrive.syncToDrive(this.store, syncStore, this.storageRoot, this.settings.gdrive);
   }
 
   async getDriveStatus() {
-    return getDriveSyncStatus(this.syncStore, this.settings.gdrive);
+    const gdrive = await getGdrive();
+    const syncStore = await this.ensureSyncStore();
+    if (!gdrive || !syncStore) return { syncEnabled: false, message: "Google Drive module not available" };
+    return gdrive.getDriveSyncStatus(syncStore, this.settings.gdrive);
   }
 
   async updateDriveConfig(
@@ -384,7 +405,8 @@ export class FileManager {
 
   async compact(): Promise<{ registry: { before: number; after: number } }> {
     const registry = await this.store.compact();
-    await this.syncStore.compact();
+    const syncStore = await this.ensureSyncStore();
+    if (syncStore) await syncStore.compact();
     return { registry };
   }
 

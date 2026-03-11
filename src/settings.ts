@@ -125,7 +125,7 @@ export interface CoreSettings {
   issueReporting?: boolean;
 }
 
-/** @deprecated Use CoreSettings instead. */
+/** @deprecated Use CoreSettings instead. Kept as backward-compat alias for existing consumers. */
 export type DashSettings = CoreSettings;
 
 const DEFAULTS: CoreSettings = {

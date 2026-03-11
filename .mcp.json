@@ -2,10 +2,7 @@
   "mcpServers": {
     "core-brain": {
       "command": "node",
-      "args": ["dist/mcp-server.js"],
-      "env": {
-        "CORE_BRAIN_DIR": "E:/brain"
-      }
+      "args": ["dist/mcp-server.js"]
     }
   }
 }

@@ -1,7 +1,7 @@
 /**
  * Flywheel Tier System.
  *
- * The flywheel is a three-body system: Sense (Core), Work (GMR), Joy (BragBin).
+ * The flywheel is a three-body system: Sense (Core), Work (GMR), Joy.
  * All three dots must reach the same level for the flywheel to advance a tier.
  * The weakest dot determines the overall tier — no dot can be left behind.
  *
@@ -33,7 +33,7 @@ export type DotName = "sense" | "work" | "joy";
 export const DOT_PRODUCT_MAP: Record<DotName, string> = {
   sense: "Core",
   work: "GMReports",
-  joy: "BragBin",
+  joy: "Joy",
 };
 
 /** Color palette that deepens with tier. No sharp transitions. */

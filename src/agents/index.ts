@@ -1,5 +1,13 @@
-export type { AgentTask, AgentTaskStatus, CreateTaskInput } from "./types.js";
-export type { GcMetrics, GcPhaseTiming } from "./instance-manager.js";
+/**
+ * Agent system — public API surface.
+ *
+ * Local tier: types, store (task CRUD), submitTask/getTask/cancelTask.
+ * Spawn tier: locks, orchestration, workflow, governance, heartbeat, etc.
+ * Spawn-tier re-exports are accessed via dynamic import of this module
+ * from server.ts — they won't load on local tier (the .js files are stripped).
+ */
+
+export type { AgentTask, AgentTaskStatus, CreateTaskInput, SelfReportedIssue } from "./types.js";
 export {
   ensureDirs,
   createTask,
@@ -8,98 +16,40 @@ export {
   updateTask,
   readTaskOutput,
 } from "./store.js";
-export { cancelAgent, setOnBatchComplete, setAgentPool, hasAgentPool, isAgentsBusy, activeAgentCount } from "./spawn.js";
-export { recoverTasks, startAgentMonitor, stopAgentMonitor } from "./monitor.js";
-export {
-  acquireLocks,
-  releaseLocks,
-  releaseFileLock,
-  forceReleaseLock,
-  listLocks,
-  checkLocks,
-  getLocksForAgent,
-  pruneAllStaleLocks,
-  type FileLock,
-  type LockConflict,
-  type AcquireResult,
-} from "./locks.js";
-export {
-  Orchestrator,
-  parseFilesFromOutput,
-  type WorkflowTaskDef,
-  type CreateWorkflowInput,
-  type Workflow,
-  type WorkflowTask,
-  type WorkflowResult,
-  type WorkflowStatus,
-  type TaskStatus,
-  type FileConflict,
-  type ConflictStrategy,
-  type ExecutionMode,
-  type OrchestratorReport,
-} from "./orchestration.js";
-export {
-  TaskCooldownManager,
-  type CooldownConfig,
-  type CooldownEntry,
-  type CooldownStatus,
-} from "./cooldown.js";
-export {
-  WorkflowEngine,
-  parseWorkflowFile,
-  type WorkflowDefinition,
-  type StepDef,
-  type Condition,
-  type FailurePolicy,
-  type WorkflowRun,
-  type StepResult,
-  type StepStatus,
-} from "./workflow.js";
-export {
-  governanceGate,
-  revokeGovernanceVoucher,
-  validateGovernanceVoucher,
-  type GovernanceDecision,
-  type GovernanceAuditEntry,
-  type GovernanceOptions,
-} from "./governance.js";
-export {
-  HeartbeatTracker,
-  createHeartbeatTracker,
-  getHeartbeatTracker,
-  removeHeartbeatTracker,
-  getAllHeartbeatStatuses,
-  shutdownHeartbeats,
-  extractTaskKeywords,
-  type HeartbeatPulse,
-  type HeartbeatConfig,
-  type HeartbeatStatus,
-  type TerminateCallback,
-} from "./heartbeat.js";
-export {
-  governedSpawn,
-  type GovernedSpawnRequest,
-  type GovernedSpawnResult,
-  type GovernedSpawnDeps,
-} from "./governed-spawn.js";
-export {
-  parseIssueReports,
-  processAgentIssues,
-  storeIssues,
-  listIssues as listSelfReportedIssues,
-} from "./issues.js";
-export type { SelfReportedIssue } from "./types.js";
+
+// Spawn-tier modules — dynamic import only. Server.ts loads these via
+// `await import("./agents/spawn.js")` etc. behind tier checks.
+// Type re-exports are safe (zero runtime cost):
+export type { GcMetrics, GcPhaseTiming } from "./instance-manager.js";
 
 import type { CreateTaskInput, AgentTask } from "./types.js";
-import { ensureDirs, createTask, readTask, listTasks as listAllTasks, readTaskOutput } from "./store.js";
-import { spawnAgent, cancelAgent, setAgentPool } from "./spawn.js";
-import { recoverTasks, startAgentMonitor, stopAgentMonitor } from "./monitor.js";
-import { shutdownHeartbeats } from "./heartbeat.js";
+import { ensureDirs, createTask, readTaskOutput, readTask } from "./store.js";
+
+// Lazy-loaded spawn-tier modules
+let _spawn: typeof import("./spawn.js") | null = null;
+let _monitor: typeof import("./monitor.js") | null = null;
+let _heartbeat: typeof import("./heartbeat.js") | null = null;
+
+async function getSpawn() {
+  if (!_spawn) { try { _spawn = await import("./spawn.js"); } catch { _spawn = null; } }
+  return _spawn;
+}
+async function getMonitor() {
+  if (!_monitor) { try { _monitor = await import("./monitor.js"); } catch { _monitor = null; } }
+  return _monitor;
+}
+async function getHeartbeat() {
+  if (!_heartbeat) { try { _heartbeat = await import("./heartbeat.js"); } catch { _heartbeat = null; } }
+  return _heartbeat;
+}
 
 /** Create a task and immediately spawn it. */
 export async function submitTask(input: CreateTaskInput): Promise<AgentTask> {
   const task = await createTask(input);
-  await spawnAgent(task);
+  const spawn = await getSpawn();
+  if (spawn) {
+    await spawn.spawnAgent(task);
+  }
   return task;
 }
 
@@ -115,7 +65,22 @@ export async function getTaskOutput(id: string): Promise<string> {
 
 /** Cancel a running task. */
 export async function cancelTask(id: string): Promise<boolean> {
-  return cancelAgent(id);
+  const spawn = await getSpawn();
+  return spawn ? spawn.cancelAgent(id) : false;
+}
+
+/** Wire batch completion callback. */
+export async function setOnBatchComplete(
+  cb: (sessionId: string, results: Array<{ label: string; status: string }>) => void
+): Promise<void> {
+  const spawn = await getSpawn();
+  if (spawn) spawn.setOnBatchComplete(cb);
+}
+
+/** Set the agent pool reference. */
+export async function setAgentPool(pool: unknown): Promise<void> {
+  const spawn = await getSpawn();
+  if (spawn) spawn.setAgentPool(pool as any);
 }
 
 /**
@@ -131,15 +96,18 @@ export async function initAgents(): Promise<void> {
  * Recover tasks from previous session and start the monitor poll loop.
  * Must be called AFTER createRuntime() so recoverTasks() can check the
  * runtime registry and skip tasks that RuntimeManager already handles.
- * This prevents the double-recovery race that caused DASH-82.
  */
 export async function recoverAndStartMonitor(): Promise<void> {
-  await recoverTasks();
-  startAgentMonitor();
+  const monitor = await getMonitor();
+  if (monitor) {
+    await monitor.recoverTasks();
+    monitor.startAgentMonitor();
+  }
 }
 
-/** Shutdown: stop the monitor and heartbeat trackers. Does NOT kill detached processes. */
+/** Shutdown: stop the monitor and heartbeat trackers. */
 export function shutdownAgents(): void {
-  stopAgentMonitor();
-  shutdownHeartbeats();
+  // These are fire-and-forget — if modules aren't loaded, nothing to shut down
+  if (_monitor) _monitor.stopAgentMonitor();
+  if (_heartbeat) _heartbeat.shutdownHeartbeats();
 }

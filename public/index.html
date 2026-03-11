@@ -3274,12 +3274,6 @@
 
   function renderThreadList() {
     threadListEl.innerHTML = "";
-    // Add "Main chat" as the default option
-    const mainItem = document.createElement("div");
-    mainItem.className = "thread-item" + (currentThreadId === null ? " active" : "");
-    mainItem.innerHTML = '<div class="thread-item-title">Main</div><div class="thread-item-meta">Always here</div>';
-    mainItem.addEventListener("click", () => switchThread(null));
-    threadListEl.appendChild(mainItem);
 
     for (const t of threads) {
       const item = document.createElement("div");
@@ -3301,7 +3295,7 @@
           await api("/api/threads/" + encodeURIComponent(tid) + "?sessionId=" + encodeURIComponent(sessionId), {
             method: "DELETE",
           });
-          if (currentThreadId === tid) await switchThread(null);
+          if (currentThreadId === tid) await createAndSwitchNewThread();
           loadThreads();
         } catch (err) { console.log("Delete thread failed:", err.message); }
       });
@@ -3346,7 +3340,7 @@
     updateThreadLabel();
 
     if (threadId) {
-      // Load thread-specific history
+      // Load thread history
       try {
         const data = await api("/api/threads/" + encodeURIComponent(threadId) + "/history?sessionId=" + encodeURIComponent(sessionId));
         if (data.messages) {
@@ -3361,23 +3355,8 @@
       } catch (err) {
         console.log("Failed to load thread history:", err.message);
       }
-    } else {
-      // Load main session history
-      try {
-        const data = await api("/api/history?sessionId=" + encodeURIComponent(sessionId));
-        if (data.messages) {
-          for (const msg of data.messages) {
-            let content = msg.content;
-            if (typeof content === "string" && content.includes("[AGENT_REQUEST]")) {
-              content = content.replace(/\s*\[AGENT_REQUEST\][\s\S]*?\[\/AGENT_REQUEST\]\s*/g, "").trim();
-            }
-            addMessage(msg.role === "user" ? "user" : "assistant", content);
-          }
-        }
-      } catch (err) {
-        console.log("Failed to load history:", err.message);
-      }
     }
+    // If no threadId, just show empty — user will get a thread on first message
   }
 
   function updateThreadLabel() {
@@ -3385,11 +3364,11 @@
       const t = threads.find(t => t.id === currentThreadId);
       threadCurrentLabel.textContent = t ? t.title : "Chat";
     } else {
-      threadCurrentLabel.textContent = "";
+      threadCurrentLabel.textContent = "New chat";
     }
   }
 
-  threadNewBtn.addEventListener("click", async () => {
+  async function createAndSwitchNewThread() {
     try {
       const data = await fetch("/api/threads", {
         method: "POST",
@@ -3400,15 +3379,19 @@
       if (data.thread) {
         await loadThreads();
         await switchThread(data.thread.id);
+        return data.thread.id;
       }
     } catch (err) {
       console.error("Failed to create thread:", err.message);
     }
-  });
+    return null;
+  }
+
+  threadNewBtn.addEventListener("click", () => createAndSwitchNewThread());
 
   // --- Auto-title chats after first exchange ---
   var chatAutoTitled = {}; // threadId → true if already titled
-  function autoTitleChat(threadId) {
+  async function autoTitleChat(threadId) {
     if (!threadId || chatAutoTitled[threadId]) return;
     // Skip if already has a real title
     var existing = threads.find(function(x) { return x.id === threadId; });
@@ -3443,18 +3426,19 @@
 
     chatAutoTitled[threadId] = true;
 
-    // Update server
-    fetch("/api/threads/" + encodeURIComponent(threadId), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ sessionId: sessionId, title: title }),
-    }).then(function() {
+    // Update server — await so loadThreads() doesn't race
+    try {
+      await fetch("/api/threads/" + encodeURIComponent(threadId), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ sessionId: sessionId, title: title }),
+      });
       // Update local state and sidebar
       var t = threads.find(function(x) { return x.id === threadId; });
       if (t) t.title = title;
       renderThreadList();
       updateThreadLabel();
-    }).catch(function() {});
+    } catch (e) { /* ignore title failures */ }
   }
 
   // --- Attached files ---
@@ -4232,6 +4216,10 @@
         if (thread) await switchThread(thread);
         if (scroll && messagesEl) requestAnimationFrame(() => { messagesEl.scrollTop = scroll; });
       }
+      // Ensure we always have a thread — auto-select the most recent or create one
+      if (!currentThreadId && threads.length > 0) {
+        await switchThread(threads[0].id);
+      }
     } catch (e) { console.log("Restore failed:", e); }
 
     // Initialize voice features (non-blocking)
@@ -4993,9 +4981,23 @@
     }
 
     try {
-      const payload = { sessionId, message: msgText };
+      // Ensure we always have a thread — auto-create silently if needed
+      if (!currentThreadId) {
+        try {
+          const td = await fetch("/api/threads", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ sessionId }),
+          }).then(r => r.json());
+          if (td.thread) {
+            currentThreadId = td.thread.id;
+            loadThreads(); // refresh sidebar (fire-and-forget)
+          }
+        } catch {}
+        if (!currentThreadId) { addMessage("system", "Failed to create chat thread."); return; }
+      }
+      const payload = { sessionId, message: msgText, threadId: currentThreadId };
       if (imgPayload) payload.images = imgPayload;
-      if (currentThreadId) payload.threadId = currentThreadId;
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -5203,9 +5205,9 @@
       abortController = null;
       setButtonSend();
       chatInput.focus();
-      // Auto-title chat after first assistant response
+      // Auto-title chat after first assistant response, then refresh sidebar
       if (currentThreadId) {
-        autoTitleChat(currentThreadId);
+        await autoTitleChat(currentThreadId);
         loadThreads();
       }
     }
