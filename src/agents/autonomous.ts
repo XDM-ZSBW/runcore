@@ -132,6 +132,49 @@ function getSpawnFailureContext(): string | null {
   return `## Recent spawn failures (DO NOT retry these — fix the underlying issue or skip)\n${lines.join("\n")}`;
 }
 
+// ─── Periodic State Cleanup ──────────────────────────────────────────────────
+
+/** TTL for orphaned session entries in Maps that track per-session state. */
+const SESSION_STATE_TTL_MS = 60 * 60_000; // 1 hour
+
+/** Tracks when each session was last active (created or updated). */
+const sessionLastActive = new Map<string, number>();
+
+/** Record session activity (call when a session starts or continues). */
+function touchSession(sessionId: string): void {
+  sessionLastActive.set(sessionId, Date.now());
+}
+
+/**
+ * Sweep orphaned session state — entries where the session died without
+ * reaching a terminal path (all-fail, round limit, cumulative limit).
+ */
+function sweepOrphanedSessionState(): void {
+  const now = Date.now();
+  for (const [sessionId, lastActive] of sessionLastActive) {
+    if (now - lastActive > SESSION_STATE_TTL_MS) {
+      continuationRounds.delete(sessionId);
+      sessionCumulativeFailures.delete(sessionId);
+      sessionLastActive.delete(sessionId);
+    }
+  }
+  // Sweep labelToBoardTaskId — entries older than TTL with no matching active session
+  // These are bounded by MAX_AGENTS_PER_ROUND × rounds, but clean up stale ones
+  if (labelToBoardTaskId.size > 100) {
+    log.warn(`labelToBoardTaskId has ${labelToBoardTaskId.size} entries — clearing stale`);
+    labelToBoardTaskId.clear();
+  }
+  // Sweep plannerSkipCache expired entries
+  for (const [taskId, entry] of plannerSkipCache) {
+    if (now - entry.skippedAt > PLANNER_SKIP_COOLDOWN_MS) {
+      plannerSkipCache.delete(taskId);
+    }
+  }
+}
+
+// Run session state sweep every 15 minutes
+setInterval(sweepOrphanedSessionState, 15 * 60_000).unref();
+
 // ─── Backlog Promotion ───────────────────────────────────────────────────────
 
 /**
@@ -370,6 +413,7 @@ export async function continueAfterBatch(
   }
 
   continuationRounds.set(sessionId, round);
+  touchSession(sessionId);
 
   const batchSummary = results.map((r) => `${r.label}: ${r.status}`).join(", ");
 
@@ -493,6 +537,7 @@ export async function checkForWork(): Promise<void> {
   // Create an internal session for batch tracking
   autonomousSessionCounter++;
   const sessionId = `auto-${Date.now()}-${autonomousSessionCounter}`;
+  touchSession(sessionId);
 
   await planAndSpawn(sessionId, null, needsReview);
 }
