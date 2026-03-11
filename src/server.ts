@@ -426,6 +426,43 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
     }
   } catch {}
 
+  // Fetch whiteboard status for system prompt injection
+  let whiteboardContext = "";
+  try {
+    const { WhiteboardStore } = await import("./whiteboard/store.js");
+    const wbStore = new WhiteboardStore(BRAIN_DIR);
+    const summary = await wbStore.getSummary();
+    if (summary.total > 0) {
+      const parts: string[] = [`Whiteboard: ${summary.total} items (${summary.open} open, ${summary.done} done, ${summary.openQuestions} open questions)`];
+
+      // Open questions from human
+      const openQs = await wbStore.getOpenQuestions();
+      const humanQs = openQs.filter((q: any) => q.plantedBy === "human");
+      if (humanQs.length > 0) {
+        parts.push("Questions from human (answer these):");
+        for (const q of humanQs) parts.push(`  → "${q.question || q.title}" (id: ${q.id})`);
+      }
+
+      // Answered questions to act on
+      const allNodes = await wbStore.list();
+      const answered = allNodes.filter((n: any) => n.type === "question" && n.answer && n.status === "done");
+      if (answered.length > 0) {
+        parts.push("Answered questions (act on these — the answer IS the instruction):");
+        for (const a of answered) parts.push(`  Q: "${a.question || a.title}" → A: ${a.answer}`);
+      }
+
+      // Top weighted
+      if (summary.topWeighted.length > 0) {
+        parts.push("Top attention items:");
+        for (const n of summary.topWeighted) {
+          const icon = n.type === "question" ? "?" : n.type === "decision" ? "!" : "-";
+          parts.push(`  ${icon} [${n.weight}] ${n.title}`);
+        }
+      }
+      whiteboardContext = parts.join("\n");
+    }
+  } catch {}
+
   const encryptionKey = sessionKeys.get(sessionId) ?? null;
   const ltm = new FileSystemLongTermMemory(MEMORY_DIR, encryptionKey ?? undefined);
   await ltm.init();
@@ -566,35 +603,20 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         ``,
         `## Whiteboard (shared collaboration surface)`,
         `You and ${name} share a whiteboard — a tree of goals, tasks, questions, decisions, and notes at /whiteboard.`,
-        `Use the \`whiteboard_plant\` MCP tool to plant nodes. Use \`whiteboard_status\` to check the board.`,
-        `IMPORTANT: whiteboard_plant and whiteboard_status are MCP tools you call DIRECTLY — do NOT spawn agents to use them. Just call the tool yourself in this conversation.`,
+        `The current whiteboard status is injected below. You do NOT need to call any tool to read it — it's already in your context.`,
+        `To plant new nodes or answer questions, tell ${name} what you're doing and spawn an agent with a prompt like: "Call POST /api/whiteboard with body {...}" or ask ${name} to plant it from the UI.`,
         ``,
+        ...(whiteboardContext ? [
+        `### Current whiteboard state`,
+        whiteboardContext,
+        ``,
+        ] : []),
         `### When to plant questions (IMPORTANT)`,
-        `Before spawning an agent for an ambiguous task, plant a question on the whiteboard instead.`,
-        `If a task has multiple valid approaches and you're unsure which ${name} wants, plant a question:`,
-        `  whiteboard_plant({ title: "Auth refactor approach", type: "question", question: "Should I split auth middleware into per-route guards or keep the single middleware?", tags: ["engineering", "auth"] })`,
-        `Wait for ${name} to answer before spawning. Questions gain attention weight over time — unanswered ones rise to the top.`,
+        `Before spawning an agent for an ambiguous task, ask ${name} a question instead.`,
+        `If a task has multiple valid approaches and you're unsure which ${name} wants, tell them what the options are and ask which they prefer. ${name} can plant it on the whiteboard or answer directly in chat.`,
         ``,
-        `### When to plant other nodes`,
-        `- **Goal**: when starting a new initiative or breaking work into phases`,
-        `- **Task**: when you complete work or plan next steps (use parentId to nest under goals)`,
-        `- **Decision**: when you make a judgment call ${name} should know about`,
-        `- **Note**: when you discover something relevant (a bug, a pattern, a dependency)`,
-        ``,
-        `### Checking the whiteboard`,
-        `At the start of every conversation, call \`whiteboard_status\` to see what's on the board.`,
-        `Look for:`,
-        `- Questions planted by ${name} (plantedBy: "human") — these are directed at you. Answer them or act on them.`,
-        `- Your questions that ${name} answered — the answer unblocks work. Act on it.`,
-        `- High-weight items — anything gaining attention weight needs progress.`,
-        `If ${name} planted a question you can answer from your knowledge or the codebase, answer it directly using the /api/whiteboard/:id/answer endpoint or tell ${name} the answer in chat and mark it done.`,
-        ``,
-        `### Rules`,
-        `- Always set plantedBy to "agent"`,
-        `- Use parentId to nest under existing goals/tasks when the work relates to them`,
-        `- Keep titles short (5-8 words). Put detail in the body field.`,
-        `- Tag nodes so ${name} can filter (e.g. "engineering", "design", "p1")`,
-        `- When ${name} answers a question, ACT ON IT IMMEDIATELY. Do not ask "which one should I focus on?" or "what would you like me to do?" — the answer IS the instruction. Read it, do the work, report what you did. If multiple questions are answered, work through them in weight order. ${name} already told you what to do by answering — don't make them say it twice.`,
+        `### Answered questions`,
+        `If you see answered questions above, ACT ON THEM IMMEDIATELY. Do not ask "which one should I focus on?" or "what would you like me to do?" — the answer IS the instruction. Read it, do the work, report what you did. ${name} already told you what to do by answering — don't make them say it twice.`,
         ``,
         // Inject instance-readable vault values (CORE_*/DASH_* prefixed only — never secrets)
         ...(() => {
@@ -3947,7 +3969,7 @@ function getWhiteboardStore(): WhiteboardStore {
   return _whiteboardStore;
 }
 
-app.use("/api/whiteboard/*", requireSurface("pages"));
+// Whiteboard is always accessible — it's the human-agent collaboration surface
 
 // List / tree / questions / weighted view
 app.get("/api/whiteboard", async (c) => {
@@ -5060,7 +5082,7 @@ app.get("/board", requireSurface("pages"), async (c) => {
   return c.html(html);
 });
 
-app.get("/whiteboard", requireSurface("pages"), async (c) => {
+app.get("/whiteboard", async (c) => {
   const html = await serveHtmlTemplate(join(UI_DIR,"whiteboard.html"));
   return c.html(html);
 });
