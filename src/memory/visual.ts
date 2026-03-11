@@ -283,12 +283,9 @@ export async function searchVisualMemories(
     const relevant = keywordHits.filter(isVisualMemory);
     if (relevant.length > 0) return relevant.slice(0, max);
 
-    // Pass 2: meta-only — most recent visual memories regardless of query match
-    const allVisual = await ltm.search({
-      type: "episodic",
-      meta: { source: "visual-memory" },
-    });
-    return allVisual.filter(isVisualMemory).slice(0, max);
+    // Pass 2 removed — don't inject unrelated visual memories every turn.
+    // Only return visual memories that actually match the user's query.
+    return [];
   } catch (err) {
     log.debug("searchVisualMemories failed", {
       error: err instanceof Error ? err.message : String(err),

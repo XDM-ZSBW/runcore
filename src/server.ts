@@ -6092,14 +6092,16 @@ app.post("/api/chat", async (c) => {
     }
 
     if (visualEntries.length > 0) {
-      const hydrated = await hydrateVisualMemories(visualEntries, maxImages);
-      if (hydrated.length > 0) {
-        const blocks: ContentBlock[] = [];
-        for (const h of hydrated) {
-          blocks.push({ type: "text", text: `[Visual memory from ${h.entry.createdAt}]: ${h.description}` });
-          blocks.push({ type: "image_url", image_url: { url: h.dataUri } });
-        }
-        ctx.messages.splice(1, 0, { role: "user" as const, content: blocks });
+      // Inject text descriptions only — the model already analyzed images on upload.
+      // Sending raw base64 every turn wastes tokens and slows responses.
+      const descriptions = visualEntries
+        .map((e) => {
+          const desc = e.meta?.description ?? e.content;
+          return `[Visual memory from ${e.createdAt}]: ${desc}`;
+        })
+        .slice(0, maxImages);
+      if (descriptions.length > 0) {
+        ctx.messages.splice(1, 0, { role: "user" as const, content: descriptions.join("\n") });
       }
     }
   }
@@ -6591,7 +6593,7 @@ app.post("/api/chat", async (c) => {
         stream.writeSSE({ data: JSON.stringify({ token: rehydrated }) }).catch(() => {});
       };
 
-      // Initialize tool registry for this session
+      // Initialize tool registry for this session (kept for when tool layer is re-enabled)
       const toolHandlerCtx: ToolHandlerContext = {
         brainDir: BRAIN_DIR,
         encryptionKey: sessionKeys.get(sessionId) ?? undefined,

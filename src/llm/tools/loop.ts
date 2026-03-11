@@ -62,6 +62,7 @@ export async function streamWithTools(
   options: ToolLoopOptions,
 ): Promise<void> {
   const tools = options.registry.getToolsForTier(options.tier);
+  log.debug("Tools resolved for tier", { tier: options.tier, count: tools.length });
 
   // No tools available — fall through to plain streaming
   if (tools.length === 0) {

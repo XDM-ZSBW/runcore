@@ -130,6 +130,12 @@ export function withStreamRetry(
             tokensSent = true;
             options.onToken(token);
           },
+          onToolCalls: options.onToolCalls
+            ? (calls) => {
+                options.onToolCalls!(calls);
+                resolve();
+              }
+            : undefined,
           onDone: () => {
             options.onDone();
             resolve();
