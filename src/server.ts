@@ -6893,7 +6893,7 @@ app.post("/api/chat", async (c) => {
           }
           resolve(); // Still resolve so stream closes
         },
-      });
+      }).catch(reject);
     });
   });
 });

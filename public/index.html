@@ -3389,6 +3389,7 @@
               var cd = el.querySelector(".content");
               if (cd && cd.parentElement) cd.parentElement.insertBefore(td, cd);
             }
+            renderPersistedAgents(el, msg.agentsUsed);
           }
         }
       } catch (err) {
@@ -4203,6 +4204,7 @@
             var hcDiv = hEl.querySelector(".content");
             if (hcDiv && hcDiv.parentElement) hcDiv.parentElement.insertBefore(htDiv, hcDiv);
           }
+          renderPersistedAgents(hEl, msg.agentsUsed);
         }
       }
     } catch (err) {
@@ -4907,6 +4909,7 @@
               var contentDiv = msgEl.querySelector(".content");
               if (contentDiv && contentDiv.parentElement) contentDiv.parentElement.insertBefore(toolsDiv, contentDiv);
             }
+            renderPersistedAgents(msgEl, m.agentsUsed);
           }
           chatPollIndex = data.total;
           messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -5345,6 +5348,69 @@
   function formatElapsed(ms) {
     var s = Math.round(ms / 1000);
     return s < 60 ? s + "s" : Math.floor(s/60) + "m " + (s%60) + "s";
+  }
+
+  /** Create a static agent block for history rendering (already completed/failed). */
+  function createPersistedAgentBlock(agent) {
+    var isDone = agent.status === "completed";
+    var isFailed = agent.status === "failed" || agent.status === "cancelled";
+    var block = document.createElement("div");
+    block.className = "agent-block " + (isDone ? "done" : isFailed ? "failed" : "");
+    block.dataset.taskId = agent.taskId || "";
+    var icon = isDone
+      ? '<span class="agent-block-check">\u2713</span>'
+      : isFailed
+        ? '<span class="agent-block-fail">\u2717</span>'
+        : '<div class="agent-block-spinner"></div>';
+    var timerText = agent.elapsed || agent.status || "";
+    block.innerHTML =
+      '<div class="agent-block-header">'
+        + icon
+        + '<span class="agent-block-label">' + (agent.label || "Agent").replace(/</g, "&lt;") + '</span>'
+        + '<span class="agent-block-timer">' + timerText + '</span>'
+      + '</div>'
+      + '<div class="agent-block-body">' + (agent.resultSummary || "").replace(/</g, "&lt;") + '</div>';
+    var header = block.querySelector(".agent-block-header");
+    header.addEventListener("click", function() { block.classList.toggle("expanded"); });
+    return block;
+  }
+
+  /** Render agentsUsed blocks inside a message element. */
+  function renderPersistedAgents(msgEl, agents) {
+    if (!agents || agents.length === 0 || !msgEl) return;
+    for (var i = 0; i < agents.length; i++) {
+      var block = createPersistedAgentBlock(agents[i]);
+      msgEl.appendChild(block);
+    }
+    // If any agents have taskIds and status is "running" or "completed" placeholder, poll once for real status
+    var taskIds = agents.filter(function(a) { return a.taskId; }).map(function(a) { return a.taskId; });
+    if (taskIds.length > 0) {
+      api("/api/agents/tasks").then(function(data) {
+        if (!data.tasks) return;
+        for (var j = 0; j < data.tasks.length; j++) {
+          var task = data.tasks[j];
+          var blockEl = msgEl.querySelector('.agent-block[data-task-id="' + task.id + '"]');
+          if (!blockEl) continue;
+          var isDone = task.status === "completed";
+          var isFailed = task.status === "failed" || task.status === "cancelled";
+          var isRunning = task.status === "running" || task.status === "pending";
+          blockEl.className = "agent-block " + (isDone ? "done" : isFailed ? "failed" : "");
+          var spinnerEl = blockEl.querySelector(".agent-block-spinner, .agent-block-check, .agent-block-fail");
+          if (spinnerEl) {
+            spinnerEl.outerHTML = isDone
+              ? '<span class="agent-block-check">\u2713</span>'
+              : isFailed
+                ? '<span class="agent-block-fail">\u2717</span>'
+                : '<div class="agent-block-spinner"></div>';
+          }
+          if (isRunning) { blockEl.className = "agent-block"; startAgentPoll(); }
+          var timerEl = blockEl.querySelector(".agent-block-timer");
+          if (timerEl && !isRunning) timerEl.textContent = task.status;
+          var bodyEl = blockEl.querySelector(".agent-block-body");
+          if (bodyEl && task.resultSummary) bodyEl.textContent = task.resultSummary;
+        }
+      }).catch(function() {});
+    }
   }
 
   async function pollAgentTasks() {
