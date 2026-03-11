@@ -72,14 +72,83 @@ export function buildPluginContext(): PluginContext {
   };
 }
 
+// ── Auto-registration ─────────────────────────────────────────────────────────
+
+/**
+ * Discover and register all available plugins.
+ * Each plugin is loaded dynamically (byok-tier) and registered if the
+ * module is available. Failures are logged and skipped — never fatal.
+ */
+async function registerPlugins(ctx: PluginContext): Promise<void> {
+  const factories: Array<{ name: string; load: () => Promise<{ create: () => import("../types/plugin.js").Plugin } | null> }> = [
+    {
+      name: "google",
+      load: async () => {
+        try {
+          const mod = await import("../google/plugin.js");
+          return { create: mod.createGooglePlugin };
+        } catch { return null; }
+      },
+    },
+    {
+      name: "slack",
+      load: async () => {
+        try {
+          const mod = await import("./slack/index.js");
+          return { create: mod.createSlackPlugin };
+        } catch { return null; }
+      },
+    },
+    {
+      name: "github",
+      load: async () => {
+        try {
+          const mod = await import("./github/index.js");
+          return { create: mod.createGitHubPlugin };
+        } catch { return null; }
+      },
+    },
+    {
+      name: "twilio",
+      load: async () => {
+        try {
+          const mod = await import("./twilio/index.js");
+          return { create: mod.createTwilioPlugin };
+        } catch { return null; }
+      },
+    },
+  ];
+
+  for (const factory of factories) {
+    try {
+      const loaded = await factory.load();
+      if (!loaded) {
+        log.debug("Plugin module not available", { name: factory.name });
+        continue;
+      }
+      const plugin = loaded.create();
+      await registry.register(plugin, ctx);
+      log.info("Plugin registered", { name: factory.name });
+    } catch (err) {
+      log.warn("Plugin registration failed", {
+        name: factory.name,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 /**
- * Initialize all registered plugins: authenticate then start.
- * Call this after plugins have been registered with `registry.register()`.
+ * Discover, register, authenticate, and start all available plugins.
  */
 export async function initPlugins(): Promise<void> {
   const ctx = buildPluginContext();
+
+  // Auto-discover and register all available plugins
+  await registerPlugins(ctx);
+
   const pluginNames = registry.list();
 
   if (pluginNames.length === 0) {
