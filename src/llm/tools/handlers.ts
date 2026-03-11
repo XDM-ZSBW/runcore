@@ -1,5 +1,5 @@
 /**
- * Tool handler factory — creates ToolDefinition[] for all 17 Core tools.
+ * Tool handler factory — creates ToolDefinition[] for all 18 Core tools.
  *
  * Uses the same underlying functions as src/mcp-server.ts (hallway scan,
  * WhiteboardStore, Crystallizer, etc.) — no logic duplication.
@@ -36,6 +36,7 @@ import {
   loopListSchema,
   loopResolveSchema,
   dashStatusSchema,
+  webFetchSchema,
 } from "./schemas.js";
 
 // ── Helpers (shared with mcp-server.ts) ───────────────────────────────────────
@@ -89,6 +90,34 @@ function formatDate(iso: string): string {
   }
 }
 
+/** Lightweight HTML → markdown. Strips tags, converts common elements. */
+function htmlToMarkdown(html: string): string {
+  let s = html;
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
+  s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
+  s = s.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n");
+  s = s.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n");
+  s = s.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n");
+  s = s.replace(/<h[4-6][^>]*>([\s\S]*?)<\/h[4-6]>/gi, "\n#### $1\n");
+  s = s.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "\n$1\n");
+  s = s.replace(/<br\s*\/?>/gi, "\n");
+  s = s.replace(/<hr\s*\/?>/gi, "\n---\n");
+  s = s.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, "**$2**");
+  s = s.replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, "*$2*");
+  s = s.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, "`$1`");
+  s = s.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, "\n```\n$1\n```\n");
+  s = s.replace(/<a[^>]+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, "[$2]($1)");
+  s = s.replace(/<img[^>]+alt="([^"]*)"[^>]*>/gi, "![$1]");
+  s = s.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n");
+  s = s.replace(/<\/?(ul|ol|dl|dt|dd|nav|header|footer|main|article|section|aside|div|span|table|thead|tbody|tr|td|th|figure|figcaption|blockquote)[^>]*>/gi, "\n");
+  s = s.replace(/<[^>]+>/g, "");
+  s = s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+       .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+  s = s.replace(/\n{3,}/g, "\n\n").trim();
+  return s;
+}
+
 /** Convert a Zod schema to JSON Schema via zod v4 built-in.
  *  Strips $schema key — LLM APIs (Anthropic via OpenRouter) reject it. */
 function toJsonSchema(schema: z.ZodType): Record<string, unknown> {
@@ -111,7 +140,7 @@ export interface ToolHandlerContext {
 // ── Factory ───────────────────────────────────────────────────────────────────
 
 /**
- * Create tool handlers for all 17 MCP tools.
+ * Create tool handlers for all 18 Core tools.
  * Each handler matches the behavior of the corresponding mcp.tool() in
  * src/mcp-server.ts, using the same underlying modules.
  */
@@ -927,6 +956,64 @@ export function createToolHandlers(ctx: ToolHandlerContext): ToolDefinition[] {
         }
 
         return { content: `${instanceHealth}\n\n${handoffSummary}` };
+      },
+    },
+
+    // ── web_fetch ──────────────────────────────────────────────────────────
+    {
+      name: "web_fetch",
+      description:
+        "Fetch a URL and return its content as markdown. Only use when the user provides a specific URL — never browse autonomously.",
+      parameters: toJsonSchema(webFetchSchema),
+      tier: "local" as TierName,
+      handler: async (args) => {
+        const { url, prompt } = args as { url: string; prompt?: string };
+
+        try {
+          const res = await fetch(url, {
+            headers: {
+              "User-Agent": "Core/1.0 (runcore.sh)",
+              "Accept": "text/html,application/xhtml+xml,text/plain,application/json,*/*",
+            },
+            signal: AbortSignal.timeout(15_000),
+            redirect: "follow",
+          });
+
+          if (!res.ok) {
+            return { content: `Fetch failed: HTTP ${res.status} ${res.statusText}` };
+          }
+
+          const contentType = res.headers.get("content-type") ?? "";
+          const raw = await res.text();
+
+          let body: string;
+          if (contentType.includes("application/json")) {
+            try {
+              body = "```json\n" + JSON.stringify(JSON.parse(raw), null, 2) + "\n```";
+            } catch {
+              body = raw;
+            }
+          } else if (contentType.includes("text/html")) {
+            body = htmlToMarkdown(raw);
+          } else {
+            body = raw;
+          }
+
+          const MAX_CHARS = 50_000;
+          if (body.length > MAX_CHARS) {
+            body = body.slice(0, MAX_CHARS) + `\n\n... (truncated at ${MAX_CHARS} chars)`;
+          }
+
+          const header = `**Fetched:** ${url}\n**Content-Type:** ${contentType}\n**Size:** ${raw.length} bytes\n\n---\n\n`;
+          const result = prompt
+            ? `${header}${body}\n\n---\n\n**Extraction prompt:** ${prompt}`
+            : `${header}${body}`;
+
+          return { content: result };
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return { content: `Fetch error: ${msg}` };
+        }
       },
     },
   ];

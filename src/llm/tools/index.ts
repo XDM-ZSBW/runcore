@@ -30,6 +30,7 @@ export {
   loopListSchema,
   loopResolveSchema,
   dashStatusSchema,
+  webFetchSchema,
 } from "./schemas.js";
 
 export { ToolRegistry } from "./registry.js";

@@ -168,3 +168,14 @@ export const loopResolveSchema = z.object({
 // ── Instance status ───────────────────────────────────────────────────────────
 
 export const dashStatusSchema = z.object({});
+
+// ── Web fetch ────────────────────────────────────────────────────────────────
+
+export const webFetchSchema = z.object({
+  url: z.string().url().describe("The URL to fetch"),
+  prompt: z
+    .string()
+    .max(500)
+    .optional()
+    .describe("Optional: what to extract from the page"),
+});
