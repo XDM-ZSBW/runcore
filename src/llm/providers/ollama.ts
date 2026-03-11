@@ -178,7 +178,12 @@ export async function bestLocalCodingModel(): Promise<string> {
 }
 
 function formatMessages(messages: ContextMessage[]) {
-  return messages.map((m) => ({ role: m.role, content: m.content }));
+  return messages.map((m) => {
+    const msg: Record<string, unknown> = { role: m.role, content: m.content };
+    if (m.tool_calls) msg.tool_calls = m.tool_calls;
+    if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+    return msg;
+  });
 }
 
 export const ollamaProvider: LLMProvider = {
@@ -193,14 +198,18 @@ export const ollamaProvider: LLMProvider = {
 
     let response: Response;
     try {
+      const body: Record<string, unknown> = {
+        model,
+        messages: formatMessages(options.messages),
+        stream: true,
+      };
+      if (options.tools && options.tools.length > 0) {
+        body.tools = options.tools;
+      }
       response = await fetch(`${baseUrl}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: formatMessages(options.messages),
-          stream: true,
-        }),
+        body: JSON.stringify(body),
         signal: options.signal,
       });
     } catch (err) {
@@ -243,7 +252,22 @@ export const ollamaProvider: LLMProvider = {
             const content = parsed.message?.content;
             if (content) options.onToken(content);
             if (parsed.done) {
-              options.onDone();
+              // Ollama returns tool_calls in the final message when done
+              const toolCalls = parsed.message?.tool_calls;
+              if (toolCalls && toolCalls.length > 0 && options.onToolCalls) {
+                const formatted = toolCalls.map(
+                  (tc: { function: { name: string; arguments: Record<string, unknown> } }, i: number) => ({
+                    id: `ollama-tc-${Date.now()}-${i}`,
+                    function: {
+                      name: tc.function.name,
+                      arguments: JSON.stringify(tc.function.arguments),
+                    },
+                  }),
+                );
+                options.onToolCalls(formatted);
+              } else {
+                options.onDone();
+              }
               return;
             }
           } catch {

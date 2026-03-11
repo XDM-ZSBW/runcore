@@ -20,7 +20,12 @@ function getApiKey(): string | undefined {
 }
 
 function formatMessages(messages: ContextMessage[]) {
-  return messages.map((m) => ({ role: m.role, content: m.content }));
+  return messages.map((m) => {
+    const msg: Record<string, unknown> = { role: m.role, content: m.content };
+    if (m.tool_calls) msg.tool_calls = m.tool_calls;
+    if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+    return msg;
+  });
 }
 
 function headers(apiKey: string): Record<string, string> {
@@ -53,14 +58,19 @@ export const openRouterProvider: LLMProvider = {
 
     let response: Response;
     try {
+      const body: Record<string, unknown> = {
+        model,
+        messages: formatMessages(options.messages),
+        stream: true,
+      };
+      if (options.tools && options.tools.length > 0) {
+        body.tools = options.tools;
+        body.tool_choice = "auto";
+      }
       response = await fetch(OPENROUTER_URL, {
         method: "POST",
         headers: headers(apiKey),
-        body: JSON.stringify({
-          model,
-          messages: formatMessages(options.messages),
-          stream: true,
-        }),
+        body: JSON.stringify(body),
         signal: options.signal,
       });
     } catch (err) {
@@ -90,6 +100,12 @@ export const openRouterProvider: LLMProvider = {
     const decoder = new TextDecoder();
     let buffer = "";
 
+    // Accumulator for tool call deltas streamed across multiple chunks
+    const toolCallAccum: Array<{
+      id: string;
+      function: { name: string; arguments: string };
+    }> = [];
+
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -105,20 +121,67 @@ export const openRouterProvider: LLMProvider = {
 
           const data = trimmed.slice(6);
           if (data === "[DONE]") {
-            options.onDone();
+            // If tool calls were accumulated but no explicit finish_reason fired, deliver them
+            if (toolCallAccum.length > 0 && options.onToolCalls) {
+              options.onToolCalls(toolCallAccum);
+            } else {
+              options.onDone();
+            }
             return;
           }
 
           try {
             const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) options.onToken(delta);
+            const choice = parsed.choices?.[0];
+            const delta = choice?.delta;
+
+            // Accumulate tool call deltas
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx: number = tc.index ?? 0;
+                if (!toolCallAccum[idx]) {
+                  toolCallAccum[idx] = {
+                    id: tc.id ?? "",
+                    function: { name: tc.function?.name ?? "", arguments: "" },
+                  };
+                }
+                if (tc.id) toolCallAccum[idx].id = tc.id;
+                if (tc.function?.name) toolCallAccum[idx].function.name = tc.function.name;
+                if (tc.function?.arguments) {
+                  toolCallAccum[idx].function.arguments += tc.function.arguments;
+                }
+              }
+            }
+
+            // Stream text content as before
+            const content = delta?.content;
+            if (content) options.onToken(content);
+
+            // Check finish_reason
+            const finishReason = choice?.finish_reason;
+            if (finishReason === "tool_calls") {
+              if (options.onToolCalls && toolCallAccum.length > 0) {
+                options.onToolCalls(toolCallAccum);
+              } else {
+                options.onDone();
+              }
+              return;
+            }
+            if (finishReason === "stop") {
+              options.onDone();
+              return;
+            }
           } catch {
             // Skip malformed JSON lines
           }
         }
       }
-      options.onDone();
+      // Stream ended without explicit finish — deliver what we have
+      if (toolCallAccum.length > 0 && options.onToolCalls) {
+        options.onToolCalls(toolCallAccum);
+      } else {
+        options.onDone();
+      }
     } catch (err) {
       if (options.signal?.aborted) return;
       options.onError(err instanceof Error ? err : new Error(String(err)));

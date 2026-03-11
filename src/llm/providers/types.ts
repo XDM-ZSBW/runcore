@@ -16,6 +16,22 @@ export interface StreamOptions {
   onDone: () => void;
   onError: (error: Error) => void;
   signal?: AbortSignal;
+  /** Optional tools array in OpenAI function-calling format. */
+  tools?: Array<{
+    type: "function";
+    function: {
+      name: string;
+      description: string;
+      parameters: Record<string, unknown>;
+    };
+  }>;
+  /** Callback fired when the model requests tool calls instead of finishing normally. */
+  onToolCalls?: (
+    calls: Array<{
+      id: string;
+      function: { name: string; arguments: string };
+    }>,
+  ) => void;
 }
 
 /** Interface that all LLM providers must implement. */
