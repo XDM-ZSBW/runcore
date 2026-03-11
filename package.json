@@ -49,7 +49,7 @@
   "homepage": "https://runcore.sh",
   "repository": {
     "type": "git",
-    "url": "https://github.com/XDM-ZSBW/core"
+    "url": "https://github.com/XDM-ZSBW/runcore"
   },
   "devDependencies": {
     "@types/multicast-dns": "^7.2.4",
