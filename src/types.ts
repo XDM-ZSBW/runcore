@@ -45,6 +45,8 @@ export interface ContextMessage {
     id: string;
     function: { name: string; arguments: string };
   }>;
+  /** Persisted summary of tools used during this response (for history rendering). */
+  toolsUsed?: Array<{ name: string; isError?: boolean }>;
 }
 
 /** Building blocks of prompt context (Agent32 / context engineering). */
