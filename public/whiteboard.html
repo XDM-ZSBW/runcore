@@ -240,6 +240,55 @@
     margin-top: 6px;
     font-size: 13px;
   }
+  .tree-detail-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .tree-detail-actions button {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--mono);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .tree-detail-actions button:hover { border-color: var(--text-dim); color: var(--text); }
+  .tree-detail-actions .btn-delete:hover { border-color: #e57373; color: #e57373; }
+  .tree-detail-actions .btn-done { color: var(--green); }
+
+  /* --- Edit modal --- */
+  .edit-overlay {
+    position: fixed; inset: 0; z-index: 9100;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+  }
+  .edit-overlay.open { display: flex; }
+  .edit-modal {
+    width: 460px; max-width: 92vw;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px;
+  }
+  .edit-modal h3 { margin-bottom: 14px; font-size: 16px; }
+  .edit-modal label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; margin-top: 10px; }
+  .edit-modal input, .edit-modal select, .edit-modal textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); padding: 8px 10px; font-size: 13px; outline: none;
+    font-family: inherit;
+  }
+  .edit-modal textarea { resize: vertical; min-height: 60px; }
+  .edit-modal input:focus, .edit-modal select:focus, .edit-modal textarea:focus { border-color: var(--accent); }
+  .edit-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .edit-modal-actions button {
+    padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; border: none;
+  }
+  .edit-modal-actions .cancel { background: var(--surface2); color: var(--text-dim); }
+  .edit-modal-actions .submit { background: var(--accent); color: #fff; font-weight: 500; }
 
   /* --- Questions view --- */
   .question-card {
@@ -396,8 +445,36 @@
       <label>Detail (optional)</label>
       <textarea id="create-body" placeholder="Markdown..."></textarea>
       <div class="create-modal-actions">
-        <button class="cancel" onclick="closeCreateModal()">Cancel</button>
-        <button class="submit" onclick="submitCreate()">Plant</button>
+        <button type="button" class="cancel" id="btn-cancel-create">Cancel</button>
+        <button type="button" class="submit" id="btn-submit-create">Plant</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div class="edit-overlay" id="edit-overlay">
+    <div class="edit-modal">
+      <h3>Edit node</h3>
+      <input type="hidden" id="edit-id" />
+      <label>Title</label>
+      <input type="text" id="edit-title" />
+      <label>Type</label>
+      <select id="edit-type">
+        <option value="task">Task</option>
+        <option value="goal">Goal</option>
+        <option value="question">Question</option>
+        <option value="decision">Decision</option>
+        <option value="note">Note</option>
+      </select>
+      <label>Tags (comma-separated)</label>
+      <input type="text" id="edit-tags" />
+      <label>Question text</label>
+      <input type="text" id="edit-question" />
+      <label>Detail</label>
+      <textarea id="edit-body"></textarea>
+      <div class="edit-modal-actions">
+        <button type="button" class="cancel" id="btn-cancel-edit">Cancel</button>
+        <button type="button" class="submit" id="btn-submit-edit">Save</button>
       </div>
     </div>
   </div>
@@ -543,6 +620,15 @@
       html += '<div class="tree-detail-answer"><input type="text" placeholder="Your answer..." data-answer-id="' + node.id + '" /><button onclick="answerFromTree(\'' + node.id + '\')">Answer</button></div>';
     }
     html += '<div class="tree-detail-meta">' + node.type + ' &middot; planted by ' + node.plantedBy + ' &middot; ' + timeAgo(node.createdAt) + '</div>';
+    html += '<div class="tree-detail-actions">';
+    if (node.status === "done") {
+      html += '<button class="btn-done" data-action="reopen" data-id="' + node.id + '">reopen</button>';
+    } else {
+      html += '<button class="btn-done" data-action="done" data-id="' + node.id + '">mark done</button>';
+    }
+    html += '<button data-action="edit" data-id="' + node.id + '">edit</button>';
+    html += '<button class="btn-delete" data-action="delete" data-id="' + node.id + '">delete</button>';
+    html += '</div>';
     html += '</div>';
 
     // Children
@@ -604,13 +690,99 @@
   };
   window.answerFromTree = window.answerQuestion;
 
+  // --- Node actions ---
+  async function deleteNode(id) {
+    if (!confirm("Delete this node? Children will be archived too.")) return;
+    await api("DELETE", "/api/whiteboard/" + id + "?cascade=true");
+    loadAll();
+  }
+
+  async function markDone(id) {
+    await api("PATCH", "/api/whiteboard/" + id, { status: "done" });
+    loadAll();
+  }
+
+  async function reopenNode(id) {
+    await api("PATCH", "/api/whiteboard/" + id, { status: "open" });
+    loadAll();
+  }
+
+  // Flat node lookup for edit modal
+  function findNodeFlat(nodes, id) {
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].id === id) return nodes[i];
+      if (nodes[i].children) {
+        var found = findNodeFlat(nodes[i].children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  function openEditModal(id) {
+    var node = findNodeFlat(treeData, id);
+    if (!node) return;
+    document.getElementById("edit-id").value = node.id;
+    document.getElementById("edit-title").value = node.title || "";
+    document.getElementById("edit-type").value = node.type || "task";
+    document.getElementById("edit-tags").value = (node.tags || []).join(", ");
+    document.getElementById("edit-question").value = node.question || "";
+    document.getElementById("edit-body").value = node.body || "";
+    document.getElementById("edit-overlay").classList.add("open");
+    setTimeout(function() { document.getElementById("edit-title").focus(); }, 50);
+  }
+
+  function closeEditModal() {
+    document.getElementById("edit-overlay").classList.remove("open");
+  }
+
+  async function submitEdit() {
+    var id = document.getElementById("edit-id").value;
+    var title = document.getElementById("edit-title").value.trim();
+    var type = document.getElementById("edit-type").value;
+    var tags = document.getElementById("edit-tags").value.split(",").map(function(t) { return t.trim(); }).filter(Boolean);
+    var question = document.getElementById("edit-question").value.trim() || undefined;
+    var body = document.getElementById("edit-body").value.trim() || undefined;
+
+    if (!title) { document.getElementById("edit-title").focus(); return; }
+
+    try {
+      var payload = { title: title, type: type, tags: tags };
+      if (question !== undefined) payload.question = question;
+      if (body !== undefined) payload.body = body;
+      var result = await api("PATCH", "/api/whiteboard/" + id, payload);
+      if (result.error) { alert("Error: " + result.error); return; }
+      closeEditModal();
+      loadAll();
+    } catch (err) {
+      alert("Failed to update: " + (err.message || err));
+    }
+  }
+
+  document.getElementById("edit-overlay").addEventListener("click", function(e) {
+    if (e.target === this) closeEditModal();
+  });
+  document.getElementById("btn-cancel-edit").addEventListener("click", closeEditModal);
+  document.getElementById("btn-submit-edit").addEventListener("click", submitEdit);
+
   // --- Event delegation ---
   document.getElementById("content").addEventListener("click", function(e) {
+    // Action buttons (edit, delete, done, reopen)
+    var actionBtn = e.target.closest("[data-action]");
+    if (actionBtn) {
+      var action = actionBtn.getAttribute("data-action");
+      var id = actionBtn.getAttribute("data-id");
+      if (action === "delete") deleteNode(id);
+      else if (action === "edit") openEditModal(id);
+      else if (action === "done") markDone(id);
+      else if (action === "reopen") reopenNode(id);
+      return;
+    }
     // Toggle expand/collapse
     var toggle = e.target.closest(".tree-toggle");
     if (toggle && !toggle.classList.contains("leaf")) {
-      var id = toggle.getAttribute("data-id");
-      expandedNodes[id] = expandedNodes[id] === false ? true : false;
+      var id2 = toggle.getAttribute("data-id");
+      expandedNodes[id2] = expandedNodes[id2] === false ? true : false;
       renderTree();
       return;
     }
@@ -671,14 +843,15 @@
     document.getElementById("create-overlay").classList.add("open");
     setTimeout(function() { document.getElementById("create-title").focus(); }, 50);
   }
-  window.closeCreateModal = function() {
+  function closeCreateModal() {
     document.getElementById("create-overlay").classList.remove("open");
-  };
+  }
+  window.closeCreateModal = closeCreateModal;
   document.getElementById("create-overlay").addEventListener("click", function(e) {
     if (e.target === this) closeCreateModal();
   });
 
-  window.submitCreate = async function() {
+  async function submitCreate() {
     var title = document.getElementById("create-title").value.trim();
     var type = document.getElementById("create-type").value;
     var parentId = document.getElementById("create-parent").value || null;
@@ -703,7 +876,12 @@
     } catch (err) {
       alert("Failed to create: " + (err.message || err));
     }
-  };
+  }
+  window.submitCreate = submitCreate;
+
+  // Wire modal buttons
+  document.getElementById("btn-cancel-create").addEventListener("click", function() { closeCreateModal(); });
+  document.getElementById("btn-submit-create").addEventListener("click", submitCreate);
 
   // Escape key closes modal
   document.addEventListener("keydown", function(e) {

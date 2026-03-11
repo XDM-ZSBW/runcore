@@ -704,6 +704,25 @@ async function main(): Promise<void> {
         lines.push("", "By tag: " + Object.entries(summary.byTag).map(([k, v]) => `${k}(${v})`).join(", "));
       }
 
+      // Show open questions from the human that Dash should answer
+      const openQs = await store.getOpenQuestions();
+      const humanQs = openQs.filter((q: any) => q.plantedBy === "human");
+      if (humanQs.length > 0) {
+        lines.push("", "Questions from human (answer or act on these):");
+        for (const q of humanQs) {
+          lines.push(`  → [${q.weight}] "${q.question || q.title}" (id: ${q.id})`);
+        }
+      }
+
+      // Show recently answered questions (last 24h) that Dash should act on
+      const answered = await store.getAnsweredSince(new Date(Date.now() - 86400000).toISOString());
+      if (answered.length > 0) {
+        lines.push("", "Recently answered (act on these):");
+        for (const a of answered) {
+          lines.push(`  ✓ "${a.question || a.title}" → ${a.answer}`);
+        }
+      }
+
       return {
         content: [{ type: "text" as const, text: lines.join("\n") }],
       };
