@@ -47,6 +47,14 @@ export interface ContextMessage {
   }>;
   /** Persisted summary of tools used during this response (for history rendering). */
   toolsUsed?: Array<{ name: string; isError?: boolean }>;
+  /** Persisted summary of agents spawned during this response (for history rendering). */
+  agentsUsed?: Array<{
+    label: string;
+    taskId?: string;
+    status: "completed" | "failed" | "cancelled" | "running";
+    elapsed?: string;
+    resultSummary?: string;
+  }>;
 }
 
 /** Building blocks of prompt context (Agent32 / context engineering). */

@@ -2534,7 +2534,7 @@ app.get("/api/history", async (c) => {
   const historySource = cs.activeThreadId ? cs.mainHistory : cs.history;
   const messages = historySource
     .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role, content: m.content, ...(m.toolsUsed ? { toolsUsed: m.toolsUsed } : {}) }));
+    .map((m) => ({ role: m.role, content: m.content, ...(m.toolsUsed ? { toolsUsed: m.toolsUsed } : {}), ...(m.agentsUsed ? { agentsUsed: m.agentsUsed } : {}) }));
 
   return c.json({ messages });
 });
@@ -2617,7 +2617,7 @@ app.get("/api/threads/:id/history", async (c) => {
   const historySource = (cs && cs.activeThreadId === threadId) ? cs.history : thread.history;
   const messages = historySource
     .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role, content: m.content, ...(m.toolsUsed ? { toolsUsed: m.toolsUsed } : {}) }));
+    .map((m) => ({ role: m.role, content: m.content, ...(m.toolsUsed ? { toolsUsed: m.toolsUsed } : {}), ...(m.agentsUsed ? { agentsUsed: m.agentsUsed } : {}) }));
   return c.json({ messages });
 });
 
@@ -5708,6 +5708,8 @@ app.get("/api/chat/poll", async (c) => {
     role: m.role,
     content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
     source: m.source || "pc",
+    ...(m.toolsUsed ? { toolsUsed: m.toolsUsed } : {}),
+    ...(m.agentsUsed ? { agentsUsed: m.agentsUsed } : {}),
   }));
 
   return c.json({ messages: newMsgs, total });
@@ -6573,6 +6575,8 @@ app.post("/api/chat", async (c) => {
 
       // Track tool usage for history persistence
       const toolsUsedInTurn: Array<{ name: string; isError?: boolean }> = [];
+      // Track spawned agents for history persistence
+      const agentsSpawnedInTurn: Array<{ label: string; taskId: string }> = [];
 
       // Token buffer for split-placeholder rehydration
       let tokenBuf2 = "";
@@ -6691,6 +6695,7 @@ app.post("/api/chat", async (c) => {
                       boardTaskId: req.taskId,
                     });
                     stream.writeSSE({ data: JSON.stringify({ agentSpawned: { label, taskId: task.id } }) }).catch(() => {});
+                    agentsSpawnedInTurn.push({ label, taskId: task.id });
                     logActivity({ source: "agent", summary: `AI-triggered agent: ${task.label}`, detail: `Task ${task.id}, PID ${task.pid}`, actionLabel: "PROMPTED", reason: "user chat triggered agent" });
                   } catch (err: any) {
                     agentLog.error(`Spawn failed for "${label}": ${err.message}`);
@@ -6779,6 +6784,13 @@ app.post("/api/chat", async (c) => {
           // Save assistant response to history (with AGENT_REQUEST + BOARD_ACTION + action blocks stripped)
           const historyEntry: ContextMessage = { role: "assistant", content: fullResponse };
           if (toolsUsedInTurn.length > 0) historyEntry.toolsUsed = toolsUsedInTurn;
+          if (agentsSpawnedInTurn.length > 0) {
+            historyEntry.agentsUsed = agentsSpawnedInTurn.map((a) => ({
+              label: a.label,
+              status: "completed" as const,  // placeholder — frontend polls for real status
+              taskId: a.taskId,
+            }));
+          }
           cs.history.push(historyEntry);
           persistSession();
 
