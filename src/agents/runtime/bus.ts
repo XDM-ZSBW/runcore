@@ -132,10 +132,11 @@ export class RuntimeBus {
       }
     };
 
-    // Store a key for the handler so we can clean up
+    // Store topic handler for cleanup
     const handlerKey = `msg:${agentId}`;
     this.emitter.on(handlerKey, wrappedHandler);
     this.agentSubscriptions.get(agentId)!.add(handlerKey);
+    this._topicHandlers.set(agentId, { key: handlerKey, handler: wrappedHandler });
 
     // Also listen to the global agent:message topic for routing
     const globalHandler = (msg: AgentMessage) => {
@@ -149,23 +150,26 @@ export class RuntimeBus {
     };
 
     this.emitter.on("agent:message", globalHandler);
-    // Store cleanup ref
-    (this.agentSubscriptions.get(agentId) as Set<string>).add(
-      `cleanup:${agentId}:${Date.now()}`,
-    );
-    // Store actual handler ref for cleanup
     this._globalHandlers.set(agentId, globalHandler);
   }
 
-  // Store global handlers for cleanup
+  // Store handler refs for cleanup
   private _globalHandlers = new Map<string, EventHandler<AgentMessage>>();
+  private _topicHandlers = new Map<string, { key: string; handler: (...args: any[]) => void }>();
 
   /** Unsubscribe an agent from all messages. */
   unsubscribe(agentId: string): void {
-    const handler = this._globalHandlers.get(agentId);
-    if (handler) {
-      this.emitter.off("agent:message", handler as (...args: unknown[]) => void);
+    // Remove global agent:message handler
+    const globalHandler = this._globalHandlers.get(agentId);
+    if (globalHandler) {
+      this.emitter.off("agent:message", globalHandler as (...args: unknown[]) => void);
       this._globalHandlers.delete(agentId);
+    }
+    // Remove topic-specific handler
+    const topicEntry = this._topicHandlers.get(agentId);
+    if (topicEntry) {
+      this.emitter.off(topicEntry.key, topicEntry.handler as (...args: unknown[]) => void);
+      this._topicHandlers.delete(agentId);
     }
     this.agentSubscriptions.delete(agentId);
   }

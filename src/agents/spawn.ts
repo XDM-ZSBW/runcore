@@ -121,9 +121,14 @@ const poolFallbackTasks = new Set<string>();
 
 /** Track batch membership: sessionId → set of task IDs spawned together. */
 const sessionBatches = new Map<string, Set<string>>();
+/** Timestamps for batch creation — used for TTL-based orphan cleanup. */
+const sessionBatchCreatedAt = new Map<string, number>();
 
 /** Collect results from each agent as they finish (sessionId → results[]) */
 const batchResults = new Map<string, Array<{ label: string; status: string }>>();
+
+/** TTL for orphaned batch entries (agent died without completing). */
+const BATCH_ORPHAN_TTL_MS = 60 * 60_000; // 1 hour
 
 /** Callback invoked when all agents from a session batch have completed. */
 let onBatchComplete: ((sessionId: string, results: Array<{ label: string; status: string }>) => void) | null = null;
@@ -255,6 +260,7 @@ async function spawnViaPool(task: AgentTask): Promise<void> {
     if (task.sessionId) {
       if (!sessionBatches.has(task.sessionId)) {
         sessionBatches.set(task.sessionId, new Set());
+        sessionBatchCreatedAt.set(task.sessionId, Date.now());
       }
       sessionBatches.get(task.sessionId)!.add(task.id);
     }
@@ -262,22 +268,33 @@ async function spawnViaPool(task: AgentTask): Promise<void> {
     // Listen for completion via the runtime bus
     // Use .on() with self-removal instead of .once() to avoid race conditions
     // where another agent's event consumes this listener
+    let listenerTimeout: ReturnType<typeof setTimeout> | null = null;
+    const cleanupListeners = () => {
+      agentPool?.runtimeManager.bus.off("agent:completed", onCompleted);
+      agentPool?.runtimeManager.bus.off("agent:failed", onFailed);
+      if (listenerTimeout) { clearTimeout(listenerTimeout); listenerTimeout = null; }
+    };
     const onCompleted = (data: any) => {
       if (data.agentId === instance.id) {
-        agentPool?.runtimeManager.bus.off("agent:completed", onCompleted);
-        agentPool?.runtimeManager.bus.off("agent:failed", onFailed);
+        cleanupListeners();
         handlePoolCompletion(task, "completed", data.exitCode ?? 0);
       }
     };
     const onFailed = (data: any) => {
       if (data.agentId === instance.id) {
-        agentPool?.runtimeManager.bus.off("agent:completed", onCompleted);
-        agentPool?.runtimeManager.bus.off("agent:failed", onFailed);
+        cleanupListeners();
         handlePoolCompletion(task, "failed", null);
       }
     };
     agentPool!.runtimeManager.bus.on("agent:completed", onCompleted);
     agentPool!.runtimeManager.bus.on("agent:failed", onFailed);
+
+    // Safety timeout: clean up listeners if agent never reports back (30 min)
+    listenerTimeout = setTimeout(() => {
+      cleanupListeners();
+      log.warn(`Listener safety timeout for agent ${instance.id} (${task.label}) — cleaning up orphaned listeners`);
+    }, 30 * 60_000);
+    listenerTimeout.unref();
 
     recordAgentSpawn();
     logActivity({
@@ -405,6 +422,7 @@ async function handlePoolCompletion(
 
     if (batch.size === 0) {
       sessionBatches.delete(task.sessionId);
+      sessionBatchCreatedAt.delete(task.sessionId);
       const allResults = batchResults.get(task.sessionId) ?? [{ label: task.label, status }];
       batchResults.delete(task.sessionId);
       if (onBatchComplete) {
@@ -547,6 +565,7 @@ async function spawnDirect(task: AgentTask): Promise<void> {
   if (task.sessionId) {
     if (!sessionBatches.has(task.sessionId)) {
       sessionBatches.set(task.sessionId, new Set());
+      sessionBatchCreatedAt.set(task.sessionId, Date.now());
     }
     sessionBatches.get(task.sessionId)!.add(task.id);
   }
@@ -1129,6 +1148,26 @@ function clearTaskTimer(taskId: string): void {
     activeTimers.delete(taskId);
   }
 }
+
+/**
+ * Sweep orphaned batch entries — sessions where an agent died without completing
+ * and the batch callback never fired. Runs on a 15-min interval.
+ */
+function sweepOrphanedBatches(): void {
+  const now = Date.now();
+  for (const [sessionId, createdAt] of sessionBatchCreatedAt) {
+    if (now - createdAt > BATCH_ORPHAN_TTL_MS) {
+      const orphanedTasks = sessionBatches.get(sessionId);
+      log.warn(`Sweeping orphaned batch ${sessionId} (${orphanedTasks?.size ?? 0} tasks, age ${Math.round((now - createdAt) / 60_000)}min)`);
+      sessionBatches.delete(sessionId);
+      sessionBatchCreatedAt.delete(sessionId);
+      batchResults.delete(sessionId);
+    }
+  }
+}
+
+// Run orphan sweep every 15 minutes
+setInterval(sweepOrphanedBatches, 15 * 60_000).unref();
 
 /**
  * Notify the insight engine that a board task (potentially insight-generated) was resolved.
