@@ -11,6 +11,9 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { acquireLock, releaseLock } from "./runtime-lock.js";
+import { ToolRegistry } from "./llm/tools/registry.js";
+import { createToolHandlers, type ToolHandlerContext } from "./llm/tools/handlers.js";
+import { streamWithTools } from "./llm/tools/loop.js";
 
 // Package root — works whether run from CWD or npx
 const __filename = fileURLToPath(import.meta.url);
@@ -573,7 +576,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         ...(TIER_CAPS[activeTier].spawning ? [
         `## Agent spawning (CRITICAL — follow exactly)`,
         `When a task requires code editing, file operations, or shell commands, you MUST spawn a Claude Code agent.`,
-        `EXCEPTION: MCP tools (whiteboard_plant, whiteboard_status, memory_learn, memory_retrieve, files_search, voucher_issue, voucher_check, send_alert, etc.) are NOT agent tasks. Call MCP tools directly — NEVER spawn an agent to call an MCP tool.`,
+        `EXCEPTION: Your built-in tools (whiteboard_plant, whiteboard_status, memory_learn, memory_retrieve, files_search, etc.) are NOT agent tasks. Call them directly via function calling — NEVER spawn an agent to call a tool you already have.`,
         `Do NOT describe what you would do — actually spawn the agent by including the block below.`,
         `The block content MUST be valid JSON with "label" and "prompt" keys. No markdown, no backticks, no explanation inside the block.`,
         ``,
@@ -601,10 +604,14 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         `IMPORTANT: Do NOT announce agent spawns in your visible response text. No "Agent spawned to...", no "I'll spawn an agent...", no "Let me run an agent...". The UI shows agent status automatically. Just include the [AGENT_REQUEST] block silently at the end. Your visible text should answer the user's question or continue the conversation naturally.`,
         ] : []),  // end spawning gate
         ``,
+        `## Tools`,
+        `You have function-calling tools available. Use them directly — they execute server-side and return results inline.`,
+        `Key tools: whiteboard_plant, whiteboard_status, memory_retrieve, memory_learn, files_search, read_brain_file.`,
+        `Call tools whenever you need to read or write to the brain, whiteboard, or memory. Do NOT describe what you would do — call the tool.`,
+        ``,
         `## Whiteboard (shared collaboration surface)`,
         `You and ${name} share a whiteboard — a tree of goals, tasks, questions, decisions, and notes at /whiteboard.`,
-        `The current whiteboard status is injected below. You do NOT need to call any tool to read it — it's already in your context.`,
-        `To plant new nodes or answer questions, tell ${name} what you're doing and spawn an agent with a prompt like: "Call POST /api/whiteboard with body {...}" or ask ${name} to plant it from the UI.`,
+        `Use the whiteboard_plant tool to plant nodes. Use whiteboard_status to check the board.`,
         ``,
         ...(whiteboardContext ? [
         `### Current whiteboard state`,
@@ -612,8 +619,8 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         ``,
         ] : []),
         `### When to plant questions (IMPORTANT)`,
-        `Before spawning an agent for an ambiguous task, ask ${name} a question instead.`,
-        `If a task has multiple valid approaches and you're unsure which ${name} wants, tell them what the options are and ask which they prefer. ${name} can plant it on the whiteboard or answer directly in chat.`,
+        `Before spawning an agent for an ambiguous task, plant a question on the whiteboard using whiteboard_plant.`,
+        `If a task has multiple valid approaches and you're unsure which ${name} wants, plant a question and wait for their answer.`,
         ``,
         `### Answered questions`,
         `If you see answered questions above, ACT ON THEM IMMEDIATELY. Do not ask "which one should I focus on?" or "what would you like me to do?" — the answer IS the instruction. Read it, do the work, report what you did. ${name} already told you what to do by answering — don't make them say it twice.`,
@@ -6577,10 +6584,28 @@ app.post("/api/chat", async (c) => {
         stream.writeSSE({ data: JSON.stringify({ token: rehydrated }) }).catch(() => {});
       };
 
-      stream_fn({
+      // Initialize tool registry for this session
+      const toolHandlerCtx: ToolHandlerContext = {
+        brainDir: BRAIN_DIR,
+        encryptionKey: sessionKeys.get(sessionId) ?? undefined,
+        getBrain: () => cs.brain,
+      };
+      const chatToolRegistry = new ToolRegistry();
+      chatToolRegistry.registerAll(createToolHandlers(toolHandlerCtx));
+
+      streamWithTools({
+        streamFn: stream_fn,
         messages: redactedMessages,
         model: activeChatModel,
         signal: reqSignal,
+        registry: chatToolRegistry,
+        tier: activeTier,
+        onToolCall: (call) => {
+          stream.writeSSE({ data: JSON.stringify({ toolCall: { id: call.id, name: call.name, arguments: call.arguments } }) }).catch(() => {});
+        },
+        onToolResult: (name, result, isError) => {
+          stream.writeSSE({ data: JSON.stringify({ toolResult: { name, result: result.slice(0, 500), isError } }) }).catch(() => {});
+        },
         onToken: (token) => {
           tokenBuf2 += token;
           // Hold if buffer ends with partial placeholder

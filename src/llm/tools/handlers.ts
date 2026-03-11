@@ -70,7 +70,7 @@ function toJsonSchema(schema: z.ZodType): Record<string, unknown> {
 
 export interface ToolHandlerContext {
   brainDir: string;
-  encryptionKey?: string;
+  encryptionKey?: Buffer | string;
   /** Lazily provided — not all callers have a Brain instance. */
   getBrain?: () => Brain;
   /** Lazily provided — not all callers have an LTM instance. */

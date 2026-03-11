@@ -1646,6 +1646,33 @@
 
   /* Agent card wrapper — sits in chat flow like a message */
   /* Agent block — inline in assistant message, Claude Code style */
+  /* --- Tool call indicators --- */
+  .tool-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin: 4px 0;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: rgba(109,93,252,0.08);
+    border-radius: 6px;
+    font-family: var(--mono);
+  }
+  .tool-indicator strong { color: var(--accent); font-weight: 500; }
+  .tool-indicator.tool-done { color: var(--green); background: rgba(34,197,94,0.08); }
+  .tool-indicator.tool-error { color: #e57373; background: rgba(229,115,115,0.08); }
+  .tool-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(109,93,252,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: tool-spin 0.6s linear infinite;
+  }
+  @keyframes tool-spin { to { transform: rotate(360deg); } }
+
   .agent-block {
     margin: 8px 0;
     border: 1px solid rgba(168,85,247,0.15);
@@ -5068,6 +5095,25 @@
               streamingText += data.token;
               contentEl.innerHTML = renderStreamingMarkdown(streamingText);
               messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+            if (data.toolCall) {
+              // Model is calling a tool — show indicator
+              var toolEl = document.createElement("div");
+              toolEl.className = "tool-indicator";
+              toolEl.innerHTML = '<span class="tool-spinner"></span> Using <strong>' + (data.toolCall.name || "tool").replace(/</g,"&lt;") + '</strong>...';
+              if (contentEl && contentEl.parentElement) {
+                contentEl.parentElement.appendChild(toolEl);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+              }
+            }
+            if (data.toolResult) {
+              // Tool finished — update indicator
+              var indicators = document.querySelectorAll(".tool-indicator");
+              if (indicators.length > 0) {
+                var last = indicators[indicators.length - 1];
+                last.innerHTML = (data.toolResult.isError ? "&#10007; " : "&#10003; ") + '<strong>' + (data.toolResult.name || "tool").replace(/</g,"&lt;") + '</strong>';
+                last.className = "tool-indicator " + (data.toolResult.isError ? "tool-error" : "tool-done");
+              }
             }
             if (data.agentSpawned) {
               // Server spawned an agent — render block immediately with real task ID
