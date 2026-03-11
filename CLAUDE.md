@@ -34,11 +34,11 @@ The runtime is **optional** — Core works purely as files read by an AI. The TS
 
 **Context assembler** (`src/context/assembler.ts`) — Builds `ContextSections` (supportingContent, instructions, examples, cues, primaryContent) from working memory, then converts to LLM message array. Token estimation: `chars / 4`.
 
-Package name is `core-brain` (v0.1.0, ESM, MIT).
+Package name is `@runcore-sh/runcore` (ESM, MIT). Published at [npmjs.com/package/@runcore-sh/runcore](https://www.npmjs.com/package/@runcore-sh/runcore).
 
 ## File-based brain (separate repo)
 
-The brain lives outside this package (default: `E:/brain`, configured via `CORE_BRAIN_DIR`).
+The brain lives outside this package (default: `./brain`, configured via `CORE_BRAIN_DIR` env var).
 
 ### Brain structure (v2)
 
