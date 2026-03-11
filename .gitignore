@@ -39,6 +39,13 @@ test-instance*/
 # Wrangler local state (Cloudflare Workers dev)
 workers/**/.wrangler/
 
+# Editor & tool state
+.obsidian/
+.wrangler/
+
+# Demo assets (large binaries)
+demo/screenshots/
+
 # Runtime cache & backups
 .core/
 .core-backups/
