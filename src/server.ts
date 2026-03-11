@@ -3861,6 +3861,176 @@ app.post("/api/board/review/trigger", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Gemini Search
+// ---------------------------------------------------------------------------
+
+app.post("/api/search/gemini", async (c) => {
+  const { query } = await c.req.json<{ query: string }>();
+  if (!query?.trim()) return c.json({ ok: false, message: "Query is required" }, 400);
+
+  const { geminiSearch, isGeminiAvailable } = await import("./search/gemini.js");
+  if (!isGeminiAvailable()) {
+    return c.json({ ok: false, message: "GEMINI_API_KEY not configured" }, 503);
+  }
+
+  const result = await geminiSearch(query.trim());
+  return c.json(result);
+});
+
+app.get("/api/search/gemini/status", async (c) => {
+  const { isGeminiAvailable } = await import("./search/gemini.js");
+  return c.json({ available: isGeminiAvailable() });
+});
+
+// ---------------------------------------------------------------------------
+// Whiteboard routes
+// ---------------------------------------------------------------------------
+
+import { WhiteboardStore } from "./whiteboard/store.js";
+import type { CreateNodeInput } from "./whiteboard/types.js";
+
+let _whiteboardStore: WhiteboardStore | null = null;
+function getWhiteboardStore(): WhiteboardStore {
+  if (!_whiteboardStore) _whiteboardStore = new WhiteboardStore(BRAIN_DIR);
+  return _whiteboardStore;
+}
+
+app.use("/api/whiteboard/*", requireSurface("pages"));
+
+// List / tree / questions / weighted view
+app.get("/api/whiteboard", async (c) => {
+  const store = getWhiteboardStore();
+  const view = c.req.query("view") ?? "tree";
+  const root = c.req.query("root");
+  const status = c.req.query("status") as "open" | "done" | "archived" | undefined;
+  const type = c.req.query("type") as CreateNodeInput["type"] | undefined;
+  const tagsParam = c.req.query("tags");
+  const search = c.req.query("search");
+
+  if (view === "tree") {
+    const tree = await store.getTree(root ?? undefined);
+    return c.json({ nodes: tree });
+  }
+
+  if (view === "questions") {
+    const questions = await store.getOpenQuestions();
+    // Attach breadcrumb path to each question
+    const withPaths = await Promise.all(
+      questions.map(async (q) => {
+        const ancestors = await store.getAncestors(q.id);
+        return { ...q, path: ancestors.map((a) => ({ id: a.id, title: a.title })) };
+      }),
+    );
+    return c.json({ questions: withPaths });
+  }
+
+  if (view === "weighted") {
+    const weighted = await store.getWeighted();
+    return c.json({ nodes: weighted });
+  }
+
+  // Flat view with filters
+  const tags = tagsParam ? tagsParam.split(",").map((t) => t.trim()) : undefined;
+  const nodes = await store.list({ type, status, tags, search });
+  return c.json({ nodes });
+});
+
+// Summary
+app.get("/api/whiteboard/summary", async (c) => {
+  const store = getWhiteboardStore();
+  const summary = await store.getSummary();
+  return c.json(summary);
+});
+
+// Recently answered questions (for agent goals loop)
+app.get("/api/whiteboard/answered", async (c) => {
+  const store = getWhiteboardStore();
+  const since = c.req.query("since");
+  if (!since) return c.json({ error: "Missing ?since= parameter" }, 400);
+  const answered = await store.getAnsweredSince(since);
+  return c.json({ answered });
+});
+
+// Get single node
+app.get("/api/whiteboard/:id", async (c) => {
+  const store = getWhiteboardStore();
+  const node = await store.get(c.req.param("id"));
+  if (!node) return c.json({ error: "Node not found" }, 404);
+  return c.json(node);
+});
+
+// Get ancestors (breadcrumb path)
+app.get("/api/whiteboard/:id/path", async (c) => {
+  const store = getWhiteboardStore();
+  const node = await store.get(c.req.param("id"));
+  if (!node) return c.json({ error: "Node not found" }, 404);
+  const ancestors = await store.getAncestors(c.req.param("id"));
+  return c.json({ path: [...ancestors, node].map((n) => ({ id: n.id, title: n.title, type: n.type })) });
+});
+
+// Create node
+app.post("/api/whiteboard", async (c) => {
+  const body = await c.req.json<Partial<CreateNodeInput>>();
+
+  if (!body.title?.trim()) return c.json({ error: "Title is required" }, 400);
+  if (!body.type) return c.json({ error: "Type is required (goal, task, question, decision, note)" }, 400);
+  if (!body.plantedBy) return c.json({ error: "plantedBy is required (agent, human)" }, 400);
+
+  const store = getWhiteboardStore();
+
+  // Validate parentId exists if provided
+  if (body.parentId) {
+    const parent = await store.get(body.parentId);
+    if (!parent) return c.json({ error: `Parent node not found: ${body.parentId}` }, 400);
+  }
+
+  const node = await store.create({
+    title: body.title.trim(),
+    type: body.type,
+    parentId: body.parentId ?? null,
+    tags: body.tags ?? [],
+    plantedBy: body.plantedBy,
+    body: body.body,
+    question: body.question,
+    boardTaskId: body.boardTaskId,
+  });
+
+  return c.json(node, 201);
+});
+
+// Update node
+app.patch("/api/whiteboard/:id", async (c) => {
+  const body = await c.req.json<Record<string, unknown>>();
+  const store = getWhiteboardStore();
+  const updated = await store.update(c.req.param("id"), body as any);
+  if (!updated) return c.json({ error: "Node not found" }, 404);
+  return c.json(updated);
+});
+
+// Answer a question
+app.post("/api/whiteboard/:id/answer", async (c) => {
+  const { answer } = await c.req.json<{ answer: string }>();
+  if (!answer?.trim()) return c.json({ error: "Answer is required" }, 400);
+
+  const store = getWhiteboardStore();
+  const node = await store.get(c.req.param("id"));
+  if (!node) return c.json({ error: "Node not found" }, 404);
+  if (node.type !== "question") return c.json({ error: "Only question nodes can be answered" }, 400);
+
+  const updated = await store.answerQuestion(c.req.param("id"), answer.trim());
+  return c.json(updated);
+});
+
+// Archive node
+app.delete("/api/whiteboard/:id", async (c) => {
+  const cascade = c.req.query("cascade") === "true";
+  const store = getWhiteboardStore();
+  const result = await store.archive(c.req.param("id"), cascade);
+  if (!result.ok) return c.json({ error: result.message }, 404);
+  return c.json(result);
+});
+
+// ---------------------------------------------------------------------------
 // Skills routes
 // ---------------------------------------------------------------------------
 
@@ -4835,6 +5005,11 @@ app.get("/ops", requireSurface("pages"), async (c) => {
 
 app.get("/board", requireSurface("pages"), async (c) => {
   const html = await serveHtmlTemplate(join(UI_DIR,"board.html"));
+  return c.html(html);
+});
+
+app.get("/whiteboard", requireSurface("pages"), async (c) => {
+  const html = await serveHtmlTemplate(join(UI_DIR,"whiteboard.html"));
   return c.html(html);
 });
 

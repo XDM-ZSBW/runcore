@@ -2675,10 +2675,12 @@
     <a href="/" style="color:inherit;text-decoration:none;font-weight:600;" id="agent-name-header">Core</a>
     <nav class="header-nav" id="header-nav">
       <a href="/" class="active">Chat</a>
+      <a href="/whiteboard">Whiteboard</a>
     </nav>
     <button class="thread-toggle-btn" id="thread-toggle-btn" title="Toggle chats">&#9776;</button>
     <span class="thread-current-label" id="thread-current-label" title="Click to toggle chats"></span>
     <span class="spacer"></span>
+    <button class="gear-btn" id="search-flyout-btn" onclick="openSearchFlyout()" title="Search (Ctrl+K)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
     <button class="gear-btn" id="mobile-pair-btn" onclick="openMobileModal()" title="Go Mobile"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></button>
     <button class="gear-btn" id="share-btn" onclick="nativeShare()" title="Share"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
     <button class="gear-btn" id="theme-toggle-btn" title="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
@@ -6818,6 +6820,7 @@
 </script>
 
 <script src="/public/share-modal.js"></script>
+<script src="/public/search-flyout.js"></script>
 
 <!-- UI update toast -->
 <div class="ui-update-toast" id="ui-update-toast">

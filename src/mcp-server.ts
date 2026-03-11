@@ -644,6 +644,72 @@ async function main(): Promise<void> {
     }
   );
 
+  // ── Whiteboard tools ──────────────────────────────────────────────────────
+
+  mcp.tool(
+    "whiteboard_plant",
+    "Plant a work item or question on the whiteboard. Use this to track goals, tasks, decisions, and — most importantly — questions that need human input to unstick work.",
+    {
+      title: z.string().describe("Short label for the node"),
+      type: z.enum(["goal", "task", "question", "decision", "note"]).describe("Node type"),
+      parentId: z.string().optional().describe("Parent node ID (omit for root)"),
+      tags: z.array(z.string()).optional().describe("Category tags"),
+      body: z.string().optional().describe("Markdown detail"),
+      question: z.string().optional().describe("Question text (required if type=question)"),
+    },
+    async (args) => {
+      const { WhiteboardStore } = await import("./whiteboard/store.js");
+      const store = new WhiteboardStore(BRAIN_DIR);
+
+      const node = await store.create({
+        title: args.title,
+        type: args.type as any,
+        parentId: args.parentId ?? null,
+        tags: args.tags ?? [],
+        plantedBy: "agent",
+        body: args.body,
+        question: args.question,
+      });
+
+      const typeLabel = args.type === "question" ? `Question planted: "${args.question ?? args.title}"` : `${args.type} planted: "${args.title}"`;
+      return {
+        content: [{ type: "text" as const, text: `${typeLabel}\nID: ${node.id}\nWeight: ${node.weight}` }],
+      };
+    }
+  );
+
+  mcp.tool(
+    "whiteboard_status",
+    "Get whiteboard summary — open items, unanswered questions, and top items by attention weight. Use this to see what needs human input.",
+    {},
+    async () => {
+      const { WhiteboardStore } = await import("./whiteboard/store.js");
+      const store = new WhiteboardStore(BRAIN_DIR);
+      const summary = await store.getSummary();
+
+      const lines: string[] = [
+        `Whiteboard: ${summary.total} items (${summary.open} open, ${summary.done} done)`,
+        `Open questions: ${summary.openQuestions}`,
+      ];
+
+      if (summary.topWeighted.length > 0) {
+        lines.push("", "Top items by weight:");
+        for (const node of summary.topWeighted) {
+          const icon = node.type === "question" ? "?" : node.type === "decision" ? "!" : "-";
+          lines.push(`  ${icon} [${node.weight}] ${node.title}${node.question ? ` — "${node.question}"` : ""}`);
+        }
+      }
+
+      if (Object.keys(summary.byTag).length > 0) {
+        lines.push("", "By tag: " + Object.entries(summary.byTag).map(([k, v]) => `${k}(${v})`).join(", "));
+      }
+
+      return {
+        content: [{ type: "text" as const, text: lines.join("\n") }],
+      };
+    }
+  );
+
   // ── Instance status + handoff check ─────────────────────────────────────
 
   mcp.tool(
