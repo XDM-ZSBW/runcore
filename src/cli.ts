@@ -39,6 +39,9 @@ Usage:
   runcore import --dry-run    Preview what would be imported
   runcore register            Register for BYOK/Spawn tier
   runcore activate <token>    Activate with a signed token
+  runcore sync                Download extensions for your tier
+  runcore sync --force        Re-download even if cached
+  runcore sync --check        Check for updates without downloading
   runcore tier                Show current tier and capabilities
   runcore --version           Print version
 
@@ -512,10 +515,86 @@ async function activate() {
       console.log(`  Bond pending — will complete on next heartbeat.`);
     }
 
+    // Auto-sync extensions for activated tier
+    console.log(`\n  Syncing extensions...`);
+    await syncExtensions(resolve(root), false, false);
+
     console.log(`\n  Restart runcore to apply.\n`);
   } catch (err) {
     console.log(`  Activation failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+async function syncExtensions(root: string, force: boolean, checkOnly: boolean) {
+  const { loadActivationToken } = await import("./tier/token.js");
+  const { meetsMinimum } = await import("./tier/gate.js");
+  const { setCoreVersion, ensureExtension, listCached, cacheRoot } = await import("./extensions/index.js");
+  const { checkForUpdate } = await import("./extensions/client.js");
+  const { EXTENSION_TIERS } = await import("./extensions/manifest.js");
+
+  setCoreVersion(VERSION);
+
+  const activation = await loadActivationToken(root);
+  const tier = activation?.token.tier ?? "local";
+
+  if (tier === "local") {
+    console.log("  Local tier — no extensions to sync.");
+    console.log("  Run `runcore register` to unlock integrations + agents.\n");
+    return;
+  }
+
+  // Determine which extensions this tier can access
+  const eligible = Object.entries(EXTENSION_TIERS)
+    .filter(([_, requiredTier]) => meetsMinimum(tier, requiredTier))
+    .map(([name]) => name as keyof typeof EXTENSION_TIERS);
+
+  if (checkOnly) {
+    console.log(`  Tier: ${tier} — checking ${eligible.length} extension(s)...\n`);
+    for (const name of eligible) {
+      if (!activation) continue;
+      const update = await checkForUpdate(name, VERSION, activation.raw);
+      if (update.available) {
+        console.log(`  ${name}: update available (${update.latestVersion})`);
+      } else {
+        console.log(`  ${name}: up to date`);
+      }
+    }
+    return;
+  }
+
+  console.log(`  Tier: ${tier} — syncing ${eligible.length} extension(s)...\n`);
+
+  for (const name of eligible) {
+    try {
+      const result = await ensureExtension(name, root, { force });
+      if (result.cached) {
+        console.log(`  ${name}: ${result.modules} modules ${force ? "re-downloaded" : "ready"}`);
+      } else {
+        console.log(`  ${name}: skipped (tier insufficient)`);
+      }
+    } catch (err) {
+      console.log(`  ${name}: failed — ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Show cache info
+  const cached = await listCached();
+  if (cached.length > 0) {
+    const totalBytes = cached.reduce((sum, c) => sum + c.sizeBytes, 0);
+    const totalMB = (totalBytes / 1024 / 1024).toFixed(1);
+    console.log(`\n  Cache: ${cacheRoot()}`);
+    console.log(`  Total: ${totalMB} MB across ${cached.length} extension(s)`);
+  }
+}
+
+async function sync() {
+  const root = resolve(getFlag(args, "--dir") ?? process.env.CORE_HOME ?? process.cwd());
+  const force = hasFlag(args, "--force");
+  const checkOnly = hasFlag(args, "--check");
+
+  console.log();
+  await syncExtensions(root, force, checkOnly);
+  console.log();
 }
 
 async function showTier() {
@@ -536,6 +615,24 @@ async function showTier() {
   for (const [cap, enabled] of Object.entries(caps)) {
     console.log(`    ${enabled ? "+" : "-"} ${cap}`);
   }
+
+  // Extension cache status
+  try {
+    const { listCached, cacheRoot } = await import("./extensions/index.js");
+    const cached = await listCached();
+    if (cached.length > 0) {
+      console.log(`\n  Extensions (${cacheRoot()}):`);
+      for (const ext of cached) {
+        const sizeMB = (ext.sizeBytes / 1024 / 1024).toFixed(1);
+        console.log(`    ${ext.name}@${ext.version} (${sizeMB} MB)`);
+      }
+    } else if (tier !== "local") {
+      console.log(`\n  No extensions cached. Run \`runcore sync\` to download.`);
+    }
+  } catch {
+    // Extensions module not available — skip
+  }
+
   console.log();
 }
 
@@ -583,6 +680,11 @@ async function main() {
 
   if (command === "activate") {
     await activate();
+    return;
+  }
+
+  if (command === "sync") {
+    await sync();
     return;
   }
 

@@ -59,7 +59,8 @@ import { SensitiveRegistry } from "./llm/sensitive-registry.js";
 import { PrivacyMembrane } from "./llm/membrane.js";
 import { setActiveMembrane, getActiveMembrane, rehydrateResponse } from "./llm/redact.js";
 import { logLlmCall } from "./llm/call-log.js";
-import { VolumeManager } from "./volumes/index.js";
+// VolumeManager — dynamically imported in start() (EXT-BYOK)
+let _volumes: typeof import("./volumes/index.js") | null = null;
 import {
   loadSettings,
   getSettings,
@@ -70,7 +71,8 @@ import {
   getPulseSettings,
   getMeshConfig,
 } from "./settings.js";
-import { startMdns, stopMdns } from "./mdns.js";
+// mdns — dynamically imported in start() (EXT-BYOK)
+let _mdns: typeof import("./mdns.js") | null = null;
 import { ingestDirectory } from "./files/ingest.js";
 import { processIngestFolder } from "./files/ingest-folder.js";
 import { saveSession, loadSession } from "./sessions/store.js";
@@ -83,49 +85,30 @@ import { watchBrain } from "./search/file-watcher.js";
 
 let stopFileWatcher: () => void = () => {};
 import { isSearchAvailable, search } from "./search/client.js";
-import { browseUrl, detectUrl } from "./search/browse.js";
-import { startTtsSidecar, stopTtsSidecar } from "./tts/sidecar.js";
-import { isTtsAvailable, synthesize } from "./tts/client.js";
-import { startSttSidecar, stopSttSidecar } from "./stt/sidecar.js";
-import { isSttAvailable, transcribe } from "./stt/client.js";
-import { startAvatarSidecar, stopAvatarSidecar, isAvatarAvailable } from "./avatar/sidecar.js";
-import { preparePhoto, generateVideo, getCachedVideo, cacheVideo, clearVideoCache } from "./avatar/client.js";
-import { getTtsConfig, getSttConfig, getAvatarConfig } from "./settings.js";
-import { loadVault, listVaultKeys, setVaultKey, deleteVaultKey, getDashReadableVault, getVaultEntries, hydrateEnv as rehydrateVaultEnv } from "./vault/store.js";
-import { exportVault, importVault, verifyExport } from "./vault/transfer.js";
-import { getIntegrationStatus, isIntegrationEnabled } from "./integrations/gate.js";
-import { makeCall } from "./twilio/call.js";
-import {
-  isGoogleConfigured,
-  isGoogleAuthenticated,
-  getAuthUrl,
-  exchangeCode,
-  clearTokenCache,
-} from "./google/auth.js";
-import { isCalendarAvailable, getTodaySchedule, getUpcomingEvents, listEvents, searchEvents, getFreeBusy, createEvent, updateEvent, deleteEvent, formatEventsForContext } from "./google/calendar.js";
-import { validateCalendarEntry, getDayOfWeek, getDayOfWeekIndex } from "./google/temporal.js";
-import { startCalendarTimer, stopCalendarTimer } from "./google/calendar-timer.js";
-import { isGmailAvailable, getRecentMessages, searchMessages, getUnreadCount, formatMessagesForContext, categorizeMessages, prioritizeInbox, getInboxSummary, markAsRead, markAsUnread, batchMarkAsRead, batchMarkAsUnread } from "./google/gmail.js";
-import { startGmailTimer, stopGmailTimer, onDashEmail } from "./google/gmail-timer.js";
-import { startTasksTimer, stopTasksTimer } from "./google/tasks-timer.js";
-import { sendEmail, attachmentFromFile } from "./google/gmail-send.js";
-import { isDocsAvailable, createDocWithContent, createSpreadsheet, createBacklogReviewDoc } from "./google/docs.js";
-import {
-  isTasksAvailable,
-  listTaskLists,
-  createTaskList,
-  updateTaskList,
-  deleteTaskList,
-  listTasks,
-  getTask as getGoogleTask,
-  createTask,
-  updateTask,
-  completeTask,
-  uncompleteTask,
-  deleteTask,
-  createRecurringWeeklyTasks,
-  formatTasksForContext,
-} from "./google/tasks.js";
+// browse, tts, stt, avatar, vault, integrations, twilio — dynamically imported in start() (EXT-BYOK)
+let _browse: typeof import("./search/browse.js") | null = null;
+let _ttsSidecar: typeof import("./tts/sidecar.js") | null = null;
+let _ttsClient: typeof import("./tts/client.js") | null = null;
+let _sttSidecar: typeof import("./stt/sidecar.js") | null = null;
+let _sttClient: typeof import("./stt/client.js") | null = null;
+let _avatarSidecar: typeof import("./avatar/sidecar.js") | null = null;
+let _avatarClient: typeof import("./avatar/client.js") | null = null;
+let _settingsVoice: typeof import("./settings.js") | null = null;
+let _vaultStore: typeof import("./vault/store.js") | null = null;
+let _vaultTransfer: typeof import("./vault/transfer.js") | null = null;
+let _integrationsGate: typeof import("./integrations/gate.js") | null = null;
+let _twilioCall: typeof import("./twilio/call.js") | null = null;
+// Google workspace — dynamically imported in start() (EXT-BYOK)
+let _googleAuth: typeof import("./google/auth.js") | null = null;
+let _googleCalendar: typeof import("./google/calendar.js") | null = null;
+let _googleTemporal: typeof import("./google/temporal.js") | null = null;
+let _googleCalendarTimer: typeof import("./google/calendar-timer.js") | null = null;
+let _googleGmail: typeof import("./google/gmail.js") | null = null;
+let _googleGmailTimer: typeof import("./google/gmail-timer.js") | null = null;
+let _googleTasksTimer: typeof import("./google/tasks-timer.js") | null = null;
+let _googleGmailSend: typeof import("./google/gmail-send.js") | null = null;
+let _googleDocs: typeof import("./google/docs.js") | null = null;
+let _googleTasks: typeof import("./google/tasks.js") | null = null;
 import { runGoalCheck } from "./goals/loop.js";
 import { startGoalTimer, stopGoalTimer } from "./goals/timer.js";
 import { drainNotifications, pushNotification, initNotifications } from "./goals/notifications.js";
@@ -133,9 +116,10 @@ import { logActivity, getActivities, getActivitiesByIds, generateTraceId } from 
 import { compactHistory } from "./context/compaction.js";
 import { rateLimit } from "./rate-limit.js";
 import { initAgents, recoverAndStartMonitor, shutdownAgents, submitTask, getTask, listTasks as listAgentTasks, cancelTask, getTaskOutput, setOnBatchComplete, setAgentPool } from "./agents/index.js";
-import { rememberTaskCompletion } from "./agents/memory.js";
-import { acquireLocks, releaseLocks, releaseFileLock, forceReleaseLock, listLocks, checkLocks, pruneAllStaleLocks } from "./agents/locks.js";
-import { continueAfterBatch, startAutonomousTimer, stopAutonomousTimer, resetContinuation, getAutonomousStatus, triggerPulse } from "./agents/autonomous.js";
+// Agent memory, locks, autonomous — dynamically imported in start() (EXT-SPAWN)
+let _agentMemory: typeof import("./agents/memory.js") | null = null;
+let _agentLocks: typeof import("./agents/locks.js") | null = null;
+let _agentAutonomous: typeof import("./agents/autonomous.js") | null = null;
 import { initPressureIntegrator, getPressureIntegrator } from "./pulse/pressure.js";
 import { startBacklogReviewTimer, stopBacklogReviewTimer, triggerBacklogReview, getLastBacklogReview, isBacklogReviewRunning } from "./services/backlogReview.js";
 import { startBriefingTimer, stopBriefingTimer, triggerBriefing, getLastBriefing, getLastDeliveryResult, updateBriefingConfig } from "./services/morningBriefing.js";
@@ -158,18 +142,20 @@ import {
   getLastResolutionScanRun,
   foldBack,
 } from "./openloop/index.js";
-import { createRuntime, getRuntime, shutdownRuntime } from "./agents/runtime/index.js";
-import { AgentInstanceManager } from "./agents/instance-manager.js";
-import { AgentPool } from "./agents/runtime.js";
-import { WorkflowEngine } from "./agents/workflow.js";
+// Agent runtime, instance manager, pool, workflow — dynamically imported in start() (EXT-SPAWN)
+let _agentRuntime: typeof import("./agents/runtime/index.js") | null = null;
+let _agentInstanceManager: typeof import("./agents/instance-manager.js") | null = null;
+let _agentPoolMod: typeof import("./agents/runtime.js") | null = null;
+let _agentWorkflow: typeof import("./agents/workflow.js") | null = null;
 import { getBoardProvider, setBoardProvider, isBoardAvailable } from "./board/provider.js";
 import { QueueBoardProvider } from "./queue/provider.js";
 import { QUEUE_STATES } from "./queue/types.js";
 import type { BoardIssue } from "./board/types.js";
-import { Tracer } from "./tracing/tracer.js";
-import { initTracing, shutdownTracing } from "./tracing/init.js";
-import { tracingMiddleware } from "./tracing/middleware.js";
-import { attachOTelToBus } from "./tracing/bridge.js";
+// Tracing — dynamically imported in start() (EXT-HOSTED)
+let _tracingTracer: typeof import("./tracing/tracer.js") | null = null;
+let _tracingInit: typeof import("./tracing/init.js") | null = null;
+let _tracingMiddleware: typeof import("./tracing/middleware.js") | null = null;
+let _tracingBridge: typeof import("./tracing/bridge.js") | null = null;
 import {
   HealthChecker,
   memoryCheck,
@@ -187,10 +173,13 @@ import {
   AlertManager,
   defaultAlertConfig,
 } from "./health/index.js";
-import { NotificationDispatcher, EmailChannel, PhoneChannel } from "./notifications/index.js";
+// Notifications — dynamically imported in start() (EXT-BYOK)
+let _notifications: typeof import("./notifications/index.js") | null = null;
 import { skillRegistry as _skillRegistry, type SkillEntry } from "./skills/index.js";
 import { createModuleRegistry, getModuleRegistry } from "./modules/index.js";
-import { createCapabilityRegistry, getCapabilityRegistry, calendarCapability, emailCapability, docsCapability, boardCapability, browserCapability, closeBrowser, taskDoneCapability, calendarContextProvider, emailContextProvider, createWebSearchContextProvider, vaultContextProvider } from "./capabilities/index.js";
+import { createCapabilityRegistry, getCapabilityRegistry, calendarCapability, emailCapability, docsCapability, boardCapability, taskDoneCapability, calendarContextProvider, emailContextProvider, createWebSearchContextProvider, vaultContextProvider } from "./capabilities/index.js";
+// browserCapability, closeBrowser — dynamically imported in start() (EXT-HOSTED)
+let _browser: typeof import("./capabilities/definitions/browser.js") | null = null;
 import {
   MetricsStore,
   startCollector,
@@ -212,45 +201,25 @@ import { startSchedulingTimer, stopSchedulingTimer } from "./scheduling/timer.js
 import type { BlockType, BlockStatus } from "./scheduling/types.js";
 import { createContactStore, getContactStore } from "./contacts/store.js";
 import type { EntityType, EdgeType } from "./contacts/types.js";
-import { createCredentialStore, getCredentialStore, maskValue } from "./credentials/store.js";
 import type { CredentialType } from "./credentials/store.js";
-import { verifyWebhookSignature, githubProvider } from "./github/webhooks.js";
-import {
-  initGitHub,
-  shutdownGitHub,
-  getGitHubStatus,
-  isGitHubAvailable,
-  reviewPullRequest,
-  reviewAndCommentPR,
-  triageGitHubIssue,
-  triageAndLabelIssue,
-  batchTriageIssues,
-  analyzeGitHubCommit,
-  analyzeRecentGitHubCommits,
-  getGitHubRepoHealth,
-  processWebhook as processGitHubWebhook,
-  formatHealthReport,
-} from "./integrations/github.js";
-import {
-  isSlackConfigured,
-  isSlackAuthenticated,
-  getOAuthUrl as getSlackOAuthUrl,
-  exchangeOAuthCode as exchangeSlackCode,
-  getClient as getSlackClient,
-} from "./slack/client.js";
-import { slackEventsProvider, slackCommandsProvider, slackInteractionsProvider } from "./slack/webhooks.js";
-import { listChannels, getChannelInfo, joinChannel, postMessage as slackPostMessage, getChannelHistory } from "./slack/channels.js";
-// Slack types no longer needed — providers handle their own type mapping
-import { getClient as getWhatsAppClient, isWhatsAppConfigured } from "./channels/whatsapp.js";
-import { parseFormBody, processIncomingMessage, emptyTwimlResponse, replyTwiml, twilioProvider } from "./webhooks/twilio.js";
-import { resendProvider } from "./resend/webhooks.js";
 import type { TwilioWhatsAppPayload } from "./webhooks/twilio.js";
-import { handleWhatsAppMessage } from "./services/whatsapp.js";
+// Credentials, GitHub, Slack, WhatsApp, Webhooks — dynamically imported in start() (EXT-BYOK)
+let _credentialStore: typeof import("./credentials/store.js") | null = null;
+let _githubWebhooks: typeof import("./github/webhooks.js") | null = null;
+let _integrationsGithub: typeof import("./integrations/github.js") | null = null;
+let _slackClient: typeof import("./slack/client.js") | null = null;
+let _slackWebhooks: typeof import("./slack/webhooks.js") | null = null;
+let _slackChannels: typeof import("./slack/channels.js") | null = null;
+let _channelsWhatsapp: typeof import("./channels/whatsapp.js") | null = null;
+let _webhooksTwilio: typeof import("./webhooks/twilio.js") | null = null;
+let _resendWebhooks: typeof import("./resend/webhooks.js") | null = null;
+let _servicesWhatsapp: typeof import("./services/whatsapp.js") | null = null;
 import { initLLMCache, shutdownLLMCache, getCacheDiagnostics } from "./cache/llm-cache.js";
-import { mountWebhookAdmin, createWebhookRoute, verifyWebhookRequest } from "./webhooks/mount.js";
-import { setProviderConfigs } from "./webhooks/config.js";
-import { registerProviders } from "./webhooks/registry.js";
-import { verifyRelaySignature } from "./webhooks/relay.js";
+import { createWebhookRoute, verifyWebhookRequest } from "./webhooks/mount.js";
+let _webhooksMount: typeof import("./webhooks/mount.js") | null = null;
+let _webhooksConfig: typeof import("./webhooks/config.js") | null = null;
+let _webhooksRegistry: typeof import("./webhooks/registry.js") | null = null;
+let _webhooksRelay: typeof import("./webhooks/relay.js") | null = null;
 import { setEncryptionKey } from "./lib/key-store.js";
 import { FileManager } from "./files/manager.js";
 import { createLibraryStore } from "./library/store.js";
@@ -298,22 +267,19 @@ health.register("disk", diskCheck(BRAIN_DIR));
 health.register("disk_usage", diskUsageCheck(BRAIN_DIR));
 const recovery = new RecoveryManager(health);
 
-// --- Alerting ---
+// --- Alerting (initialized in start() after dynamic import) ---
 
-const alertDispatcher = new NotificationDispatcher();
-const alertManager = new AlertManager(health, defaultAlertConfig(), alertDispatcher);
+let alertDispatcher: any = null;
+let alertManager: any = null;
 
 // --- Metrics ---
 
 const metricsStore = new MetricsStore(BRAIN_DIR);
 registerDefaultThresholds();
 
-// --- Volume manager ---
+// --- Volume manager (initialized in start() after dynamic import) ---
 
-const volumeManager = new VolumeManager(BRAIN_DIR);
-volumeManager.init().catch((err) =>
-  log.warn("Volume manager init failed — single-volume mode", { error: String(err) })
-);
+let volumeManager: any = null;
 
 // --- Session state ---
 
@@ -412,24 +378,24 @@ export function getStartupToken(): string | null {
 
 /** Autonomous timer started flag. */
 let autonomousStarted = false;
-const tracer = new Tracer();
-let instanceManager: AgentInstanceManager | null = null;
-let agentPool: AgentPool | null = null;
-let workflowEngine: WorkflowEngine | null = null;
+let tracer: any = null;
+let instanceManager: any = null;
+let agentPool: any = null;
+let workflowEngine: any = null;
 let activeSensitiveRegistry: SensitiveRegistry | null = null;
 
 /** Get the current instance manager (or null if not initialized). */
-function getInstanceManager(): AgentInstanceManager | null {
+function getInstanceManager(): any {
   return instanceManager;
 }
 
 /** Get the current agent pool (or null if not initialized). */
-function getAgentPool(): AgentPool | null {
+function getAgentPool(): any {
   return agentPool;
 }
 
 /** Get the current workflow engine (or null if not initialized). */
-function getWorkflowEngine(): WorkflowEngine | null {
+function getWorkflowEngine(): any {
   return workflowEngine;
 }
 
@@ -537,20 +503,20 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
           : `You do NOT have web search capability. If ${name} asks you to search or asks about current events, be honest that you can't look things up right now.`,
         ``,
         // Google Workspace status (gated on auth, instructions come from registry)
-        ...(isGoogleAuthenticated()
+        ...((_googleAuth?.isGoogleAuthenticated() ?? false)
           ? [
               `You have Google Workspace integration. Your available actions are listed below.`,
               `If Google data appears in your context, use it. It is real, live data from ${name}'s account.`,
               `You do NOT need to build or implement Google integration — it is already working.`,
               ``,
             ]
-          : isGoogleConfigured()
+          : (_googleAuth?.isGoogleConfigured() ?? false)
             ? [`Google Workspace credentials are configured but not yet authorized. Tell ${name} to click "Connect Google" in settings to complete the setup.`, ``]
             : [`Google Workspace is not connected. ${name} can add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in vault settings to enable Calendar, Gmail, and Drive access.`, ``]),
         // Non-Google capability instructions (always injected)
         ...(getCapabilityRegistry()?.getPromptInstructions({ origin: "chat", name, exclude: ["calendar", "email", "docs"] }) ?? "").split("\n"),
         // Google capability instructions (only when authenticated)
-        ...(isGoogleAuthenticated()
+        ...((_googleAuth?.isGoogleAuthenticated() ?? false)
           ? (getCapabilityRegistry()?.getPromptInstructions({ origin: "chat", name, filter: ["calendar", "email", "docs"] }) ?? "").split("\n")
           : []),
         ``,
@@ -599,7 +565,7 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
         ] : []),  // end spawning gate
         // Inject instance-readable vault values (CORE_*/DASH_* prefixed only — never secrets)
         ...(() => {
-          const readable = getDashReadableVault();
+          const readable = (_vaultStore ? _vaultStore.getDashReadableVault() : []) as any[];
           if (readable.length === 0) return [];
           const lines = readable.map((r) => `- ${r.name}: ${r.value}`);
           return [
@@ -746,9 +712,14 @@ app.use("/api/*", async (c, next) => {
   return runWithAuditContext({ caller, channel: "http" }, () => next());
 });
 
-// --- Tracing middleware ---
+// --- Tracing middleware (lazy — only active when hosted tier loads tracing) ---
 
-app.use("/api/*", tracingMiddleware());
+app.use("/api/*", async (c, next) => {
+  if (_tracingMiddleware) {
+    return _tracingMiddleware.tracingMiddleware()(c, next);
+  }
+  return next();
+});
 
 // --- Metrics middleware ---
 
@@ -789,39 +760,43 @@ app.use("/api/*", postureHeader());
 
 const webhookInitStart = performance.now();
 
-// Phase 1: Batch-register all webhook providers (deferred from module imports to avoid
-// 5 individual logActivity calls during startup — now a single batch call).
-const registerStart = performance.now();
-registerProviders([githubProvider, slackEventsProvider, slackCommandsProvider, slackInteractionsProvider, twilioProvider, resendProvider]);
-const registerMs = performance.now() - registerStart;
+// Phase 1-3: Webhook provider registration is deferred to start() where modules are loaded.
+// initWebhookProviders() is called in start() after dynamic imports complete.
+function initWebhookProviders() {
+  if (!_webhooksRegistry || !_webhooksConfig || !_webhooksMount || !_githubWebhooks || !_slackWebhooks || !_webhooksTwilio || !_resendWebhooks) {
+    log.debug("Webhook init skipped — BYOK modules not loaded");
+    return;
+  }
+  const registerStart = performance.now();
+  _webhooksRegistry.registerProviders([_githubWebhooks.githubProvider, _slackWebhooks.slackEventsProvider, _slackWebhooks.slackCommandsProvider, _slackWebhooks.slackInteractionsProvider, _webhooksTwilio.twilioProvider, _resendWebhooks.resendProvider]);
+  const registerMs = performance.now() - registerStart;
 
-// Phase 2: Configure webhook providers (secrets resolved from env vars)
-const configStart = performance.now();
-setProviderConfigs([
-  { name: "slack-events", secret: "SLACK_SIGNING_SECRET", signatureHeader: "x-slack-signature", algorithm: "slack-v0", path: "/api/slack/events" },
-  { name: "slack-commands", secret: "SLACK_SIGNING_SECRET", signatureHeader: "x-slack-signature", algorithm: "slack-v0", path: "/api/slack/commands" },
-  { name: "slack-interactions", secret: "SLACK_SIGNING_SECRET", signatureHeader: "x-slack-signature", algorithm: "slack-v0", path: "/api/slack/interactions" },
-  { name: "twilio", secret: "TWILIO_AUTH_TOKEN", signatureHeader: "x-twilio-signature", algorithm: "twilio", path: "/api/twilio/whatsapp" },
-  { name: "github", secret: "GITHUB_WEBHOOK_SECRET", signatureHeader: "x-hub-signature-256", algorithm: "hmac-sha256-hex", path: "/api/github/webhooks" },
-  { name: "resend", secret: "RESEND_WEBHOOK_SECRET", signatureHeader: "svix-signature", algorithm: "custom" as const, path: "/api/resend/webhooks" },
-]);
-const configMs = performance.now() - configStart;
+  const configStart = performance.now();
+  _webhooksConfig.setProviderConfigs([
+    { name: "slack-events", secret: "SLACK_SIGNING_SECRET", signatureHeader: "x-slack-signature", algorithm: "slack-v0", path: "/api/slack/events" },
+    { name: "slack-commands", secret: "SLACK_SIGNING_SECRET", signatureHeader: "x-slack-signature", algorithm: "slack-v0", path: "/api/slack/commands" },
+    { name: "slack-interactions", secret: "SLACK_SIGNING_SECRET", signatureHeader: "x-slack-signature", algorithm: "slack-v0", path: "/api/slack/interactions" },
+    { name: "twilio", secret: "TWILIO_AUTH_TOKEN", signatureHeader: "x-twilio-signature", algorithm: "twilio", path: "/api/twilio/whatsapp" },
+    { name: "github", secret: "GITHUB_WEBHOOK_SECRET", signatureHeader: "x-hub-signature-256", algorithm: "hmac-sha256-hex", path: "/api/github/webhooks" },
+    { name: "resend", secret: "RESEND_WEBHOOK_SECRET", signatureHeader: "svix-signature", algorithm: "custom" as const, path: "/api/resend/webhooks" },
+  ]);
+  const configMs = performance.now() - configStart;
 
-// Phase 3: Mount admin routes
-const mountStart = performance.now();
-mountWebhookAdmin(app);
-const mountMs = performance.now() - mountStart;
+  const mountStart = performance.now();
+  _webhooksMount.mountWebhookAdmin(app);
+  const mountMs = performance.now() - mountStart;
 
-const webhookInitMs = performance.now() - webhookInitStart;
-log.debug(
-  `Webhook init complete: ${webhookInitMs.toFixed(1)}ms — register:${registerMs.toFixed(1)}ms, config:${configMs.toFixed(1)}ms, mount:${mountMs.toFixed(1)}ms`,
-  { durationMs: Math.round(webhookInitMs), registerMs: Math.round(registerMs), configMs: Math.round(configMs), mountMs: Math.round(mountMs) },
-);
-if (webhookInitMs > 100) {
-  logActivity({
-    source: "system",
-    summary: `[perf] Webhook init slow: ${webhookInitMs.toFixed(1)}ms — register:${registerMs.toFixed(1)}ms, config:${configMs.toFixed(1)}ms, mount:${mountMs.toFixed(1)}ms`,
-  });
+  const webhookInitMs = performance.now() - webhookInitStart;
+  log.debug(
+    `Webhook init complete: ${webhookInitMs.toFixed(1)}ms — register:${registerMs.toFixed(1)}ms, config:${configMs.toFixed(1)}ms, mount:${mountMs.toFixed(1)}ms`,
+    { durationMs: Math.round(webhookInitMs), registerMs: Math.round(registerMs), configMs: Math.round(configMs), mountMs: Math.round(mountMs) },
+  );
+  if (webhookInitMs > 100) {
+    logActivity({
+      source: "system",
+      summary: `[perf] Webhook init slow: ${webhookInitMs.toFixed(1)}ms — register:${registerMs.toFixed(1)}ms, config:${configMs.toFixed(1)}ms, mount:${mountMs.toFixed(1)}ms`,
+    });
+  }
 }
 
 // --- API routes ---
@@ -849,9 +824,9 @@ app.get("/api/status", async (c) => {
     privateMode: settings.privateMode,
     authMode: settings.safeWordMode,
     search: isSearchAvailable(),
-    tts: isTtsAvailable(),
-    stt: isSttAvailable(),
-    avatar: isAvatarAvailable(),
+    tts: (_ttsClient?.isTtsAvailable() ?? false),
+    stt: (_sttClient?.isSttAvailable() ?? false),
+    avatar: (_avatarSidecar?.isAvatarAvailable() ?? false),
     agentName: getInstanceName(),
   });
 });
@@ -890,7 +865,7 @@ app.post("/api/pair", async (c) => {
   sessionKeys.set(result.session.id, result.sessionKey);
   setEncryptionKey(result.sessionKey);
   cacheSessionKey(result.sessionKey);
-  await loadVault(result.sessionKey);
+  if (_vaultStore) await _vaultStore.loadVault(result.sessionKey);
 
   // Save agent name to settings + update in-memory name
   if (agentName) {
@@ -927,7 +902,7 @@ app.post("/api/auth", async (c) => {
   sessionKeys.set(result.session.id, result.sessionKey);
   setEncryptionKey(result.sessionKey);
   cacheSessionKey(result.sessionKey);
-  await loadVault(result.sessionKey);
+  if (_vaultStore) await _vaultStore.loadVault(result.sessionKey);
   return c.json({ sessionId: result.session.id, name: result.name });
 });
 
@@ -993,7 +968,7 @@ app.post("/api/recover", async (c) => {
   sessionKeys.set(result.session.id, result.sessionKey);
   setEncryptionKey(result.sessionKey);
   cacheSessionKey(result.sessionKey);
-  await loadVault(result.sessionKey);
+  if (_vaultStore) await _vaultStore.loadVault(result.sessionKey);
   return c.json({ sessionId: result.session.id, name: result.name });
 });
 
@@ -1438,7 +1413,7 @@ app.get("/api/vault", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  return c.json({ keys: listVaultKeys() });
+  return c.json({ keys: (_vaultStore ? _vaultStore.listVaultKeys() : []) });
 });
 
 // Add or update a vault key
@@ -1456,7 +1431,7 @@ app.put("/api/vault/:name", async (c) => {
   const { value, label } = body;
   if (!value) return c.json({ error: "value required" }, 400);
 
-  await setVaultKey(name, value, key, label);
+  await _vaultStore!.setVaultKey(name, value, key, label);
   return c.json({ ok: true });
 });
 
@@ -1471,7 +1446,7 @@ app.delete("/api/vault/:name", async (c) => {
   if (!key) return c.json({ error: "Session key not found" }, 401);
 
   const name = c.req.param("name");
-  await deleteVaultKey(name, key);
+  await _vaultStore!.deleteVaultKey(name, key);
   return c.json({ ok: true });
 });
 
@@ -1488,7 +1463,7 @@ app.post("/api/vault/export", async (c) => {
   }
 
   try {
-    const result = await exportVault(body.passphrase);
+    const result = await _vaultTransfer!.exportVault(body.passphrase);
     return c.json({ ok: true, filePath: result.filePath, stats: result.stats });
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
@@ -1512,7 +1487,7 @@ app.post("/api/vault/import", async (c) => {
 
   const strategy = (body.strategy as "overwrite" | "skip" | "rename") ?? "skip";
   try {
-    const result = await importVault(body.filePath, body.passphrase, strategy, key);
+    const result = await _vaultTransfer!.importVault(body.filePath, body.passphrase, strategy, key);
     return c.json({ ok: true, stats: result.stats });
   } catch (e: any) {
     return c.json({ error: e.message }, 400);
@@ -1532,7 +1507,7 @@ app.post("/api/vault/verify-export", async (c) => {
   }
 
   try {
-    const result = await verifyExport(body.filePath, body.passphrase);
+    const result = await _vaultTransfer!.verifyExport(body.filePath, body.passphrase);
     return c.json({ ok: true, message: result.message, stats: result.stats });
   } catch (e: any) {
     return c.json({ error: e.message }, 400);
@@ -1545,7 +1520,7 @@ app.post("/api/vault/verify-export", async (c) => {
 // No session required: this just redirects to Google, no sensitive data returned
 app.get("/api/google/auth", async (c) => {
   const redirectUri = `http://localhost:${PORT}/api/google/callback`;
-  const result = getAuthUrl(redirectUri);
+  const result = _googleAuth!.getAuthUrl(redirectUri);
   if (!result.ok) {
     return c.html(`<html><body><h2>Google OAuth not configured</h2><p>${result.message}</p></body></html>`);
   }
@@ -1567,7 +1542,7 @@ app.get("/api/google/callback", async (c) => {
   }
 
   const redirectUri = `http://localhost:${PORT}/api/google/callback`;
-  const result = await exchangeCode(code, redirectUri);
+  const result = await _googleAuth!.exchangeCode(code, redirectUri);
   if (!result.ok) {
     return c.html(`<html><body><h2>Token exchange failed</h2><p>${result.message}</p></body></html>`);
   }
@@ -1585,7 +1560,7 @@ app.get("/api/google/callback", async (c) => {
       vaultKey = restored.sessionKey;
       sessionKeys.set(restored.session.id, restored.sessionKey);
       setEncryptionKey(restored.sessionKey);
-      await loadVault(restored.sessionKey);
+      if (_vaultStore) await _vaultStore.loadVault(restored.sessionKey);
     }
   }
 
@@ -1593,13 +1568,13 @@ app.get("/api/google/callback", async (c) => {
     return c.html(`<html><body><h2>Session not found</h2><p>Could not find a session key to store credentials. Please log in first, then try connecting Google again.</p></body></html>`);
   }
 
-  await setVaultKey("GOOGLE_REFRESH_TOKEN", result.refreshToken, vaultKey, "Google OAuth refresh token");
+  await _vaultStore!.setVaultKey("GOOGLE_REFRESH_TOKEN", result.refreshToken, vaultKey, "Google OAuth refresh token");
   logActivity({ source: "google", summary: "Google OAuth connected — refresh token stored in vault", actionLabel: "PROMPTED", reason: "user connected Google OAuth" });
 
   // Start Google polling timers now that Google is connected
-  startCalendarTimer();
-  startGmailTimer();
-  startTasksTimer();
+  _googleCalendarTimer?.startCalendarTimer();
+  _googleGmailTimer?.startGmailTimer();
+  _googleTasksTimer?.startTasksTimer();
 
   return c.html(`<html><body><h2>Google connected!</h2><p>${getInstanceName()} now has access to Calendar, Gmail, and Drive.</p><p>This tab will close automatically.</p><script>if(window.opener){window.opener.postMessage("google-connected","*")}setTimeout(()=>window.close(),1500)</script></body></html>`);
 });
@@ -1607,9 +1582,9 @@ app.get("/api/google/callback", async (c) => {
 // Check Google auth state (public — only returns booleans, no sensitive data)
 app.get("/api/google/status", async (c) => {
   return c.json({
-    configured: isGoogleConfigured(),
-    authenticated: isGoogleAuthenticated(),
-    scopes: isGoogleAuthenticated() ? ["gmail.modify", "calendar.events", "drive.file", "tasks"] : [],
+    configured: (_googleAuth?.isGoogleConfigured() ?? false),
+    authenticated: (_googleAuth?.isGoogleAuthenticated() ?? false),
+    scopes: (_googleAuth?.isGoogleAuthenticated() ?? false) ? ["gmail.modify", "calendar.events", "drive.file", "tasks"] : [],
   });
 });
 
@@ -1620,7 +1595,7 @@ app.post("/api/google/send-email", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  if (!isGoogleAuthenticated()) {
+  if (!(_googleAuth?.isGoogleAuthenticated() ?? false)) {
     return c.json({ error: "Google not authenticated" }, 400);
   }
 
@@ -1640,7 +1615,7 @@ app.post("/api/google/send-email", async (c) => {
     return c.json({ error: "to, subject, and body are required" }, 400);
   }
 
-  const result = await sendEmail(body);
+  const result = await _googleGmailSend!.sendEmail(body);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "gmail", summary: `Email sent to ${Array.isArray(body.to) ? body.to.join(", ") : body.to}: "${body.subject}"`, actionLabel: "PROMPTED", reason: "user sent email" });
@@ -1655,10 +1630,10 @@ app.get("/api/google/gmail/inbox-summary", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isGmailAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const hours = parseInt(c.req.query("hours") ?? "24", 10);
-  const result = await getInboxSummary(hours);
+  const result = await _googleGmail!.getInboxSummary(hours);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -1669,10 +1644,10 @@ app.get("/api/google/gmail/categorize", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isGmailAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const hours = parseInt(c.req.query("hours") ?? "24", 10);
-  const result = await categorizeMessages(hours);
+  const result = await _googleGmail!.categorizeMessages(hours);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -1683,10 +1658,10 @@ app.get("/api/google/gmail/prioritize", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isGmailAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const hours = parseInt(c.req.query("hours") ?? "24", 10);
-  const result = await prioritizeInbox(hours);
+  const result = await _googleGmail!.prioritizeInbox(hours);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -1697,18 +1672,18 @@ app.post("/api/google/gmail/mark-read", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isGmailAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const body = await c.req.json<{ messageId?: string; messageIds?: string[] }>();
 
   if (body.messageIds && body.messageIds.length > 0) {
-    const result = await batchMarkAsRead(body.messageIds);
+    const result = await _googleGmail!.batchMarkAsRead(body.messageIds);
     if (!result.ok) return c.json({ error: result.message }, 500);
     return c.json(result);
   }
 
   if (!body.messageId) return c.json({ error: "messageId or messageIds required" }, 400);
-  const result = await markAsRead(body.messageId);
+  const result = await _googleGmail!.markAsRead(body.messageId);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -1719,18 +1694,18 @@ app.post("/api/google/gmail/mark-unread", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isGmailAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleGmail?.isGmailAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const body = await c.req.json<{ messageId?: string; messageIds?: string[] }>();
 
   if (body.messageIds && body.messageIds.length > 0) {
-    const result = await batchMarkAsUnread(body.messageIds);
+    const result = await _googleGmail!.batchMarkAsUnread(body.messageIds);
     if (!result.ok) return c.json({ error: result.message }, 500);
     return c.json(result);
   }
 
   if (!body.messageId) return c.json({ error: "messageId or messageIds required" }, 400);
-  const result = await markAsUnread(body.messageId);
+  const result = await _googleGmail!.markAsUnread(body.messageId);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -1739,38 +1714,38 @@ app.post("/api/google/gmail/mark-unread", async (c) => {
 
 // Get today's schedule
 app.get("/api/google/calendar/today", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
-  const result = await getTodaySchedule();
+  const result = await _googleCalendar!.getTodaySchedule();
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
 
 // Get upcoming events
 app.get("/api/google/calendar/upcoming", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const hours = parseInt(c.req.query("hours") ?? "4", 10);
-  const result = await getUpcomingEvents(hours);
+  const result = await _googleCalendar!.getUpcomingEvents(hours);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
 
 // Get free/busy
 app.post("/api/google/calendar/freebusy", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const body = await c.req.json<{ start: string; end: string }>();
   if (!body.start || !body.end) return c.json({ error: "start and end are required" }, 400);
 
-  const result = await getFreeBusy(body.start, body.end);
+  const result = await _googleCalendar!.getFreeBusy(body.start, body.end);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
 
 // Create calendar event
 app.post("/api/google/calendar/events", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const body = await c.req.json<{
     title: string;
@@ -1788,16 +1763,16 @@ app.post("/api/google/calendar/events", async (c) => {
   }
 
   // Temporal validation: catch day-of-week mismatches before creating events (ts_temporal_mismatch_01)
-  const temporalCheck = validateCalendarEntry(body.start, body.expectedDayOfWeek);
+  const temporalCheck = _googleTemporal!.validateCalendarEntry(body.start, body.expectedDayOfWeek);
   if (!temporalCheck.ok) {
     return c.json({
       error: temporalCheck.message,
       suggestion: temporalCheck.suggestion,
-      actualDayOfWeek: getDayOfWeek(body.start),
+      actualDayOfWeek: _googleTemporal!.getDayOfWeek(body.start),
     }, 400);
   }
 
-  const result = await createEvent(body.title, body.start, body.end, {
+  const result = await _googleCalendar!.createEvent(body.title, body.start, body.end, {
     description: body.description,
     location: body.location,
     attendees: body.attendees,
@@ -1807,14 +1782,14 @@ app.post("/api/google/calendar/events", async (c) => {
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "calendar", summary: `Event created: ${body.title}`, actionLabel: "PROMPTED", reason: "user created calendar event" });
-  return c.json({ ...result, actualDayOfWeek: getDayOfWeek(body.start) });
+  return c.json({ ...result, actualDayOfWeek: _googleTemporal!.getDayOfWeek(body.start) });
 });
 
 // List events with flexible filtering
 app.get("/api/google/calendar/events", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
-  const result = await listEvents({
+  const result = await _googleCalendar!.listEvents({
     timeMin: c.req.query("timeMin"),
     timeMax: c.req.query("timeMax"),
     query: c.req.query("q"),
@@ -1827,7 +1802,7 @@ app.get("/api/google/calendar/events", async (c) => {
 
 // Update calendar event
 app.patch("/api/google/calendar/events/:eventId", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const eventId = c.req.param("eventId");
   const body = await c.req.json<{
@@ -1844,31 +1819,31 @@ app.patch("/api/google/calendar/events/:eventId", async (c) => {
 
   // Temporal validation on updated start date (ts_temporal_mismatch_01)
   if (body.start) {
-    const temporalCheck = validateCalendarEntry(body.start, body.expectedDayOfWeek);
+    const temporalCheck = _googleTemporal!.validateCalendarEntry(body.start, body.expectedDayOfWeek);
     if (!temporalCheck.ok) {
       return c.json({
         error: temporalCheck.message,
         suggestion: temporalCheck.suggestion,
-        actualDayOfWeek: getDayOfWeek(body.start),
+        actualDayOfWeek: _googleTemporal!.getDayOfWeek(body.start),
       }, 400);
     }
   }
 
-  const result = await updateEvent(eventId, body);
+  const result = await _googleCalendar!.updateEvent(eventId, body);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "calendar", summary: `Event updated: ${eventId}`, actionLabel: "PROMPTED", reason: "user updated calendar event" });
-  return c.json(body.start ? { ...result, actualDayOfWeek: getDayOfWeek(body.start) } : result);
+  return c.json(body.start ? { ...result, actualDayOfWeek: _googleTemporal!.getDayOfWeek(body.start) } : result);
 });
 
 // Delete calendar event
 app.delete("/api/google/calendar/events/:eventId", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const eventId = c.req.param("eventId");
   const sendUpdates = c.req.query("sendUpdates") as "all" | "externalOnly" | "none" | undefined;
 
-  const result = await deleteEvent(eventId, { sendUpdates });
+  const result = await _googleCalendar!.deleteEvent(eventId, { sendUpdates });
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "calendar", summary: `Event deleted: ${eventId}`, actionLabel: "PROMPTED", reason: "user deleted calendar event" });
@@ -1877,12 +1852,12 @@ app.delete("/api/google/calendar/events/:eventId", async (c) => {
 
 // Search calendar events by text
 app.get("/api/google/calendar/search", async (c) => {
-  if (!isCalendarAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleCalendar?.isCalendarAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const query = c.req.query("q");
   if (!query) return c.json({ error: "q (search query) is required" }, 400);
 
-  const result = await searchEvents(query, {
+  const result = await _googleCalendar!.searchEvents(query, {
     timeMin: c.req.query("timeMin"),
     timeMax: c.req.query("timeMax"),
     maxResults: c.req.query("maxResults") ? parseInt(c.req.query("maxResults")!, 10) : undefined,
@@ -1899,9 +1874,9 @@ app.get("/api/google/tasks/lists", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
-  const result = await listTaskLists();
+  const result = await _googleTasks!.listTaskLists();
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -1912,12 +1887,12 @@ app.post("/api/google/tasks/lists", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const body = await c.req.json<{ title: string }>();
   if (!body.title) return c.json({ error: "title is required" }, 400);
 
-  const result = await createTaskList(body.title);
+  const result = await _googleTasks!.createTaskList(body.title);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "tasks", summary: `Task list created: ${body.title}`, actionLabel: "PROMPTED", reason: "user created task list" });
@@ -1930,13 +1905,13 @@ app.patch("/api/google/tasks/lists/:listId", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const body = await c.req.json<{ title: string }>();
   if (!body.title) return c.json({ error: "title is required" }, 400);
 
-  const result = await updateTaskList(listId, body.title);
+  const result = await _googleTasks!.updateTaskList(listId, body.title);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -1947,10 +1922,10 @@ app.delete("/api/google/tasks/lists/:listId", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
-  const result = await deleteTaskList(listId);
+  const result = await _googleTasks!.deleteTaskList(listId);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "tasks", summary: `Task list deleted: ${listId}`, actionLabel: "PROMPTED", reason: "user deleted task list" });
@@ -1963,7 +1938,7 @@ app.post("/api/google/tasks/recurring", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const body = await c.req.json<{
     title: string;
@@ -1996,7 +1971,7 @@ app.post("/api/google/tasks/recurring", async (c) => {
     }
   }
 
-  const result = await createRecurringWeeklyTasks(body);
+  const result = await _googleTasks!.createRecurringWeeklyTasks(body);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "tasks", summary: result.message, actionLabel: "PROMPTED", reason: "user created recurring tasks" });
@@ -2009,14 +1984,14 @@ app.get("/api/google/tasks/:listId", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const showCompleted = c.req.query("showCompleted") === "true";
   const dueMin = c.req.query("dueMin");
   const dueMax = c.req.query("dueMax");
 
-  const result = await listTasks(listId, {
+  const result = await _googleTasks!.listTasks(listId, {
     showCompleted,
     dueMin: dueMin || undefined,
     dueMax: dueMax || undefined,
@@ -2031,11 +2006,11 @@ app.get("/api/google/tasks/:listId/:taskId", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
-  const result = await getGoogleTask(listId, taskId);
+  const result = await _googleTasks!.getTask(listId, taskId);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -2046,7 +2021,7 @@ app.post("/api/google/tasks/:listId", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const body = await c.req.json<{
@@ -2057,7 +2032,7 @@ app.post("/api/google/tasks/:listId", async (c) => {
   }>();
   if (!body.title) return c.json({ error: "title is required" }, 400);
 
-  const result = await createTask(listId, body);
+  const result = await _googleTasks!.createTask(listId, body);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "tasks", summary: `Task created: ${body.title}`, actionLabel: "PROMPTED", reason: "user created task" });
@@ -2070,7 +2045,7 @@ app.patch("/api/google/tasks/:listId/:taskId", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
@@ -2081,7 +2056,7 @@ app.patch("/api/google/tasks/:listId/:taskId", async (c) => {
     status?: "needsAction" | "completed";
   }>();
 
-  const result = await updateTask(listId, taskId, body);
+  const result = await _googleTasks!.updateTask(listId, taskId, body);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "tasks", summary: `Task updated: ${taskId}`, actionLabel: "PROMPTED", reason: "user updated task" });
@@ -2094,11 +2069,11 @@ app.post("/api/google/tasks/:listId/:taskId/complete", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
-  const result = await completeTask(listId, taskId);
+  const result = await _googleTasks!.completeTask(listId, taskId);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "tasks", summary: `Task completed: ${taskId}`, actionLabel: "PROMPTED", reason: "user completed task" });
@@ -2111,11 +2086,11 @@ app.post("/api/google/tasks/:listId/:taskId/uncomplete", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
-  const result = await uncompleteTask(listId, taskId);
+  const result = await _googleTasks!.uncompleteTask(listId, taskId);
   if (!result.ok) return c.json({ error: result.message }, 500);
   return c.json(result);
 });
@@ -2126,11 +2101,11 @@ app.delete("/api/google/tasks/:listId/:taskId", async (c) => {
   if (!sessionId) return c.json({ error: "sessionId required" }, 400);
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
-  if (!isTasksAvailable()) return c.json({ error: "Google not authenticated" }, 400);
+  if (!(_googleTasks?.isTasksAvailable() ?? false)) return c.json({ error: "Google not authenticated" }, 400);
 
   const listId = c.req.param("listId");
   const taskId = c.req.param("taskId");
-  const result = await deleteTask(listId, taskId);
+  const result = await _googleTasks!.deleteTask(listId, taskId);
   if (!result.ok) return c.json({ error: result.message }, 500);
 
   logActivity({ source: "tasks", summary: `Task deleted: ${taskId}`, actionLabel: "PROMPTED", reason: "user deleted task" });
@@ -2282,7 +2257,7 @@ app.put("/api/settings", async (c) => {
 app.get("/api/admin/integrations", async (c) => {
   const settings = getSettings();
   const integrations = settings.integrations ?? { enabled: true };
-  const status = getIntegrationStatus();
+  const status = (_integrationsGate ? _integrationsGate.getIntegrationStatus() : []);
   return c.json({
     enabled: integrations.enabled ?? true,
     services: status,
@@ -2303,17 +2278,17 @@ app.post("/api/admin/integrations", async (c) => {
   const updated = await updateSettings(patch as any);
 
   // Re-hydrate env with new gates — clear integration vars first, then re-hydrate
-  const status = getIntegrationStatus();
-  rehydrateVaultEnv();
-  const credStore = getCredentialStore();
+  const status = (_integrationsGate ? _integrationsGate.getIntegrationStatus() : []) as any[];
+  _vaultStore?.hydrateEnv();
+  const credStore = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (credStore) await credStore.hydrate();
 
   return c.json({
     enabled: updated.integrations?.enabled ?? true,
-    services: status.map((s) => ({
+    services: status.map((s: any) => ({
       ...s,
       // Re-check after settings update
-      enabled: isIntegrationEnabled(s.service),
+      enabled: (_integrationsGate?.isIntegrationEnabled(s.service) ?? false),
     })),
   });
 });
@@ -2322,16 +2297,16 @@ app.post("/api/admin/integrations", async (c) => {
 
 // Voice status: which voice features are available?
 app.get("/api/voice-status", async (c) => {
-  return c.json({ tts: isTtsAvailable(), stt: isSttAvailable() });
+  return c.json({ tts: (_ttsClient?.isTtsAvailable() ?? false), stt: (_sttClient?.isSttAvailable() ?? false) });
 });
 
 // TTS: synthesize text to WAV audio via Piper
 app.get("/api/tts", async (c) => {
   const text = c.req.query("text");
   if (!text) return c.json({ error: "text query param required" }, 400);
-  if (!isTtsAvailable()) return c.json({ error: "TTS not available" }, 503);
+  if (!(_ttsClient?.isTtsAvailable() ?? false)) return c.json({ error: "TTS not available" }, 503);
 
-  const wav = await synthesize(text);
+  const wav = await _ttsClient!.synthesize(text);
   if (!wav) return c.json({ error: "Synthesis failed" }, 502);
 
   return new Response(wav, {
@@ -2344,12 +2319,12 @@ app.get("/api/tts", async (c) => {
 
 // STT: transcribe audio via whisper-server
 app.post("/api/stt", async (c) => {
-  if (!isSttAvailable()) return c.json({ error: "STT not available" }, 503);
+  if (!(_sttClient?.isSttAvailable() ?? false)) return c.json({ error: "STT not available" }, 503);
 
   const body = await c.req.arrayBuffer();
   if (!body || body.byteLength === 0) return c.json({ error: "Audio body required" }, 400);
 
-  const text = await transcribe(Buffer.from(body));
+  const text = await _sttClient!.transcribe(Buffer.from(body));
   if (!text) return c.json({ error: "Transcription failed" }, 502);
 
   return c.json({ text });
@@ -2368,7 +2343,7 @@ function pushPendingVideo(filename: string): void {
 
 // Avatar status: is MuseTalk sidecar running?
 app.get("/api/avatar/status", async (c) => {
-  return c.json({ available: isAvatarAvailable() });
+  return c.json({ available: (_avatarSidecar?.isAvatarAvailable() ?? false) });
 });
 
 // Poll for new avatar videos since a given timestamp
@@ -2412,19 +2387,19 @@ app.post("/api/avatar/photo", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  if (!isAvatarAvailable()) return c.json({ error: "Avatar not available" }, 503);
+  if (!(_avatarSidecar?.isAvatarAvailable() ?? false)) return c.json({ error: "Avatar not available" }, 503);
 
   const body = await c.req.arrayBuffer();
   if (!body || body.byteLength === 0) return c.json({ error: "Photo body required" }, 400);
 
-  const avatarConfig = getAvatarConfig();
+  const avatarConfig = _settingsVoice ? _settingsVoice.getAvatarConfig() : { photoPath: "public/avatar/photo.png", port: 0, enabled: false };
   const photoPath = join(process.cwd(), avatarConfig.photoPath);
   await mkdir(join(UI_DIR,"avatar"), { recursive: true });
   await writeFile(photoPath, Buffer.from(body));
 
-  const ok = await preparePhoto(photoPath);
+  const ok = await _avatarClient!.preparePhoto(photoPath);
   if (ok) {
-    await clearVideoCache();
+    await _avatarClient!.clearVideoCache();
     latestAvatarVideo = null;
   }
 
@@ -2849,7 +2824,7 @@ app.post("/api/agents/tasks/:id/cancel", async (c) => {
 // --- File lock routes ---
 
 app.get("/api/agents/locks", async (c) => {
-  const locks = await listLocks();
+  const locks = await _agentLocks!.listLocks();
   return c.json({ locks });
 });
 
@@ -2859,7 +2834,7 @@ app.post("/api/agents/locks/acquire", async (c) => {
   if (!agentId || !filePaths || !Array.isArray(filePaths)) {
     return c.json({ error: "agentId and filePaths[] required" }, 400);
   }
-  const result = await acquireLocks(agentId, agentLabel || agentId, filePaths, timeoutMs);
+  const result = await _agentLocks!.acquireLocks(agentId, agentLabel || agentId, filePaths, timeoutMs);
   return c.json(result, result.acquired ? 200 : 409);
 });
 
@@ -2869,10 +2844,10 @@ app.post("/api/agents/locks/release", async (c) => {
   if (!agentId) return c.json({ error: "agentId required" }, 400);
 
   if (filePath) {
-    const ok = await releaseFileLock(agentId, filePath);
+    const ok = await _agentLocks!.releaseFileLock(agentId, filePath);
     return c.json({ released: ok ? 1 : 0 });
   }
-  const count = await releaseLocks(agentId);
+  const count = await _agentLocks!.releaseLocks(agentId);
   return c.json({ released: count });
 });
 
@@ -2880,7 +2855,7 @@ app.post("/api/agents/locks/force-release", async (c) => {
   const body = await c.req.json();
   const { filePath } = body;
   if (!filePath) return c.json({ error: "filePath required" }, 400);
-  const ok = await forceReleaseLock(filePath);
+  const ok = await _agentLocks!.forceReleaseLock(filePath);
   return c.json({ released: ok });
 });
 
@@ -2890,12 +2865,12 @@ app.post("/api/agents/locks/check", async (c) => {
   if (!filePaths || !Array.isArray(filePaths)) {
     return c.json({ error: "filePaths[] required" }, 400);
   }
-  const conflicts = await checkLocks(filePaths);
+  const conflicts = await _agentLocks!.checkLocks(filePaths);
   return c.json({ locked: conflicts.length > 0, conflicts });
 });
 
 app.post("/api/agents/locks/prune", async (_c) => {
-  const pruned = await pruneAllStaleLocks();
+  const pruned = await _agentLocks!.pruneAllStaleLocks();
   return _c.json({ pruned });
 });
 
@@ -2910,7 +2885,7 @@ app.get("/api/agents/issues", async (c) => {
 // --- Agent runtime routes ---
 
 app.get("/api/runtime/status", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ available: false });
   return c.json({
     available: true,
@@ -2920,14 +2895,14 @@ app.get("/api/runtime/status", async (c) => {
 });
 
 app.get("/api/runtime/instances", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ instances: [] });
   const states = c.req.query("states")?.split(",");
   return c.json({ instances: rt.listInstances(states ? { states } : undefined) });
 });
 
 app.get("/api/runtime/instances/:id", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   const inst = rt.getInstance(c.req.param("id"));
   if (!inst) return c.json({ error: "Not found" }, 404);
@@ -2935,7 +2910,7 @@ app.get("/api/runtime/instances/:id", async (c) => {
 });
 
 app.post("/api/runtime/spawn", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   const body = await c.req.json();
   const { taskId, label, prompt, cwd, origin, parentId, tags, config, resources } = body;
@@ -2982,7 +2957,7 @@ app.post("/api/runtime/spawn", async (c) => {
 });
 
 app.post("/api/runtime/instances/:id/pause", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   try {
     const inst = await rt.pause(c.req.param("id"), c.req.query("reason"));
@@ -2993,7 +2968,7 @@ app.post("/api/runtime/instances/:id/pause", async (c) => {
 });
 
 app.post("/api/runtime/instances/:id/resume", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   try {
     const inst = await rt.resume(c.req.param("id"));
@@ -3004,7 +2979,7 @@ app.post("/api/runtime/instances/:id/resume", async (c) => {
 });
 
 app.post("/api/runtime/instances/:id/terminate", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   try {
     const inst = await rt.terminate(c.req.param("id"), c.req.query("reason") ?? undefined);
@@ -3015,7 +2990,7 @@ app.post("/api/runtime/instances/:id/terminate", async (c) => {
 });
 
 app.post("/api/runtime/instances/:id/message", async (c) => {
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (!rt) return c.json({ error: "Runtime not initialized" }, 503);
   const body = await c.req.json();
   const { to, type, payload } = body;
@@ -3168,7 +3143,7 @@ app.post("/api/github/webhooks", async (c) => {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
 
   if (secret && signature) {
-    if (!verifyWebhookSignature(rawBody, signature, secret)) {
+    if (!_githubWebhooks!.verifyWebhookSignature(rawBody, signature, secret)) {
       return c.json({ error: "Invalid signature" }, 401);
     }
   }
@@ -3176,13 +3151,13 @@ app.post("/api/github/webhooks", async (c) => {
   let payload: unknown;
   try { payload = JSON.parse(rawBody); } catch { return c.json({ error: "Invalid JSON" }, 400); }
 
-  const result = await processGitHubWebhook(eventType, payload);
+  const result = await _integrationsGithub!.processWebhook(eventType, payload);
   return c.json(result);
 });
 
 // GitHub status
 app.get("/api/github/status", async (c) => {
-  const status = await getGitHubStatus();
+  const status = await _integrationsGithub!.getGitHubStatus();
   return c.json(status);
 });
 
@@ -3198,8 +3173,8 @@ app.post("/api/github/pr/review", async (c) => {
   if (!prNumber) return c.json({ error: "prNumber required" }, 400);
 
   const result = postComment
-    ? await reviewAndCommentPR(prNumber, repo)
-    : await reviewPullRequest(prNumber, repo);
+    ? await _integrationsGithub!.reviewAndCommentPR(prNumber, repo)
+    : await _integrationsGithub!.reviewPullRequest(prNumber, repo);
   if (!result) return c.json({ error: "Failed to review PR" }, 502);
   return c.json(result);
 });
@@ -3216,8 +3191,8 @@ app.post("/api/github/issues/triage", async (c) => {
   if (!issueNumber) return c.json({ error: "issueNumber required" }, 400);
 
   const result = apply
-    ? await triageAndLabelIssue(issueNumber, repo)
-    : await triageGitHubIssue(issueNumber, repo);
+    ? await _integrationsGithub!.triageAndLabelIssue(issueNumber, repo)
+    : await _integrationsGithub!.triageGitHubIssue(issueNumber, repo);
   if (!result) return c.json({ error: "Failed to triage issue" }, 502);
   return c.json(result);
 });
@@ -3231,7 +3206,7 @@ app.post("/api/github/issues/triage/batch", async (c) => {
 
   const body = await c.req.json();
   const { repo, apply } = body;
-  const results = await batchTriageIssues(repo, { apply });
+  const results = await _integrationsGithub!.batchTriageIssues(repo, { apply });
   return c.json({ count: results.length, results });
 });
 
@@ -3246,28 +3221,28 @@ app.post("/api/github/commits/analyze", async (c) => {
   const { sha, repo, count, since } = body;
 
   if (sha) {
-    const result = await analyzeGitHubCommit(sha, repo);
+    const result = await _integrationsGithub!.analyzeGitHubCommit(sha, repo);
     if (!result) return c.json({ error: "Failed to analyze commit" }, 502);
     return c.json(result);
   }
 
-  const results = await analyzeRecentGitHubCommits(repo, { count, since });
+  const results = await _integrationsGithub!.analyzeRecentGitHubCommits(repo, { count, since });
   return c.json({ count: results.length, results });
 });
 
 // GitHub repo health
 app.get("/api/github/health/:owner/:repo", async (c) => {
   const { owner, repo } = c.req.param();
-  const report = await getGitHubRepoHealth(`${owner}/${repo}`);
+  const report = await _integrationsGithub!.getGitHubRepoHealth(`${owner}/${repo}`);
   if (!report) return c.json({ error: "Failed to generate health report" }, 502);
   return c.json(report);
 });
 
 app.get("/api/github/health/:owner/:repo/markdown", async (c) => {
   const { owner, repo } = c.req.param();
-  const report = await getGitHubRepoHealth(`${owner}/${repo}`);
+  const report = await _integrationsGithub!.getGitHubRepoHealth(`${owner}/${repo}`);
   if (!report) return c.json({ error: "Failed to generate health report" }, 502);
-  return c.text(formatHealthReport(report));
+  return c.text(_integrationsGithub!.formatHealthReport(report));
 });
 
 // --- Slack routes ---
@@ -3275,7 +3250,7 @@ app.get("/api/github/health/:owner/:repo/markdown", async (c) => {
 // Slack OAuth: initiate "Add to Slack" flow
 app.get("/api/slack/auth", async (c) => {
   const redirectUri = `http://localhost:${PORT}/api/slack/callback`;
-  const result = getSlackOAuthUrl(redirectUri);
+  const result = _slackClient!.getOAuthUrl(redirectUri);
   if (!result.ok) {
     return c.html(`<html><body><h2>Slack not configured</h2><p>${result.message}</p></body></html>`);
   }
@@ -3295,7 +3270,7 @@ app.get("/api/slack/callback", async (c) => {
   }
 
   const redirectUri = `http://localhost:${PORT}/api/slack/callback`;
-  const result = await exchangeSlackCode(code, redirectUri);
+  const result = await _slackClient!.exchangeOAuthCode(code, redirectUri);
   if (!result.ok) {
     return c.html(`<html><body><h2>Token exchange failed</h2><p>${result.message}</p></body></html>`);
   }
@@ -3308,16 +3283,16 @@ app.get("/api/slack/callback", async (c) => {
       vaultKey = restored.sessionKey;
       sessionKeys.set(restored.session.id, restored.sessionKey);
       setEncryptionKey(restored.sessionKey);
-      await loadVault(restored.sessionKey);
+      if (_vaultStore) await _vaultStore.loadVault(restored.sessionKey);
     }
   }
   if (!vaultKey) {
     return c.html(`<html><body><h2>Session not found</h2><p>Log in first, then try connecting Slack again.</p></body></html>`);
   }
 
-  await setVaultKey("SLACK_BOT_TOKEN", result.botToken!, vaultKey, "Slack Bot Token");
+  await _vaultStore!.setVaultKey("SLACK_BOT_TOKEN", result.botToken!, vaultKey, "Slack Bot Token");
   if (result.teamId) {
-    await setVaultKey("SLACK_TEAM_ID", result.teamId, vaultKey, "Slack Team ID");
+    await _vaultStore!.setVaultKey("SLACK_TEAM_ID", result.teamId, vaultKey, "Slack Team ID");
   }
   logActivity({ source: "slack", summary: `Slack OAuth connected — team: ${result.teamName ?? result.teamId}`, actionLabel: "PROMPTED", reason: "user connected Slack OAuth" });
 
@@ -3326,10 +3301,10 @@ app.get("/api/slack/callback", async (c) => {
 
 // Slack status: check connection state
 app.get("/api/slack/status", async (c) => {
-  const client = getSlackClient();
+  const client = (_slackClient?.getClient() ?? null);
   if (!client) {
     return c.json({
-      configured: isSlackConfigured(),
+      configured: (_slackClient?.isSlackConfigured() ?? false),
       authenticated: false,
       message: "SLACK_BOT_TOKEN not set",
     });
@@ -3337,7 +3312,7 @@ app.get("/api/slack/status", async (c) => {
 
   const auth = await client.testAuth();
   return c.json({
-    configured: isSlackConfigured(),
+    configured: (_slackClient?.isSlackConfigured() ?? false),
     authenticated: auth.ok,
     userId: auth.userId,
     teamId: auth.teamId,
@@ -3353,7 +3328,7 @@ app.post("/api/slack/send", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const client = getSlackClient();
+  const client = (_slackClient?.getClient() ?? null);
   if (!client) return c.json({ error: "Slack not available" }, 503);
 
   const body = await c.req.json<{ channel: string; text: string; thread_ts?: string; blocks?: any[] }>();
@@ -3376,7 +3351,7 @@ app.post("/api/slack/dm", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const client = getSlackClient();
+  const client = (_slackClient?.getClient() ?? null);
   if (!client) return c.json({ error: "Slack not available" }, 503);
 
   const body = await c.req.json<{ user: string; text: string; blocks?: any[] }>();
@@ -3397,7 +3372,7 @@ app.get("/api/slack/channels", async (c) => {
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
   const types = c.req.query("types") || undefined;
-  const result = await listChannels({ types });
+  const result = await _slackChannels!.listChannels({ types });
   if (!result.ok) return c.json({ error: result.message }, 502);
   return c.json({ channels: result.channels });
 });
@@ -3409,7 +3384,7 @@ app.get("/api/slack/channels/:id", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const result = await getChannelInfo(c.req.param("id"));
+  const result = await _slackChannels!.getChannelInfo(c.req.param("id"));
   if (!result.ok) return c.json({ error: result.message }, 502);
   return c.json(result.channel);
 });
@@ -3421,7 +3396,7 @@ app.post("/api/slack/channels/:id/join", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const result = await joinChannel(c.req.param("id"));
+  const result = await _slackChannels!.joinChannel(c.req.param("id"));
   if (!result.ok) return c.json({ error: result.message }, 502);
   return c.json({ ok: true, message: result.message });
 });
@@ -3434,7 +3409,7 @@ app.get("/api/slack/channels/:id/history", async (c) => {
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
   const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!, 10) : undefined;
-  const result = await getChannelHistory(c.req.param("id"), { limit });
+  const result = await _slackChannels!.getChannelHistory(c.req.param("id"), { limit });
   if (!result.ok) return c.json({ error: result.message }, 502);
   return c.json({ messages: result.messages });
 });
@@ -3446,7 +3421,7 @@ app.get("/api/slack/users/:id", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const client = getSlackClient();
+  const client = (_slackClient?.getClient() ?? null);
   if (!client) return c.json({ error: "Slack not available" }, 503);
 
   const result = await client.getUser(c.req.param("id"));
@@ -3497,7 +3472,7 @@ app.post("/api/resend/check-inbox", async (c) => {
 
 // WhatsApp status: check if configured
 app.get("/api/whatsapp/status", (c) => {
-  return c.json({ available: isWhatsAppConfigured() });
+  return c.json({ available: (_channelsWhatsapp?.isWhatsAppConfigured() ?? false) });
 });
 
 // WhatsApp webhook: receive incoming messages from Twilio
@@ -3505,7 +3480,7 @@ app.get("/api/whatsapp/status", (c) => {
 // Custom TwiML response handling prevents use of generic createWebhookRoute.
 app.post("/api/twilio/whatsapp", async (c) => {
   const rawBody = await c.req.text();
-  const params = parseFormBody(rawBody);
+  const params = _webhooksTwilio!.parseFormBody(rawBody);
 
   // Verify via centralized webhook system (handles secret resolution from config)
   const headers: Record<string, string> = {};
@@ -3524,7 +3499,7 @@ app.post("/api/twilio/whatsapp", async (c) => {
   const payload = params as unknown as TwilioWhatsAppPayload;
 
   // Store the inbound message in history + update contacts
-  await processIncomingMessage(payload);
+  await _webhooksTwilio!.processIncomingMessage(payload);
 
   // Extract sender info
   const from = payload.From?.replace(/^whatsapp:/, "") ?? "";
@@ -3532,20 +3507,20 @@ app.post("/api/twilio/whatsapp", async (c) => {
 
   if (!body) {
     c.header("Content-Type", "text/xml");
-    return c.body(emptyTwimlResponse());
+    return c.body(_webhooksTwilio!.emptyTwimlResponse());
   }
 
   // Process through chat pipeline (async — Twilio allows up to 15s for response).
   // The service sends the reply via Twilio API, so we return empty TwiML to avoid
   // duplicate messages. If chat processing fails, we reply inline via TwiML as fallback.
-  const result = await handleWhatsAppMessage(from, body, payload.ProfileName);
+  const result = await _servicesWhatsapp!.handleWhatsAppMessage(from, body, payload.ProfileName);
 
   c.header("Content-Type", "text/xml");
   if (!result.ok && !result.reply) {
     // Chat failed and no reply was sent — respond inline so user isn't left hanging
-    return c.body(replyTwiml("Sorry, I couldn't process that right now. Please try again."));
+    return c.body(_webhooksTwilio!.replyTwiml("Sorry, I couldn't process that right now. Please try again."));
   }
-  return c.body(emptyTwimlResponse());
+  return c.body(_webhooksTwilio!.emptyTwimlResponse());
 });
 
 // WhatsApp relay: receive pre-verified messages from the Cloudflare Worker.
@@ -3559,16 +3534,16 @@ app.post("/api/relay/whatsapp", async (c) => {
   });
 
   const relaySecret = process.env.RELAY_SECRET ?? "";
-  const verification = verifyRelaySignature(rawBody, headers, relaySecret);
+  const verification = _webhooksRelay!.verifyRelaySignature(rawBody, headers, relaySecret);
   if (!verification.valid) {
     return c.json({ error: verification.error ?? "Invalid relay signature" }, 401);
   }
 
-  const params = parseFormBody(rawBody);
+  const params = _webhooksTwilio!.parseFormBody(rawBody);
   const payload = params as unknown as TwilioWhatsAppPayload;
 
   // Store inbound message + update contacts (same as direct webhook path)
-  await processIncomingMessage(payload);
+  await _webhooksTwilio!.processIncomingMessage(payload);
 
   const from = payload.From?.replace(/^whatsapp:/, "") ?? "";
   const body = payload.Body?.trim() ?? "";
@@ -3578,7 +3553,7 @@ app.post("/api/relay/whatsapp", async (c) => {
   }
 
   // Process through chat pipeline — reply sent via Twilio API
-  const result = await handleWhatsAppMessage(from, body, payload.ProfileName);
+  const result = await _servicesWhatsapp!.handleWhatsAppMessage(from, body, payload.ProfileName);
   return c.json({ ok: result.ok, reply: result.reply, error: result.error });
 });
 
@@ -3593,7 +3568,7 @@ app.post("/api/relay/resend", async (c) => {
   });
 
   const relaySecret = process.env.RELAY_SECRET ?? "";
-  const verification = verifyRelaySignature(rawBody, headers, relaySecret);
+  const verification = _webhooksRelay!.verifyRelaySignature(rawBody, headers, relaySecret);
   if (!verification.valid) {
     return c.json({ error: verification.error ?? "Invalid relay signature" }, 401);
   }
@@ -3662,7 +3637,7 @@ app.post("/api/whatsapp/send", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const client = getWhatsAppClient();
+  const client = (_channelsWhatsapp?.getClient() ?? null);
   if (!client) return c.json({ error: "WhatsApp not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER to vault." }, 503);
 
   const body = await c.req.json() as { to: string; message: string };
@@ -3680,7 +3655,7 @@ app.get("/api/whatsapp/contacts", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const client = getWhatsAppClient();
+  const client = (_channelsWhatsapp?.getClient() ?? null);
   if (!client) return c.json({ error: "WhatsApp not configured" }, 503);
 
   const contacts = await client.listContacts();
@@ -3694,7 +3669,7 @@ app.get("/api/whatsapp/history", async (c) => {
   const session = validateSession(sessionId);
   if (!session) return c.json({ error: "Invalid or expired session" }, 401);
 
-  const client = getWhatsAppClient();
+  const client = (_channelsWhatsapp?.getClient() ?? null);
   if (!client) return c.json({ error: "WhatsApp not configured" }, 503);
 
   const phone = c.req.query("phone") || undefined;
@@ -4020,7 +3995,7 @@ app.post("/api/files/upload", async (c) => {
     });
 
     // Trigger volume replication (on-write event)
-    volumeManager.handleEvent({ type: "write", fileId: record.id, volume: "primary" }).catch((err) =>
+    volumeManager.handleEvent({ type: "write", fileId: record.id, volume: "primary" }).catch((err: any) =>
       log.warn("Volume on-write event failed", { error: String(err) })
     );
 
@@ -4110,8 +4085,8 @@ app.get("/api/volumes", async (c) => {
   const states = volumeManager.getStates();
   const configs = volumeManager.getConfigs();
   return c.json({
-    volumes: configs.map((cfg) => {
-      const state = states.find((s) => s.name === cfg.name);
+    volumes: configs.map((cfg: any) => {
+      const state = states.find((s: any) => s.name === cfg.name);
       return { ...cfg, ...state };
     }),
     pendingReplications: volumeManager.getPendingCount(),
@@ -4400,18 +4375,18 @@ app.get("/api/contacts/graph/:id", async (c) => {
 
 // List credentials (values masked).
 app.get("/api/credentials", async (c) => {
-  const store = getCredentialStore();
+  const store = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const type = (c.req.query("type") || undefined) as CredentialType | undefined;
   const search = c.req.query("search") || undefined;
   const creds = await store.list({ type, search });
-  const masked = creds.map((cr) => ({ ...cr, value: maskValue(cr.value) }));
+  const masked = creds.map((cr) => ({ ...cr, value: _credentialStore!.maskValue(cr.value) }));
   return c.json({ credentials: masked, count: masked.length });
 });
 
 // Get single credential (full value for reveal/copy).
 app.get("/api/credentials/:id", async (c) => {
-  const store = getCredentialStore();
+  const store = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const cred = await store.get(c.req.param("id"));
   if (!cred) return c.json({ error: "Credential not found" }, 404);
@@ -4420,7 +4395,7 @@ app.get("/api/credentials/:id", async (c) => {
 
 // Create credential.
 app.post("/api/credentials", async (c) => {
-  const store = getCredentialStore();
+  const store = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const body = await c.req.json();
   if (!body.name || !body.service || !body.type || !body.value) {
@@ -4436,7 +4411,7 @@ app.post("/api/credentials", async (c) => {
 
 // Update credential.
 app.patch("/api/credentials/:id", async (c) => {
-  const store = getCredentialStore();
+  const store = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const id = c.req.param("id");
   const body = await c.req.json();
@@ -4451,7 +4426,7 @@ app.patch("/api/credentials/:id", async (c) => {
 
 // Archive credential (soft-delete).
 app.delete("/api/credentials/:id", async (c) => {
-  const store = getCredentialStore();
+  const store = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
   const id = c.req.param("id");
   const archived = await store.archive(id);
@@ -4465,10 +4440,10 @@ app.delete("/api/credentials/:id", async (c) => {
 
 // Migrate vault keys → credential store.
 app.post("/api/credentials/migrate-vault", async (c) => {
-  const store = getCredentialStore();
+  const store = (_credentialStore ? _credentialStore.getCredentialStore() : null);
   if (!store) return c.json({ error: "Credentials not initialized" }, 503);
 
-  const vaultEntries = getVaultEntries();
+  const vaultEntries = (_vaultStore ? _vaultStore.getVaultEntries() : []);
   if (vaultEntries.length === 0) {
     return c.json({ migrated: 0, message: "No vault keys to migrate" });
   }
@@ -4787,14 +4762,14 @@ app.get("/api/help/context", async (c) => {
     model: resolveChatModel() ?? "auto",
     sidecars: {
       search: isSearchAvailable(),
-      tts: isTtsAvailable(),
-      stt: isSttAvailable(),
-      avatar: isAvatarAvailable(),
+      tts: (_ttsClient?.isTtsAvailable() ?? false),
+      stt: (_sttClient?.isSttAvailable() ?? false),
+      avatar: (_avatarSidecar?.isAvatarAvailable() ?? false),
     },
     integrations: {
-      google: isGoogleAuthenticated(),
-      slack: isSlackConfigured(),
-      whatsapp: isWhatsAppConfigured(),
+      google: (_googleAuth?.isGoogleAuthenticated() ?? false),
+      slack: (_slackClient?.isSlackConfigured() ?? false),
+      whatsapp: (_channelsWhatsapp?.isWhatsAppConfigured() ?? false),
     },
     recentActivity: last20.map((e) => ({
       timestamp: e.timestamp,
@@ -4947,7 +4922,7 @@ app.get("/api/browse", async (c) => {
     return c.json({ error: "Invalid URL" }, 400);
   }
 
-  const result = await browseUrl(url);
+  const result = await _browse!.browseUrl(url);
   if (!result) {
     return c.json({ error: "Failed to fetch URL — timeout, non-HTML content, or network error" }, 502);
   }
@@ -5066,9 +5041,9 @@ app.get("/api/ops/health", async (c) => {
     models: settings.models,
     sidecars: {
       search: isSidecarAvailable(),
-      tts: isTtsAvailable(),
-      stt: isSttAvailable(),
-      avatar: isAvatarAvailable(),
+      tts: (_ttsClient?.isTtsAvailable() ?? false),
+      stt: (_sttClient?.isSttAvailable() ?? false),
+      avatar: (_avatarSidecar?.isAvatarAvailable() ?? false),
     },
     agents: {
       total: agents.length,
@@ -5092,20 +5067,20 @@ app.get("/api/ops/sidecars", async (c) => {
       port: parseInt(resolveEnv("SEARCH_PORT") ?? "3578", 10),
     },
     tts: {
-      available: isTtsAvailable(),
+      available: (_ttsClient?.isTtsAvailable() ?? false),
       enabled: settings.tts.enabled,
       port: settings.tts.port,
       voice: settings.tts.voice,
       autoPlay: settings.tts.autoPlay,
     },
     stt: {
-      available: isSttAvailable(),
+      available: (_sttClient?.isSttAvailable() ?? false),
       enabled: settings.stt.enabled,
       port: settings.stt.port,
       model: settings.stt.model,
     },
     avatar: {
-      available: isAvatarAvailable(),
+      available: (_avatarSidecar?.isAvatarAvailable() ?? false),
       enabled: settings.avatar.enabled,
       port: settings.avatar.port,
     },
@@ -5122,16 +5097,16 @@ app.post("/api/ops/sidecars/:name/restart", async (c) => {
       ok = await startSidecar();
       break;
     case "tts":
-      stopTtsSidecar();
-      ok = await startTtsSidecar();
+      _ttsSidecar?.stopTtsSidecar();
+      ok = await _ttsSidecar?.startTtsSidecar() ?? false;
       break;
     case "stt":
-      stopSttSidecar();
-      ok = await startSttSidecar();
+      _sttSidecar?.stopSttSidecar();
+      ok = await _sttSidecar?.startSttSidecar() ?? false;
       break;
     case "avatar":
-      stopAvatarSidecar();
-      ok = await startAvatarSidecar();
+      _avatarSidecar?.stopAvatarSidecar();
+      ok = await _avatarSidecar?.startAvatarSidecar() ?? false;
       break;
     default:
       return c.json({ error: `Unknown sidecar: ${name}` }, 400);
@@ -5471,7 +5446,7 @@ app.post("/api/chat", async (c) => {
   switchSessionThread(cs, requestThreadId || null, sessionId);
 
   // Reset continuation rounds when user sends a real message
-  resetContinuation(sessionId);
+  _agentAutonomous?.resetContinuation(sessionId);
 
   // Inject user-chat tension into the nervous system
   getPressureIntegrator()?.addUserChatTension();
@@ -5482,14 +5457,14 @@ app.post("/api/chat", async (c) => {
     startGoalTimer({ brain: cs.brain, humanName: session.name });
 
     // Start Google polling timers if already authenticated
-    if (isCalendarAvailable()) {
-      startCalendarTimer();
+    if ((_googleCalendar?.isCalendarAvailable() ?? false)) {
+      _googleCalendarTimer?.startCalendarTimer();
     }
-    if (isGmailAvailable()) {
-      startGmailTimer();
+    if ((_googleGmail?.isGmailAvailable() ?? false)) {
+      _googleGmailTimer?.startGmailTimer();
     }
-    if (isTasksAvailable()) {
-      startTasksTimer();
+    if ((_googleTasks?.isTasksAvailable() ?? false)) {
+      _googleTasksTimer?.startTasksTimer();
     }
   }
 
@@ -5560,7 +5535,7 @@ app.post("/api/chat", async (c) => {
   if (callMatch) {
     const to = callMatch[1] || undefined;
     const msg = callMatch[2]?.trim() || undefined;
-    const result = await makeCall({ to, message: msg });
+    const result = await _twilioCall!.makeCall({ to, message: msg });
     return c.json({ system: true, content: result.message });
   }
 
@@ -5568,7 +5543,7 @@ app.post("/api/chat", async (c) => {
   const emailMatch = message.match(/^(?:email|send email|mail)\s+(\S+@\S+)\s+subject:\s*(.+?)\s+body:\s*([\s\S]+)$/i);
   if (emailMatch) {
     const [, to, subject, body] = emailMatch;
-    const result = await sendEmail({ to: to.trim(), subject: subject.trim(), body: body.trim() });
+    const result = await _googleGmailSend!.sendEmail({ to: to.trim(), subject: subject.trim(), body: body.trim() });
     logActivity({ source: "gmail", summary: `Email sent to ${to.trim()}: "${subject.trim()}"`, actionLabel: "PROMPTED", reason: "user sent email via chat" });
     return c.json({ system: true, content: result.message });
   }
@@ -5643,7 +5618,7 @@ app.post("/api/chat", async (c) => {
   // --- Handle "auto" / "autonomous" command ---
   const autoMatch = message.match(/^(?:auto|autonomous)\s*$/i);
   if (autoMatch) {
-    const status = getAutonomousStatus();
+    const status = (_agentAutonomous?.getAutonomousStatus() ?? null as any);
     const lines: string[] = [
       `**Autonomous Work Loop**`,
       ``,
@@ -5894,10 +5869,10 @@ app.post("/api/chat", async (c) => {
   }
 
   // --- URL browse injection ---
-  const detectedUrl = detectUrl(chatMessage);
+  const detectedUrl = _browse?.detectUrl(chatMessage);
   if (detectedUrl) {
     logActivity({ source: "browse", summary: `Auto-browsing URL in message: ${detectedUrl}`, actionLabel: "PROMPTED", reason: "user message contained URL" });
-    const browseResult = await browseUrl(detectedUrl);
+    const browseResult = await _browse!.browseUrl(detectedUrl);
     if (browseResult) {
       const browseMsg = {
         role: "system" as const,
@@ -6512,15 +6487,15 @@ app.post("/api/chat", async (c) => {
           }).catch(() => {});
 
           // Fire-and-forget: generate avatar video (TTS → MuseTalk → MP4)
-          if (isAvatarAvailable() && isTtsAvailable() && fullResponse) {
+          if ((_avatarSidecar?.isAvatarAvailable() ?? false) && (_ttsClient?.isTtsAvailable() ?? false) && fullResponse) {
             const trimmedText = fullResponse.slice(0, 2000);
-            synthesize(trimmedText).then(async (wavBuffer) => {
+            _ttsClient!.synthesize(trimmedText).then(async (wavBuffer) => {
               if (!wavBuffer) return;
-              const cached = await getCachedVideo(wavBuffer);
+              const cached = await _avatarClient!.getCachedVideo(wavBuffer);
               if (cached) { pushPendingVideo(cached); return; }
-              const mp4 = await generateVideo(wavBuffer);
+              const mp4 = await _avatarClient!.generateVideo(wavBuffer);
               if (!mp4) return;
-              const filename = await cacheVideo(mp4, wavBuffer);
+              const filename = await _avatarClient!.cacheVideo(mp4, wavBuffer);
               pushPendingVideo(filename);
               logActivity({ source: "avatar", summary: "Generated avatar video", actionLabel: "PROMPTED", reason: "user conversation triggered avatar" });
             }).catch((err) => {
@@ -6721,12 +6696,120 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   // Initialize instance name before anything else
   initInstanceName();
 
-  // Initialize OpenTelemetry tracing (must be early, before instrumented code)
-  initTracing({
-    serviceName: `${getInstanceNameLower()}-brain`,
-    serviceVersion: "0.1.0",
-    consoleExport: process.env.OTEL_CONSOLE === "1",
-  });
+  // --- Dynamic imports: load gated modules based on tier ---
+
+  // EXT-BYOK: vault, voice, integrations, notifications, etc.
+  if (tierGate.meetsMinimum(tier, "byok")) {
+    [
+      _browse, _ttsSidecar, _ttsClient, _sttSidecar, _sttClient,
+      _avatarSidecar, _avatarClient, _settingsVoice,
+      _vaultStore, _vaultTransfer, _integrationsGate, _twilioCall,
+      _googleAuth, _googleCalendar, _googleTemporal, _googleCalendarTimer,
+      _googleGmail, _googleGmailTimer, _googleTasksTimer, _googleGmailSend,
+      _googleDocs, _googleTasks,
+      _notifications, _credentialStore, _githubWebhooks, _integrationsGithub,
+      _slackClient, _slackWebhooks, _slackChannels,
+      _channelsWhatsapp, _webhooksTwilio, _resendWebhooks, _servicesWhatsapp,
+      _webhooksMount, _webhooksConfig, _webhooksRegistry, _webhooksRelay,
+      _volumes, _mdns,
+    ] = await Promise.all([
+      import("./search/browse.js"),
+      import("./tts/sidecar.js"),
+      import("./tts/client.js"),
+      import("./stt/sidecar.js"),
+      import("./stt/client.js"),
+      import("./avatar/sidecar.js"),
+      import("./avatar/client.js"),
+      import("./settings.js"),
+      import("./vault/store.js"),
+      import("./vault/transfer.js"),
+      import("./integrations/gate.js"),
+      import("./twilio/call.js"),
+      import("./google/auth.js"),
+      import("./google/calendar.js"),
+      import("./google/temporal.js"),
+      import("./google/calendar-timer.js"),
+      import("./google/gmail.js"),
+      import("./google/gmail-timer.js"),
+      import("./google/tasks-timer.js"),
+      import("./google/gmail-send.js"),
+      import("./google/docs.js"),
+      import("./google/tasks.js"),
+      import("./notifications/index.js"),
+      import("./credentials/store.js"),
+      import("./github/webhooks.js"),
+      import("./integrations/github.js"),
+      import("./slack/client.js"),
+      import("./slack/webhooks.js"),
+      import("./slack/channels.js"),
+      import("./channels/whatsapp.js"),
+      import("./webhooks/twilio.js"),
+      import("./resend/webhooks.js"),
+      import("./services/whatsapp.js"),
+      import("./webhooks/mount.js"),
+      import("./webhooks/config.js"),
+      import("./webhooks/registry.js"),
+      import("./webhooks/relay.js"),
+      import("./volumes/index.js"),
+      import("./mdns.js"),
+    ]);
+
+    // Initialize alerting (requires notifications module)
+    alertDispatcher = new _notifications.NotificationDispatcher();
+    alertManager = new AlertManager(health, defaultAlertConfig(), alertDispatcher);
+
+    // Initialize volume manager
+    volumeManager = new _volumes.VolumeManager(BRAIN_DIR);
+    volumeManager.init().catch((err: any) =>
+      log.warn("Volume manager init failed — single-volume mode", { error: String(err) })
+    );
+
+    // Initialize webhook providers (now that modules are loaded)
+    initWebhookProviders();
+
+    log.info(`BYOK-tier modules loaded (tier: ${tier})`);
+  } else {
+    // Local tier: alerting with no-op dispatcher
+    alertDispatcher = null;
+    alertManager = new AlertManager(health, defaultAlertConfig(), { dispatch: async () => {} } as any);
+    log.info(`Local-tier — BYOK modules skipped (tier: ${tier})`);
+  }
+
+  // EXT-SPAWN: agent runtime, instance manager, pool, workflow
+  if (tierGate.canSpawn(tier)) {
+    [_agentMemory, _agentLocks, _agentAutonomous, _agentRuntime, _agentInstanceManager, _agentPoolMod, _agentWorkflow] = await Promise.all([
+      import("./agents/memory.js"),
+      import("./agents/locks.js"),
+      import("./agents/autonomous.js"),
+      import("./agents/runtime/index.js"),
+      import("./agents/instance-manager.js"),
+      import("./agents/runtime.js"),
+      import("./agents/workflow.js"),
+    ]);
+    log.info(`Spawn-tier modules loaded (tier: ${tier})`);
+  }
+
+  // EXT-HOSTED: tracing, browser
+  if (tierGate.meetsMinimum(tier, "hosted")) {
+    [_tracingTracer, _tracingInit, _tracingMiddleware, _tracingBridge, _browser] = await Promise.all([
+      import("./tracing/tracer.js"),
+      import("./tracing/init.js"),
+      import("./tracing/middleware.js"),
+      import("./tracing/bridge.js"),
+      import("./capabilities/definitions/browser.js"),
+    ]);
+    tracer = new _tracingTracer.Tracer();
+    log.info(`Hosted-tier modules loaded (tier: ${tier})`);
+  }
+
+  // Initialize OpenTelemetry tracing (must be early, before instrumented code) — hosted tier only
+  if (_tracingInit) {
+    _tracingInit.initTracing({
+      serviceName: `${getInstanceNameLower()}-brain`,
+      serviceVersion: "0.1.0",
+      consoleExport: process.env.OTEL_CONSOLE === "1",
+    });
+  }
 
   // Load settings (airplane mode, model selection)
   const settings = await loadSettings();
@@ -6755,13 +6838,17 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
       if (restored) {
         sessionKeys.set(restored.session.id, restored.sessionKey);
         setEncryptionKey(restored.sessionKey);
-        await loadVault(restored.sessionKey);
+        if (_vaultStore) await _vaultStore.loadVault(restored.sessionKey);
         log.info("Session restored (no re-auth needed)");
       }
       return code;
     })(),
-    // Start all sidecars in parallel
-    Promise.all([startSidecar(), startTtsSidecar(), startSttSidecar()]),
+    // Start all sidecars in parallel (search always, tts/stt if BYOK)
+    Promise.all([
+      startSidecar(),
+      _ttsSidecar ? _ttsSidecar.startTtsSidecar() : Promise.resolve(false),
+      _sttSidecar ? _sttSidecar.startSttSidecar() : Promise.resolve(false),
+    ]),
   ]);
   const code = pairingCode;
   const [searchAvailable, ttsAvailable, sttAvailable] = sidecarResults;
@@ -6801,11 +6888,11 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
 
   // Register sidecar health checks (optional — degraded, not unhealthy)
   health.register("search", availabilityCheck(isSidecarAvailable, "search"), { critical: false });
-  health.register("tts", availabilityCheck(isTtsAvailable, "tts"), { critical: false });
-  health.register("stt", availabilityCheck(isSttAvailable, "stt"), { critical: false });
+  if (_ttsClient) health.register("tts", availabilityCheck(_ttsClient.isTtsAvailable, "tts"), { critical: false });
+  if (_sttClient) health.register("stt", availabilityCheck(_sttClient.isSttAvailable, "stt"), { critical: false });
 
   // Google Workspace health checks (optional — degraded if not connected)
-  health.register("google_calendar", availabilityCheck(isCalendarAvailable, "Google Calendar"), { critical: false });
+  if (_googleCalendar) health.register("google_calendar", availabilityCheck(_googleCalendar.isCalendarAvailable, "Google Calendar"), { critical: false });
 
   // Initialize FileManager (file registry + storage for uploads, visual memory, etc.)
   await FileManager.init(BRAIN_DIR, join(BRAIN_DIR, "files", "storage"));
@@ -6835,7 +6922,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   queueProvider.getStore().setOnStateTransition(async (task, from, to) => {
     if (to === "done" || to === "cancelled") {
       try {
-        await rememberTaskCompletion(task, from);
+        if (_agentMemory) await _agentMemory.rememberTaskCompletion(task, from);
       } catch (err) {
         log.warn("Failed to record task completion memory", {
           identifier: task.identifier,
@@ -6849,10 +6936,12 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   startSchedulingTimer(schedulingStore);
   createContactStore(BRAIN_DIR);
   createCalendarStore(BRAIN_DIR);
-  const credStore = createCredentialStore(BRAIN_DIR);
-  await credStore.hydrate();
+  if (_credentialStore) {
+    const credStore = _credentialStore.createCredentialStore(BRAIN_DIR);
+    await credStore.hydrate();
+  }
   initTraining();
-  initGitHub();
+  if (_integrationsGithub) _integrationsGithub.initGitHub();
 
   // Start metrics collector (system, HTTP, agent metrics at 30s interval)
   // brainDir enables tiered aggregation (hourly/daily rollups)
@@ -6863,12 +6952,14 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   // of skills/module init, so running them concurrently improves startup time (DASH-60).
   // Note: initAgents() only creates directories — recovery runs after the runtime
   // is ready so the monitor can skip runtime-managed tasks (DASH-82 fix).
-  const [, moduleRegistry, , runtime] = await Promise.all([
+  const initPromises: Promise<any>[] = [
     _skillRegistry.refresh(),
     Promise.resolve(createModuleRegistry(BRAIN_DIR)),
     initAgents(),
-    createRuntime(),
-  ]);
+  ];
+  if (_agentRuntime) initPromises.push(_agentRuntime.createRuntime());
+  else initPromises.push(Promise.resolve(null));
+  const [, moduleRegistry, , runtime] = await Promise.all(initPromises);
   const skillRegistry = _skillRegistry;
 
   // Recover tasks from previous session AFTER runtime is initialized.
@@ -6876,8 +6967,8 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   // already handles, preventing the double-recovery race (DASH-82).
   await recoverAndStartMonitor();
 
-  tracer.attachToBus(runtime.bus);
-  attachOTelToBus(runtime.bus);
+  if (tracer && runtime?.bus) tracer.attachToBus(runtime.bus);
+  if (_tracingBridge && runtime?.bus) _tracingBridge.attachOTelToBus(runtime.bus);
 
   // Initialize capability registry (action blocks + context providers)
   const capRegistry = createCapabilityRegistry();
@@ -6885,7 +6976,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   capRegistry.register(emailCapability);
   capRegistry.register(docsCapability);
   capRegistry.register(boardCapability);
-  capRegistry.register(browserCapability);
+  if (_browser) capRegistry.register(_browser.browserCapability);
   // Meta capabilities
   capRegistry.register(taskDoneCapability);
   // Context providers — replace hardcoded injection logic
@@ -6899,12 +6990,12 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   capRegistry.register(vaultContextProvider);
 
   // Start autonomous work timer (60-min coma failsafe — primary trigger is now tension-based)
-  startAutonomousTimer();
+  if (_agentAutonomous) _agentAutonomous.startAutonomousTimer();
 
   // Initialize metabolic pulse (tension-based heartbeat)
   const pulseSettings = getPulseSettings();
-  if (pulseSettings.mode !== "timer") {
-    const pulse = initPressureIntegrator(triggerPulse, { threshold: pulseSettings.threshold });
+  if (pulseSettings.mode !== "timer" && _agentAutonomous) {
+    const pulse = initPressureIntegrator(_agentAutonomous.triggerPulse, { threshold: pulseSettings.threshold });
     log.info(`Metabolic pulse initialized: Θ=${pulseSettings.threshold}mV, mode=${pulseSettings.mode}`);
 
     // Boot scan: if todos already exist, inject tension so Core starts working immediately
@@ -6944,15 +7035,15 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   startOpenLoopScanner();
 
   // Start Google polling timers at boot if already authenticated (don't wait for first chat)
-  if (isGmailAvailable()) startGmailTimer();
-  if (isCalendarAvailable()) {
-    startCalendarTimer();
+  if (_googleGmail?.isGmailAvailable()) _googleGmailTimer!.startGmailTimer();
+  if (_googleCalendar?.isCalendarAvailable()) {
+    _googleCalendarTimer!.startCalendarTimer();
     // Initial sync: pull Google events into local calendar store
     getGoogleCalendarAdapter().sync().catch((err) => {
       log.warn("Initial Google Calendar sync failed", { error: err instanceof Error ? err.message : String(err) });
     });
   }
-  if (isTasksAvailable()) startTasksTimer();
+  if (_googleTasks?.isTasksAvailable()) _googleTasksTimer!.startTasksTimer();
 
   // Initialize plugin registry (authenticate + start all registered plugins)
   await initPlugins().catch((err) => {
@@ -6963,7 +7054,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   setOnBatchComplete(async (sessionId, results) => {
     try {
       logActivity({ source: "agent", summary: `Batch complete: session=${sessionId}, ${results.length} result(s)` });
-      await continueAfterBatch(sessionId, results);
+      if (_agentAutonomous) await _agentAutonomous.continueAfterBatch(sessionId, results);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logActivity({ source: "agent", summary: `Continuation error: ${msg}` });
@@ -6971,18 +7062,18 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   });
 
   // Initialize agent spawning — tier >= spawn only
-  if (tierGate.canSpawn(tier)) {
+  if (tierGate.canSpawn(tier) && _agentInstanceManager && _agentPoolMod && _agentWorkflow && runtime) {
     // Initialize instance manager (GC, health checks, load balancing)
-    instanceManager = new AgentInstanceManager(runtime);
+    instanceManager = new _agentInstanceManager.AgentInstanceManager(runtime);
     await instanceManager.init();
 
     // Initialize agent pool (circuit breakers, isolation, resource management)
-    agentPool = AgentPool.fromExisting(runtime, instanceManager);
+    agentPool = _agentPoolMod.AgentPool.fromExisting(runtime, instanceManager);
     setAgentPool(agentPool);
 
     // Initialize workflow engine for multi-agent coordination
-    workflowEngine = new WorkflowEngine(agentPool);
-    await workflowEngine.loadAllDefinitions().catch((err) => {
+    workflowEngine = new _agentWorkflow.WorkflowEngine(agentPool);
+    await workflowEngine.loadAllDefinitions().catch((err: any) => {
       log.warn("Failed to load workflow definitions", { error: err instanceof Error ? err.message : String(err) });
     });
     log.info(`Agent spawning enabled (tier: ${tier})`);
@@ -7000,7 +7091,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
 
   // Agent runtime capacity: resource utilization
   health.register("agent_capacity", agentCapacityCheck(() => {
-    const rt = getRuntime();
+    const rt = _agentRuntime ? _agentRuntime.getRuntime() : null;
     return rt ? rt.getResourceSnapshot() : null;
   }), { critical: false });
 
@@ -7013,20 +7104,20 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
 
   // Sidecar recovery: restart if unavailable for 3+ checks
   recovery.register(sidecarRecovery("search", "search", stopSidecar, startSidecar));
-  recovery.register(sidecarRecovery("tts", "tts", stopTtsSidecar, startTtsSidecar));
-  recovery.register(sidecarRecovery("stt", "stt", stopSttSidecar, startSttSidecar));
+  if (_ttsSidecar) recovery.register(sidecarRecovery("tts", "tts", _ttsSidecar.stopTtsSidecar, _ttsSidecar.startTtsSidecar));
+  if (_sttSidecar) recovery.register(sidecarRecovery("stt", "stt", _sttSidecar.stopSttSidecar, _sttSidecar.startSttSidecar));
 
   // Start recovery loop (evaluates every 30s)
   recovery.start();
 
   // Start alert evaluation loop (evaluates every 30s)
-  alertManager.start();
+  if (alertManager) alertManager.start();
 
   // Wire notification channels — tier >= byok only (requires BYOK API keys)
-  if (tierGate.canAlert(tier)) {
+  if (tierGate.canAlert(tier) && _notifications && alertDispatcher) {
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
-      alertDispatcher.add(new EmailChannel({
+      alertDispatcher.add(new _notifications.EmailChannel({
         endpoint: "https://api.resend.com/emails",
         apiKey: resendKey,
         from: `${getInstanceName()} <${getAlertEmailFrom()}>`,
@@ -7035,7 +7126,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
       log.info("Alert channel: email (Resend)");
     }
     if (process.env.TWILIO_ACCOUNT_SID) {
-      alertDispatcher.add(new PhoneChannel());
+      alertDispatcher.add(new _notifications.PhoneChannel());
       log.info("Alert channel: phone (Twilio voice)");
     }
     alertManager.updateNotifications([
@@ -7048,20 +7139,24 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   startCreditMonitor(health, alertManager);
 
   // Avatar sidecar launches in background — slow (model loading) but non-blocking
-  const avatarConfig = getAvatarConfig();
+  const avatarConfig = _settingsVoice ? _settingsVoice.getAvatarConfig() : { enabled: false, port: 0, photoPath: "" };
   let avatarAvailable = false;
-  (async () => {
-    avatarAvailable = await startAvatarSidecar();
-    if (avatarAvailable) {
-      const photoPath = join(process.cwd(), avatarConfig.photoPath);
-      const prepared = await preparePhoto(photoPath).catch(() => false);
-      if (!prepared) {
-        log.warn("Photo preparation failed — place a photo at " + avatarConfig.photoPath, { namespace: "avatar" });
-      } else {
-        log.info("Avatar ready — MuseTalk sidecar (port " + avatarConfig.port + ")", { namespace: "avatar" });
+  if (_avatarSidecar && _avatarClient) {
+    const avatarSidecar = _avatarSidecar;
+    const avatarClient = _avatarClient;
+    (async () => {
+      avatarAvailable = await avatarSidecar.startAvatarSidecar();
+      if (avatarAvailable) {
+        const photoPath = join(process.cwd(), avatarConfig.photoPath);
+        const prepared = await avatarClient.preparePhoto(photoPath).catch(() => false);
+        if (!prepared) {
+          log.warn("Photo preparation failed — place a photo at " + avatarConfig.photoPath, { namespace: "avatar" });
+        } else {
+          log.info("Avatar ready — MuseTalk sidecar (port " + avatarConfig.port + ")", { namespace: "avatar" });
+        }
       }
-    }
-  })();
+    })();
+  }
 
   log.info(`${getInstanceName()} — Local Chat starting`);
 
@@ -7095,8 +7190,8 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   }
 
   // Show voice status
-  const ttsConfig = getTtsConfig();
-  const sttConfig = getSttConfig();
+  const ttsConfig = _settingsVoice ? _settingsVoice.getTtsConfig() : { enabled: false, port: 0 };
+  const sttConfig = _settingsVoice ? _settingsVoice.getSttConfig() : { enabled: false, port: 0 };
   if (ttsAvailable) {
     log.info(`TTS: Piper sidecar (port ${ttsConfig.port})`);
   } else if (ttsConfig.enabled) {
@@ -7118,16 +7213,16 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   }
 
   // Show runtime status
-  const rt = getRuntime();
+  const rt = (_agentRuntime?.getRuntime() ?? null);
   if (rt) {
     const snap = rt.getResourceSnapshot();
     log.info(`Runtime: active (${snap.activeAgents}/${snap.maxAgents} agents, ${snap.totalMemoryMB}/${snap.maxMemoryMB}MB)`);
   }
 
   // Show Google integration status
-  if (isGoogleAuthenticated()) {
+  if ((_googleAuth?.isGoogleAuthenticated() ?? false)) {
     log.info("Google: connected (Calendar, Gmail, Drive)");
-  } else if (isGoogleConfigured()) {
+  } else if ((_googleAuth?.isGoogleConfigured() ?? false)) {
     log.info("Google: configured — visit /api/google/auth to connect");
   } else {
     log.info("Google: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in vault to enable");
@@ -7141,7 +7236,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
 
   // Show module registry status
   if (moduleRegistry) {
-    const names = moduleRegistry.list().map((m) => m.manifest.name);
+    const names = moduleRegistry.list().map((m: any) => m.manifest.name);
     log.info(`ModuleRegistry: discovered ${moduleRegistry.size} modules (${names.join(", ")})`);
   }
 
@@ -7179,7 +7274,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
   }
 
   // Register email handler — emails with instance name in subject are processed as chat
-  onDashEmail(async (message) => {
+  if (_googleGmailTimer) _googleGmailTimer.onDashEmail(async (message) => {
     const human = await readHuman();
     const name = human?.name ?? "Human";
     const emailBody = message.body?.trim();
@@ -7266,7 +7361,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
     log.info("Email reply generated", { to: message.from, subject: message.subject, replyLength: reply.length });
     return reply.trim();
   });
-  log.info(`${getInstanceName()} email handler registered — emails with '${getInstanceName()}' in subject will be auto-replied`);
+  if (_googleGmailTimer) log.info(`${getInstanceName()} email handler registered — emails with '${getInstanceName()}' in subject will be auto-replied`);
 
   await new Promise<void>((resolve) => {
     function onListening(server: ReturnType<typeof serve>) {
@@ -7296,7 +7391,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
       // Announce on LAN if mesh.lanAnnounce is enabled AND tier >= byok
       if (tierGate.canMesh(tier) && getMeshConfig().lanAnnounce) {
         try {
-          startMdns(actualPort);
+          if (_mdns) _mdns.startMdns(actualPort);
         } catch (err) {
           log.warn("mDNS announcement failed — discovery disabled", {
             error: err instanceof Error ? err.message : String(err),
@@ -7424,46 +7519,48 @@ function parseRoadmapYaml(raw: string): Roadmap {
 // then sidecars, timers, and monitors.
 async function gracefulShutdown(signal: string): Promise<void> {
   // Agent pool handles coordinated shutdown: drain → terminate → cleanup
-  if (workflowEngine) {
-    await workflowEngine.shutdown().catch(() => {});
-    workflowEngine = null;
-  }
-  if (agentPool) {
-    await agentPool.shutdown(signal).catch(() => {});
-    setAgentPool(null);
-    agentPool = null;
-  } else {
-    // Fallback if pool wasn't initialized
-    await instanceManager?.shutdown().catch(() => {});
-    await shutdownRuntime(signal).catch(() => {});
-  }
+  try {
+    if (workflowEngine) {
+      await workflowEngine.shutdown().catch(() => {});
+      workflowEngine = null;
+    }
+    if (agentPool) {
+      await agentPool.shutdown(signal).catch(() => {});
+      setAgentPool(null);
+      agentPool = null;
+    } else if (instanceManager || _agentRuntime) {
+      // Fallback if pool wasn't initialized
+      await instanceManager?.shutdown().catch(() => {});
+      if (_agentRuntime) await _agentRuntime.shutdownRuntime(signal).catch(() => {});
+    }
+  } catch {}
   recovery.stop();
   stopCollector();
-  stopGmailTimer();
-  stopCalendarTimer();
-  stopTasksTimer();
+  try { _googleGmailTimer?.stopGmailTimer(); } catch {}
+  try { _googleCalendarTimer?.stopCalendarTimer(); } catch {}
+  try { _googleTasksTimer?.stopTasksTimer(); } catch {}
   stopGroomingTimer();
   stopSchedulingTimer();
-  shutdownGitHub();
+  try { _integrationsGithub?.shutdownGitHub(); } catch {}
   stopGoalTimer();
-  stopAutonomousTimer();
+  try { _agentAutonomous?.stopAutonomousTimer(); } catch {}
   stopBacklogReviewTimer();
   stopBriefingTimer();
   stopInsightsTimer();
   stopOpenLoopScanner();
   stopCreditMonitor();
   stopPushMonitor();
-  stopMdns();
+  try { _mdns?.stopMdns(); } catch {}
   stopFileWatcher();
-  stopAvatarSidecar();
-  stopTtsSidecar();
-  stopSttSidecar();
+  try { _avatarSidecar?.stopAvatarSidecar(); } catch {}
+  try { _ttsSidecar?.stopTtsSidecar(); } catch {}
+  try { _sttSidecar?.stopSttSidecar(); } catch {}
   stopSidecar();
-  await closeBrowser();
+  try { if (_browser) await _browser.closeBrowser(); } catch {}
   shutdownAgents();
   await shutdownPlugins().catch(() => {});
   await shutdownLLMCache();
-  await shutdownTracing();
+  try { if (_tracingInit) await _tracingInit.shutdownTracing(); } catch {}
   releaseLock();
   process.exit(0);
 }
