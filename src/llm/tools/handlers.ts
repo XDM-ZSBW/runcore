@@ -54,11 +54,39 @@ function resolveBrainPath(brainDir: string, relativePath: string): string {
 function formatEntries(entries: MemoryEntry[]): string {
   if (entries.length === 0) return "No entries found.";
   return entries
-    .map(
-      (e) =>
-        `[${e.id}] (${e.type}) ${e.createdAt}\n${e.content}${e.meta ? "\nmeta: " + JSON.stringify(e.meta) : ""}`,
-    )
-    .join("\n\n---\n\n");
+    .filter((e) => e.content)
+    .map((e) => {
+      const date = e.createdAt ? formatDate(e.createdAt) : "unknown date";
+      const metaParts: string[] = [];
+      if (e.meta) {
+        if (e.meta.tags) metaParts.push(`tags: ${e.meta.tags}`);
+        if (e.meta.emotional_weight) metaParts.push(`weight: ${e.meta.emotional_weight}/10`);
+        for (const [k, v] of Object.entries(e.meta)) {
+          if (k === "tags" || k === "emotional_weight" || k === "status") continue;
+          metaParts.push(`${k}: ${v}`);
+        }
+      }
+      const meta = metaParts.length > 0 ? ` (${metaParts.join(", ")})` : "";
+      return `**${e.type}** — ${date}${meta}\n${e.content}`;
+    })
+    .join("\n\n---\n\n") || "No readable entries found.";
+}
+
+/** Format ISO date to readable string. */
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 /** Convert a Zod schema to JSON Schema via zod v4 built-in.
@@ -92,6 +120,39 @@ export function createToolHandlers(ctx: ToolHandlerContext): ToolDefinition[] {
 
   // ── Hallway scan (same as mcp-server.ts) ──────────────────────────────────
 
+  const FILE_TO_TYPE: Record<string, LongTermMemoryType> = {
+    "experiences.jsonl": "episodic",
+    "decisions.jsonl": "episodic",
+    "failures.jsonl": "episodic",
+    "semantic.jsonl": "semantic",
+    "procedural.jsonl": "procedural",
+  };
+
+  function normalizeEntry(obj: Record<string, unknown>, fileName: string): MemoryEntry {
+    const type = (typeof obj.type === "string" ? obj.type : FILE_TO_TYPE[fileName] ?? "episodic") as LongTermMemoryType;
+    const content =
+      (typeof obj.content === "string" ? obj.content : null) ??
+      (typeof obj.summary === "string" ? obj.summary : null) ??
+      (typeof obj.context === "string" ? obj.context : null) ??
+      (typeof obj.reasoning === "string" ? obj.reasoning : null) ??
+      "";
+    const createdAt =
+      (typeof obj.createdAt === "string" ? obj.createdAt : null) ??
+      (typeof obj.date === "string" ? obj.date : null) ??
+      "";
+    const id = (typeof obj.id === "string" ? obj.id : null) ?? `${fileName}:${createdAt || Math.random()}`;
+    const meta: Record<string, string | number | boolean> = obj.meta
+      ? { ...(obj.meta as Record<string, string | number | boolean>) }
+      : {};
+    if (typeof obj.tags === "string") meta.tags = obj.tags;
+    if (typeof obj.emotional_weight === "number") meta.emotional_weight = obj.emotional_weight;
+    if (typeof obj.root_cause === "string") meta.root_cause = obj.root_cause;
+    if (typeof obj.prevention === "string") meta.prevention = obj.prevention;
+    if (typeof obj.outcome === "string") meta.outcome = obj.outcome;
+    if (typeof obj.source === "string") meta.source = obj.source;
+    return { id, type, content, createdAt, meta: Object.keys(meta).length > 0 ? meta : undefined };
+  }
+
   async function hallwayScanMemory(): Promise<MemoryEntry[]> {
     const { readBrainLines } = await import("../../lib/brain-io.js");
     const { isLocked } = await import("../../lib/locked.js");
@@ -110,7 +171,12 @@ export function createToolHandlers(ctx: ToolHandlerContext): ToolDefinition[] {
     for (const file of jsonlFiles) {
       const relPath = `memory/${file}`;
       if (isLocked(relPath)) continue;
-      const lines = await readBrainLines(join(memoryDir, file));
+      let lines: string[];
+      try {
+        lines = await readBrainLines(join(memoryDir, file));
+      } catch {
+        continue;
+      }
       const archived = new Set<string>();
       for (const line of lines) {
         try {
@@ -120,7 +186,7 @@ export function createToolHandlers(ctx: ToolHandlerContext): ToolDefinition[] {
             archived.add(obj.id);
             continue;
           }
-          all.push(obj as unknown as MemoryEntry);
+          all.push(normalizeEntry(obj, file));
         } catch {
           continue;
         }

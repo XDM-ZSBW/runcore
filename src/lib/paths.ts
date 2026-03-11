@@ -17,8 +17,21 @@
  */
 
 import { resolve, join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolveEnv } from "../instance.js";
+
+// Bootstrap: if CORE_BRAIN_DIR isn't in env, read it from .mcp.json.
+// Claude Code may not pass env vars from .mcp.json on all platforms.
+if (!process.env.CORE_BRAIN_DIR && !process.env.DASH_BRAIN_DIR) {
+  const mcpPath = resolve(process.cwd(), ".mcp.json");
+  if (existsSync(mcpPath)) {
+    try {
+      const mcp = JSON.parse(readFileSync(mcpPath, "utf-8"));
+      const val = mcp?.mcpServers?.["core-brain"]?.env?.CORE_BRAIN_DIR;
+      if (val) process.env.CORE_BRAIN_DIR = val;
+    } catch { /* ignore */ }
+  }
+}
 
 /** Absolute path to the brain data directory. */
 export const BRAIN_DIR: string = resolve(

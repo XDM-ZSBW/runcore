@@ -63,11 +63,39 @@ function resolveBrainPath(relativePath: string): string {
 function formatEntries(entries: MemoryEntry[]): string {
   if (entries.length === 0) return "No entries found.";
   return entries
-    .map(
-      (e) =>
-        `[${e.id}] (${e.type}) ${e.createdAt}\n${e.content}${e.meta ? "\nmeta: " + JSON.stringify(e.meta) : ""}`
-    )
-    .join("\n\n---\n\n");
+    .filter((e) => e.content) // skip entries with no content (failed decrypt, etc.)
+    .map((e) => {
+      const date = e.createdAt ? formatDate(e.createdAt) : "unknown date";
+      const metaParts: string[] = [];
+      if (e.meta) {
+        if (e.meta.tags) metaParts.push(`tags: ${e.meta.tags}`);
+        if (e.meta.emotional_weight) metaParts.push(`weight: ${e.meta.emotional_weight}/10`);
+        for (const [k, v] of Object.entries(e.meta)) {
+          if (k === "tags" || k === "emotional_weight" || k === "status") continue;
+          metaParts.push(`${k}: ${v}`);
+        }
+      }
+      const meta = metaParts.length > 0 ? ` (${metaParts.join(", ")})` : "";
+      return `**${e.type}** — ${date}${meta}\n${e.content}`;
+    })
+    .join("\n\n---\n\n") || "No readable entries found.";
+}
+
+/** Format ISO date to readable string. */
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 
@@ -164,6 +192,48 @@ async function main(): Promise<void> {
   // ── Hallway scan: read all unlocked JSONL files in brain/memory/ ─────────
 
   /** Scan all JSONL files in memory dir, parse entries, skip locked files. */
+  /** Map filename to memory type for legacy entries that lack a `type` field. */
+  const FILE_TO_TYPE: Record<string, LongTermMemoryType> = {
+    "experiences.jsonl": "episodic",
+    "decisions.jsonl": "episodic",
+    "failures.jsonl": "episodic",
+    "semantic.jsonl": "semantic",
+    "procedural.jsonl": "procedural",
+  };
+
+  /**
+   * Normalize a raw JSONL object into a MemoryEntry.
+   * Legacy entries (experiences, decisions, failures) use `date`/`summary`/`context`
+   * while runtime entries use `createdAt`/`content`/`type`.
+   */
+  function normalizeEntry(obj: Record<string, unknown>, fileName: string): MemoryEntry {
+    const type = (typeof obj.type === "string" ? obj.type : FILE_TO_TYPE[fileName] ?? "episodic") as LongTermMemoryType;
+    const content =
+      (typeof obj.content === "string" ? obj.content : null) ??
+      (typeof obj.summary === "string" ? obj.summary : null) ??
+      (typeof obj.context === "string" ? obj.context : null) ??
+      (typeof obj.reasoning === "string" ? obj.reasoning : null) ??
+      "";
+    const createdAt =
+      (typeof obj.createdAt === "string" ? obj.createdAt : null) ??
+      (typeof obj.date === "string" ? obj.date : null) ??
+      "";
+    const id = (typeof obj.id === "string" ? obj.id : null) ?? `${fileName}:${createdAt || Math.random()}`;
+
+    // Collect extra fields as meta
+    const meta: Record<string, string | number | boolean> = obj.meta
+      ? { ...(obj.meta as Record<string, string | number | boolean>) }
+      : {};
+    if (typeof obj.tags === "string") meta.tags = obj.tags;
+    if (typeof obj.emotional_weight === "number") meta.emotional_weight = obj.emotional_weight;
+    if (typeof obj.root_cause === "string") meta.root_cause = obj.root_cause;
+    if (typeof obj.prevention === "string") meta.prevention = obj.prevention;
+    if (typeof obj.outcome === "string") meta.outcome = obj.outcome;
+    if (typeof obj.source === "string") meta.source = obj.source;
+
+    return { id, type, content, createdAt, meta: Object.keys(meta).length > 0 ? meta : undefined };
+  }
+
   async function hallwayScanMemory(): Promise<MemoryEntry[]> {
     const files = await readdir(MEMORY_DIR);
     const jsonlFiles = files.filter(
@@ -174,17 +244,24 @@ async function main(): Promise<void> {
     for (const file of jsonlFiles) {
       const relPath = `memory/${file}`;
       if (isLocked(relPath)) continue;
-      const lines = await readBrainLines(join(MEMORY_DIR, file));
+      let lines: string[];
+      try {
+        lines = await readBrainLines(join(MEMORY_DIR, file));
+      } catch (err) {
+        log(`hallwayScan: skipping ${file} — ${err instanceof Error ? err.message : err}`);
+        continue;
+      }
       const archived = new Set<string>();
       for (const line of lines) {
         try {
           const obj = JSON.parse(line) as Record<string, unknown>;
           if (obj._schema) continue;
+          if (obj._e) continue; // still encrypted — skip
           if (obj.status === "archived" && typeof obj.id === "string") {
             archived.add(obj.id);
             continue;
           }
-          all.push(obj as unknown as MemoryEntry);
+          all.push(normalizeEntry(obj, file));
         } catch { continue; }
       }
       // Remove archived entries
