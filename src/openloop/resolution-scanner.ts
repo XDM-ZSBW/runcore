@@ -181,11 +181,50 @@ async function findResolutionCandidates(
   let cacheHits = 0;
 
   if (ollamaAvailable) {
-    // Vector path
-    for (const loop of loops) {
-      // Budget check: abort early if approaching limit
+    // Pre-compute signal embeddings once (O(C+E) instead of O(L×(C+E)))
+    // Same optimization as DASH-142 in scanner.ts
+    const commitVecs = new Map<string, { vec: Float32Array; text: string }>();
+    for (const commit of commits) {
       if (Date.now() - scanStart > CANDIDATE_BUDGET_MS) {
-        log.warn(`Budget exceeded during candidate search — processed ${candidates.length} candidates from ${loops.indexOf(loop)}/${loops.length} loops`);
+        log.warn(`Budget exceeded during commit pre-embed — embedded ${commitVecs.size}/${commits.length}`);
+        break;
+      }
+      const text = buildCommitText(commit);
+      const cacheKey = `commit:${commit.shortHash}`;
+      try {
+        const hadCache = signalEmbedCache.has(cacheKey);
+        const embedStart = Date.now();
+        const vec = await cachedEmbed(text, cacheKey, false);
+        const embedMs = Date.now() - embedStart;
+        if (hadCache) { cacheHits++; } else { embedCallCount++; embedTotalMs += embedMs; }
+        if (embedMs > embedMaxMs) embedMaxMs = embedMs;
+        commitVecs.set(cacheKey, { vec, text });
+      } catch { continue; }
+    }
+
+    const entryVecs = new Map<string, { vec: Float32Array; text: string }>();
+    for (const entry of entries) {
+      if (Date.now() - scanStart > CANDIDATE_BUDGET_MS) {
+        log.warn(`Budget exceeded during entry pre-embed — embedded ${entryVecs.size}/${entries.length}`);
+        break;
+      }
+      const text = buildEntryText(entry);
+      const cacheKey = `activity:${entry.id}`;
+      try {
+        const hadCache = signalEmbedCache.has(cacheKey);
+        const embedStart = Date.now();
+        const vec = await cachedEmbed(text, cacheKey, false);
+        const embedMs = Date.now() - embedStart;
+        if (hadCache) { cacheHits++; } else { embedCallCount++; embedTotalMs += embedMs; }
+        if (embedMs > embedMaxMs) embedMaxMs = embedMs;
+        entryVecs.set(cacheKey, { vec, text });
+      } catch { continue; }
+    }
+
+    // Vector path: compare each loop against pre-computed signal embeddings
+    for (const loop of loops) {
+      if (Date.now() - scanStart > CANDIDATE_BUDGET_MS) {
+        log.warn(`Budget exceeded during loop matching — processed ${loops.indexOf(loop)}/${loops.length} loops`);
         break;
       }
 
@@ -207,51 +246,25 @@ async function findResolutionCandidates(
       let bestSignalText = "";
       let bestScore = 0;
 
-      // Check commits
-      for (const commit of commits) {
-        if (Date.now() - scanStart > CANDIDATE_BUDGET_MS) break;
-        const text = buildCommitText(commit);
-        const cacheKey = `commit:${commit.shortHash}`;
-        try {
-          const hadCache = signalEmbedCache.has(cacheKey);
-          const embedStart = Date.now();
-          const vec = await cachedEmbed(text, cacheKey, false);
-          const embedMs = Date.now() - embedStart;
-          if (hadCache) { cacheHits++; } else { embedCallCount++; embedTotalMs += embedMs; }
-          if (embedMs > embedMaxMs) embedMaxMs = embedMs;
-          const score = cosine(loopVec, vec);
-          if (score >= VECTOR_SIMILARITY_THRESHOLD && score > bestScore) {
-            bestScore = score;
-            bestSignalId = cacheKey;
-            bestSignalType = "commit";
-            bestSignalText = text;
-          }
-        } catch {
-          continue;
+      // Check commits (pre-computed vectors — no embed calls)
+      for (const [cacheKey, { vec, text }] of commitVecs) {
+        const score = cosine(loopVec, vec);
+        if (score >= VECTOR_SIMILARITY_THRESHOLD && score > bestScore) {
+          bestScore = score;
+          bestSignalId = cacheKey;
+          bestSignalType = "commit";
+          bestSignalText = text;
         }
       }
 
-      // Check activity entries
-      for (const entry of entries) {
-        if (Date.now() - scanStart > CANDIDATE_BUDGET_MS) break;
-        const text = buildEntryText(entry);
-        const cacheKey = `activity:${entry.id}`;
-        try {
-          const hadCache = signalEmbedCache.has(cacheKey);
-          const embedStart = Date.now();
-          const vec = await cachedEmbed(text, cacheKey, false);
-          const embedMs = Date.now() - embedStart;
-          if (hadCache) { cacheHits++; } else { embedCallCount++; embedTotalMs += embedMs; }
-          if (embedMs > embedMaxMs) embedMaxMs = embedMs;
-          const score = cosine(loopVec, vec);
-          if (score >= VECTOR_SIMILARITY_THRESHOLD && score > bestScore) {
-            bestScore = score;
-            bestSignalId = cacheKey;
-            bestSignalType = "activity";
-            bestSignalText = text;
-          }
-        } catch {
-          continue;
+      // Check activity entries (pre-computed vectors — no embed calls)
+      for (const [cacheKey, { vec, text }] of entryVecs) {
+        const score = cosine(loopVec, vec);
+        if (score >= VECTOR_SIMILARITY_THRESHOLD && score > bestScore) {
+          bestScore = score;
+          bestSignalId = cacheKey;
+          bestSignalType = "activity";
+          bestSignalText = text;
         }
       }
 
