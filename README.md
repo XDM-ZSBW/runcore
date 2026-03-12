@@ -24,8 +24,8 @@ If you've ever watched an agent burn tokens repeating the same mistake three tim
 
 ```bash
 # 1. Clone
-git clone https://github.com/XDM-ZSBW/core.git
-cd core
+git clone https://github.com/XDM-ZSBW/runcore.git
+cd runcore
 
 # 2. Install
 npm install
@@ -345,6 +345,7 @@ The key innovation is not autonomy — many systems are autonomous. It's **adapt
 - **[The File System Is the New Database: How I Built a Personal OS for AI Agents](https://x.com/koylanai/status/2025286163641118915)** — Muratcan Koylan. Personal Brain OS, progressive disclosure, format-function mapping, skill system.
 - [Agent Skills for Context Engineering](https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering) — Skill format and patterns.
 - [Agent Architecture: From Prompt to Context](https://www.agent32.org/agent-architecture-overview-from-prompt-to-context/) — Context engineering as the core discipline.
+- **[Context Engineering: From Vibe Coder to Software Engineer](https://augmentedadvisors.com/book/)** — Craig Trulove. Practical guide to production AI systems: system prompts, RAG, multi-agent architectures, memory systems, testing, and deployment.
 - [Beyond the Prompt (COALA)](https://medium.com/google-cloud/beyond-the-prompt-why-your-next-ai-agent-needs-a-brain-and-how-coala-research-paper-provides-an-ba187a906ea0) — Modular memory, internal/external actions.
 
 ---
