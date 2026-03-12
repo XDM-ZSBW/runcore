@@ -347,6 +347,8 @@ The key innovation is not autonomy — many systems are autonomous. It's **adapt
 - [Agent Architecture: From Prompt to Context](https://www.agent32.org/agent-architecture-overview-from-prompt-to-context/) — Context engineering as the core discipline.
 - **[Context Engineering: From Vibe Coder to Software Engineer](https://augmentedadvisors.com/book/)** — Craig Trulove. Practical guide to production AI systems: system prompts, RAG, multi-agent architectures, memory systems, testing, and deployment.
 - [Beyond the Prompt (COALA)](https://medium.com/google-cloud/beyond-the-prompt-why-your-next-ai-agent-needs-a-brain-and-how-coala-research-paper-provides-an-ba187a906ea0) — Modular memory, internal/external actions.
+- **[The Ralph Wiggum Technique](https://ghuntley.com/ralph/)** — Geoffrey Huntley. Deterministic development loop that allocates full specification context with each iteration, eliminating context rot and compaction failure modes. The goal-loop architecture in this project was directly influenced by this research.
+- [how-to-ralph-wiggum](https://github.com/ghuntley/how-to-ralph-wiggum) — Reference implementation and methodology documentation for the Ralph Wiggum Loop.
 
 ---
 
