@@ -10,8 +10,10 @@
 
 import { join, relative, basename, dirname } from "node:path";
 import { readdir, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
 import { createLogger } from "../utils/logger.js";
-import { readBrainFile, readBrainLines, appendBrainLine } from "../lib/brain-io.js";
+import { readBrainFile, appendBrainLine } from "../lib/brain-io.js";
 import { BRAIN_DIR, FILES_DIR, resolveBrainDir } from "../lib/paths.js";
 import { embed, embedBatch, isOllamaAvailable, cosine } from "./embedder.js";
 import { chunkMarkdown, type Chunk } from "./chunker.js";
@@ -98,11 +100,23 @@ export class BrainRAG {
     return this._ready;
   }
 
-  /** Load existing embeddings from disk. Fast — no Ollama needed. */
+  /** Load existing embeddings from disk. Streams line-by-line to limit memory. */
   async load(): Promise<void> {
-    const lines = await readBrainLines(this.embeddingsPath);
     let loaded = 0;
-    for (const line of lines) {
+    try {
+      await stat(this.embeddingsPath); // check file exists
+    } catch {
+      this._ready = true;
+      return;
+    }
+
+    const rl = createInterface({
+      input: createReadStream(this.embeddingsPath, { encoding: "utf-8" }),
+      crlfDelay: Infinity,
+    });
+
+    for await (const line of rl) {
+      if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line) as ChunkLine;
         if (!entry.id || !entry.v) continue;
@@ -155,6 +169,12 @@ export class BrainRAG {
 
           await this.indexFile(file.path);
           indexed++;
+
+          // Yield between files so GC can reclaim chunk/text buffers.
+          // Every 10 files, pause 50ms to reduce memory pressure during bulk indexing.
+          if (indexed % 10 === 0) {
+            await new Promise((r) => setTimeout(r, 50));
+          }
         } catch (err) {
           errors++;
           log.error(`Failed to index ${file.path}`, {
@@ -211,26 +231,26 @@ export class BrainRAG {
 
       for (let j = 0; j < batch.length; j++) {
         const chunk = batch[j];
+        const vec = vecs[j];
         const record: ChunkRecord = {
           id: chunk.id,
           filePath: relPath,
           heading: chunk.heading,
           index: chunk.index,
           mtime,
-          vec: vecs[j],
+          vec,
         };
         this.chunks.set(chunk.id, record);
 
-        // Persist
-        const line: ChunkLine = {
-          id: chunk.id,
-          filePath: relPath,
-          heading: chunk.heading,
-          index: chunk.index,
-          mtime,
-          v: Array.from(vecs[j]),
-        };
-        await appendBrainLine(this.embeddingsPath, JSON.stringify(line));
+        // Persist — serialize Float32Array directly to avoid intermediate number[] allocation
+        const vStr = "[" + vec.join(",") + "]";
+        const line = `{"id":${JSON.stringify(chunk.id)},"filePath":${JSON.stringify(relPath)},"heading":${JSON.stringify(chunk.heading)},"index":${chunk.index},"mtime":${mtime},"v":${vStr}}`;
+        await appendBrainLine(this.embeddingsPath, line);
+      }
+
+      // Release chunk text references after each batch is embedded and persisted
+      for (let j = 0; j < batch.length; j++) {
+        (batch[j] as any).text = undefined;
       }
     }
 
