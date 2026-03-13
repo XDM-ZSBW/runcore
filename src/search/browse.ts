@@ -33,6 +33,33 @@ export function extractTitle(html: string): string {
   return match ? decodeEntities(match[1].trim()) : "";
 }
 
+/** Remove all content between opening and closing tags (indexOf-based, no regex). */
+function stripTagBlocks(html: string, tagNames: string[]): string {
+  let s = html;
+  for (const tag of tagNames) {
+    const openTag = `<${tag}`;
+    const closeTag = `</${tag}`;
+    let idx: number;
+    while ((idx = s.toLowerCase().indexOf(openTag, 0)) !== -1) {
+      // Ensure it's actually a tag boundary (followed by space, >, or /)
+      const charAfter = s[idx + openTag.length];
+      if (charAfter && charAfter !== '>' && charAfter !== ' ' && charAfter !== '/' && charAfter !== '\t' && charAfter !== '\n' && charAfter !== '\r') {
+        // Not a real tag — skip past this occurrence
+        s = s.slice(0, idx) + s.slice(idx + 1);
+        continue;
+      }
+      const closeIdx = s.toLowerCase().indexOf(closeTag, idx + openTag.length);
+      if (closeIdx === -1) {
+        s = s.slice(0, idx);
+        break;
+      }
+      const closeEnd = s.indexOf('>', closeIdx + closeTag.length);
+      s = s.slice(0, idx) + s.slice(closeEnd === -1 ? s.length : closeEnd + 1);
+    }
+  }
+  return s;
+}
+
 /**
  * Strip HTML to readable plain text.
  * Removes scripts, styles, tags, decodes entities, and collapses whitespace.
@@ -41,13 +68,8 @@ export function stripHtml(html: string): string {
   let text = html;
   let prev;
 
-  // Remove script and style blocks entirely (loop for nested)
-  do {
-    prev = text;
-    text = text.replace(/<script[\s\S]*?<\/script>/gi, "");
-    text = text.replace(/<style[\s\S]*?<\/style>/gi, "");
-    text = text.replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
-  } while (text !== prev);
+  // Remove script, style, and noscript blocks entirely
+  text = stripTagBlocks(text, ["script", "style", "noscript"]);
 
   // Remove HTML comments
   text = text.replace(/<!--[\s\S]*?-->/g, "");

@@ -128,16 +128,34 @@ function getExtension(name: string): string {
   return name.slice(lastDot).toLowerCase();
 }
 
+/** Remove all content between opening and closing tags (indexOf-based, no regex). */
+function stripTagBlocks(html: string, tagNames: string[]): string {
+  let s = html;
+  for (const tag of tagNames) {
+    const openTag = `<${tag}`;
+    const closeTag = `</${tag}`;
+    let idx: number;
+    while ((idx = s.toLowerCase().indexOf(openTag, 0)) !== -1) {
+      const charAfter = s[idx + openTag.length];
+      if (charAfter && charAfter !== '>' && charAfter !== ' ' && charAfter !== '/' && charAfter !== '\t' && charAfter !== '\n' && charAfter !== '\r') {
+        s = s.slice(0, idx) + s.slice(idx + 1);
+        continue;
+      }
+      const closeIdx = s.toLowerCase().indexOf(closeTag, idx + openTag.length);
+      if (closeIdx === -1) { s = s.slice(0, idx); break; }
+      const closeEnd = s.indexOf('>', closeIdx + closeTag.length);
+      s = s.slice(0, idx) + s.slice(closeEnd === -1 ? s.length : closeEnd + 1);
+    }
+  }
+  return s;
+}
+
 // ── SVG sanitization ────────────────────────────────────────────────────────
 
 function sanitizeSvg(content: string): string {
   let s = content;
-  let prev;
-  do {
-    prev = s;
-    s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
-    s = s.replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
-  } while (s !== prev);
+  // Remove script and iframe blocks entirely
+  s = stripTagBlocks(s, ["script", "iframe"]);
   s = s.replace(/\bon\w+\s*=/gi, "data-removed=");
   s = s.replace(/javascript\s*:/gi, "removed:");
   return s;

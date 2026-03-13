@@ -45,17 +45,34 @@ function log(msg: string): void {
   process.stderr.write(`[core-brain-mcp] ${msg}\n`);
 }
 
+/** Remove all content between opening and closing tags (indexOf-based, no regex). */
+function stripTagBlocks(html: string, tagNames: string[]): string {
+  let s = html;
+  for (const tag of tagNames) {
+    const openTag = `<${tag}`;
+    const closeTag = `</${tag}`;
+    let idx: number;
+    while ((idx = s.toLowerCase().indexOf(openTag, 0)) !== -1) {
+      const charAfter = s[idx + openTag.length];
+      if (charAfter && charAfter !== '>' && charAfter !== ' ' && charAfter !== '/' && charAfter !== '\t' && charAfter !== '\n' && charAfter !== '\r') {
+        s = s.slice(0, idx) + s.slice(idx + 1);
+        continue;
+      }
+      const closeIdx = s.toLowerCase().indexOf(closeTag, idx + openTag.length);
+      if (closeIdx === -1) { s = s.slice(0, idx); break; }
+      const closeEnd = s.indexOf('>', closeIdx + closeTag.length);
+      s = s.slice(0, idx) + s.slice(closeEnd === -1 ? s.length : closeEnd + 1);
+    }
+  }
+  return s;
+}
+
 /** Lightweight HTML → markdown. Strips tags, converts common elements. */
 function htmlToMarkdown(html: string): string {
   let s = html;
   let prev;
-  // Remove script, style, head blocks entirely (loop for nested)
-  do {
-    prev = s;
-    s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
-    s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
-    s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
-  } while (s !== prev);
+  // Remove script, style, head blocks entirely
+  s = stripTagBlocks(s, ["script", "style", "head"]);
   // Convert common block elements
   s = s.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n");
   s = s.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n");

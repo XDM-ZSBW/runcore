@@ -104,10 +104,17 @@ const WORD_LIST = [
 
 function generatePairingCode(): string {
   const words: string[] = [];
-  const bytes = randomBytes(6);
-  for (let i = 0; i < 6; i++) {
-    const idx = bytes[i] % WORD_LIST.length;
-    words.push(WORD_LIST[idx]);
+  const listLen = WORD_LIST.length; // 60
+  const maxValid = 256 - (256 % listLen); // 240 — largest multiple of 60 ≤ 256
+  let collected = 0;
+  while (collected < 6) {
+    const bytes = randomBytes(6 - collected);
+    for (let i = 0; i < bytes.length && collected < 6; i++) {
+      if (bytes[i] < maxValid) {
+        words.push(WORD_LIST[bytes[i] % listLen]);
+        collected++;
+      }
+    }
   }
   return words.join("-");
 }

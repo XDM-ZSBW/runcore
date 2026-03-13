@@ -481,7 +481,7 @@ function navigateTo(url, addToHistory = true) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      pageFrame.src = url;
+      pageFrame.src = parsed.href;
     } else {
       pageFrame.src = 'about:blank';
     }
