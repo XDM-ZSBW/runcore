@@ -1,6 +1,6 @@
 {
   "name": "@runcore-sh/runcore",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "description": "Local-first AI agent runtime. One command, your machine, your data.",
   "type": "module",
   "main": "dist/index.js",
@@ -63,18 +63,27 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@browserbasehq/stagehand": "^3.1.0",
     "@hono/node-server": "^1.19.9",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@opentelemetry/resources": "^2.6.0",
+    "@opentelemetry/sdk-trace-base": "^2.6.0",
+    "@opentelemetry/sdk-trace-node": "^2.6.0",
+    "@opentelemetry/semantic-conventions": "^1.40.0",
     "compromise": "^14.15.0",
     "hono": "^4.12.3",
     "mammoth": "^1.11.0",
     "pdf-parse": "^2.4.5",
     "qrcode": "^1.5.4",
+    "tesseract.js": "^7.0.0",
     "unpdf": "^1.4.0",
     "zod": "^4.3.6"
   },
   "optionalDependencies": {
-    "web-push": "^3.6.7",
-    "multicast-dns": "^7.2.5"
+    "multicast-dns": "^7.2.5",
+    "web-push": "^3.6.7"
+  },
+  "overrides": {
+    "langsmith": "^0.5.10"
   }
 }

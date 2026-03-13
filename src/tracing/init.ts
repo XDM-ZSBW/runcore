@@ -14,8 +14,9 @@ import {
   BatchSpanProcessor,
   ConsoleSpanExporter,
   type SpanExporter,
+  type SpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
-import { Resource } from "@opentelemetry/resources";
+import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
@@ -63,35 +64,32 @@ export function initTracing(config?: TracingConfig): TracerProvider {
   const serviceName = config?.serviceName ?? `${getInstanceNameLower()}-brain`;
   const serviceVersion = config?.serviceVersion ?? "0.1.0";
 
-  const resource = new Resource({
+  const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: serviceVersion,
     ...config?.resourceAttributes,
   });
 
-  provider = new NodeTracerProvider({ resource });
+  // Build span processors list
+  const spanProcessors: SpanProcessor[] = [];
+
+  const wrap = (exporter: SpanExporter): SpanProcessor =>
+    config?.batch ? new BatchSpanProcessor(exporter) : new SimpleSpanProcessor(exporter);
 
   // Console exporter (opt-in: pass consoleExport:true or set OTEL_CONSOLE=1)
   const enableConsole = config?.consoleExport ?? process.env.OTEL_CONSOLE === "1";
   if (enableConsole) {
-    const consoleExporter = new ConsoleSpanExporter();
-    if (config?.batch) {
-      provider.addSpanProcessor(new BatchSpanProcessor(consoleExporter));
-    } else {
-      provider.addSpanProcessor(new SimpleSpanProcessor(consoleExporter));
-    }
+    spanProcessors.push(wrap(new ConsoleSpanExporter()));
   }
 
   // Additional exporters (e.g. OTLP for Jaeger/Grafana Tempo)
   if (config?.exporters) {
     for (const exporter of config.exporters) {
-      if (config?.batch) {
-        provider.addSpanProcessor(new BatchSpanProcessor(exporter));
-      } else {
-        provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
-      }
+      spanProcessors.push(wrap(exporter));
     }
   }
+
+  provider = new NodeTracerProvider({ resource, spanProcessors });
 
   // Register as the global tracer provider
   provider.register();
