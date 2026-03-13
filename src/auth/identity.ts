@@ -3,7 +3,7 @@
  * Handles: pairing code generation, password hashing, recovery, session management.
  */
 
-import { createHash, randomBytes, pbkdf2Sync } from "node:crypto";
+import { createHash, createHmac, randomBytes, pbkdf2Sync } from "node:crypto";
 import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { deriveKey } from "./crypto.js";
@@ -44,9 +44,15 @@ const SESSION_KEY_CACHE_PATH = join(IDENTITY_DIR, ".session-key");
 
 // --- Helpers ---
 
-/** @deprecated Legacy hash — only used for verifying old stored hashes. */
-function sha256(input: string): string {
-  return createHash("sha256").update(input.trim().toLowerCase()).digest("hex");
+/**
+ * @deprecated Legacy hash — only used for verifying pre-PBKDF2 stored hashes.
+ * All new hashes use PBKDF2 (600K iterations). Legacy hashes auto-upgrade
+ * to PBKDF2 on successful login via authenticate(). This function will be
+ * removed once all legacy hashes have been upgraded.
+ */
+function legacySha256Verify(input: string, storedHex: string): boolean {
+  const computed = createHash("sha256").update(input.trim().toLowerCase()).digest("hex"); // codeql[js/insufficient-password-hash]: intentional legacy compat — auto-upgrades to PBKDF2 on next login
+  return computed === storedHex;
 }
 
 const PW_HASH_ITERATIONS = 600_000;
@@ -67,8 +73,8 @@ function verifyPassword(password: string, storedHash: string): boolean {
     const computed = pbkdf2Sync(password.trim().toLowerCase(), Buffer.from(salt, "hex"), PW_HASH_ITERATIONS, PW_HASH_KEYLEN, PW_HASH_DIGEST);
     return computed.toString("hex") === hash;
   }
-  // Legacy: plain SHA256
-  return sha256(password) === storedHash;
+  // Legacy: plain SHA256 — auto-upgrades to PBKDF2 on next successful authenticate()
+  return legacySha256Verify(password, storedHash);
 }
 
 /** Check if a stored hash is using the legacy SHA256 format. */
@@ -86,7 +92,7 @@ function generateSessionId(): string {
  * session files survive server restarts. Changes on recovery (new password).
  */
 function stableSessionId(passwordHash: string): string {
-  return createHash("sha256").update(passwordHash + ":session").digest("hex").slice(0, 48);
+  return createHmac("sha256", "core:session-id").update(passwordHash).digest("hex").slice(0, 48);
 }
 
 const WORD_LIST = [
