@@ -3,7 +3,7 @@
  * Handles: pairing code generation, password hashing, recovery, session management.
  */
 
-import { createHmac, randomBytes, pbkdf2Sync } from "node:crypto";
+import { randomBytes, pbkdf2Sync } from "node:crypto";
 import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { deriveKey } from "./crypto.js";
@@ -75,7 +75,7 @@ function generateSessionId(): string {
  * session files survive server restarts. Changes on recovery (new password).
  */
 function stableSessionId(passwordHash: string): string {
-  return createHmac("sha256", "core:session-id").update(passwordHash).digest("hex").slice(0, 48);
+  return pbkdf2Sync(passwordHash, "core:session-id", 1000, 24, "sha256").toString("hex");
 }
 
 const WORD_LIST = [

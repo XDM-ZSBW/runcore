@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createTempDir, randomKey } from "./helpers.js";
 import { join } from "node:path";
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
-import { createHmac, randomBytes, pbkdf2Sync } from "node:crypto";
+import { randomBytes, pbkdf2Sync } from "node:crypto";
 import { encrypt, decrypt, deriveKey, type EncryptedPayload } from "../src/auth/crypto.js";
 import { saveSession, loadSession, type SessionData } from "../src/sessions/store.js";
 
@@ -144,7 +144,7 @@ describe("Pairing ceremony logic", () => {
   }
 
   function stableSessionId(passwordHash: string): string {
-    return createHmac("sha256", "core:session-id").update(passwordHash).digest("hex").slice(0, 48);
+    return pbkdf2Sync(passwordHash, "core:session-id", 1000, 24, "sha256").toString("hex");
   }
 
   beforeEach(async () => {
