@@ -71,8 +71,12 @@ export function stripHtml(html: string): string {
   // Remove script, style, and noscript blocks entirely
   text = stripTagBlocks(text, ["script", "style", "noscript"]);
 
-  // Remove HTML comments
-  text = text.replace(/<!--[\s\S]*?-->/g, "");
+  // Remove HTML comments (indexOf-based to avoid multi-char sanitization issues)
+  let commentStart: number;
+  while ((commentStart = text.indexOf("<!--")) !== -1) {
+    const commentEnd = text.indexOf("-->", commentStart + 4);
+    text = text.slice(0, commentStart) + (commentEnd === -1 ? "" : text.slice(commentEnd + 3));
+  }
 
   // Replace block-level tags with newlines for readability
   text = text.replace(/<\/(p|div|h[1-6]|li|tr|br|blockquote|section|article|header|footer)>/gi, "\n");

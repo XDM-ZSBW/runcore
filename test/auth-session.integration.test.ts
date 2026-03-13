@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createTempDir, randomKey } from "./helpers.js";
 import { join } from "node:path";
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
-import { createHash, createHmac, randomBytes, pbkdf2Sync } from "node:crypto";
+import { createHmac, randomBytes, pbkdf2Sync } from "node:crypto";
 import { encrypt, decrypt, deriveKey, type EncryptedPayload } from "../src/auth/crypto.js";
 import { saveSession, loadSession, type SessionData } from "../src/sessions/store.js";
 
@@ -137,14 +137,10 @@ describe("Pairing ceremony logic", () => {
   }
 
   function verifyPassword(password: string, stored: string): boolean {
-    if (stored.startsWith("pbkdf2:")) {
-      const [, salt, hash] = stored.split(":");
-      const computed = pbkdf2Sync(password.trim().toLowerCase(), Buffer.from(salt, "hex"), 600_000, 32, "sha256");
-      return computed.toString("hex") === hash;
-    }
-    // Legacy SHA256 path — mirrors production legacySha256Verify()
-    const legacyHash = createHash("sha256").update(password.trim().toLowerCase()).digest("hex"); // lgtm[js/insufficient-password-hash] — test-only legacy compat
-    return legacyHash === stored;
+    if (!stored.startsWith("pbkdf2:")) return false;
+    const [, salt, hash] = stored.split(":");
+    const computed = pbkdf2Sync(password.trim().toLowerCase(), Buffer.from(salt, "hex"), 600_000, 32, "sha256");
+    return computed.toString("hex") === hash;
   }
 
   function stableSessionId(passwordHash: string): string {

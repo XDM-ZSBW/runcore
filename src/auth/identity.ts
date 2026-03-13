@@ -3,7 +3,7 @@
  * Handles: pairing code generation, password hashing, recovery, session management.
  */
 
-import { createHash, createHmac, randomBytes, pbkdf2Sync } from "node:crypto";
+import { createHmac, randomBytes, pbkdf2Sync } from "node:crypto";
 import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { deriveKey } from "./crypto.js";
@@ -44,17 +44,6 @@ const SESSION_KEY_CACHE_PATH = join(IDENTITY_DIR, ".session-key");
 
 // --- Helpers ---
 
-/**
- * @deprecated Legacy hash — only used for verifying pre-PBKDF2 stored hashes.
- * All new hashes use PBKDF2 (600K iterations). Legacy hashes auto-upgrade
- * to PBKDF2 on successful login via authenticate(). This function will be
- * removed once all legacy hashes have been upgraded.
- */
-function legacySha256Verify(input: string, storedHex: string): boolean {
-  const computed = createHash("sha256").update(input.trim().toLowerCase()).digest("hex"); // codeql[js/insufficient-password-hash]: intentional legacy compat — auto-upgrades to PBKDF2 on next login
-  return computed === storedHex;
-}
-
 const PW_HASH_ITERATIONS = 600_000;
 const PW_HASH_KEYLEN = 32;
 const PW_HASH_DIGEST = "sha256";
@@ -66,20 +55,14 @@ function hashPassword(password: string, salt?: string): string {
   return `pbkdf2:${saltBuf.toString("hex")}:${hash.toString("hex")}`;
 }
 
-/** Verify password against stored hash (supports both PBKDF2 and legacy SHA256). */
+/** Verify password against stored PBKDF2 hash. */
 function verifyPassword(password: string, storedHash: string): boolean {
-  if (storedHash.startsWith("pbkdf2:")) {
-    const [, salt, hash] = storedHash.split(":");
-    const computed = pbkdf2Sync(password.trim().toLowerCase(), Buffer.from(salt, "hex"), PW_HASH_ITERATIONS, PW_HASH_KEYLEN, PW_HASH_DIGEST);
-    return computed.toString("hex") === hash;
+  if (!storedHash.startsWith("pbkdf2:")) {
+    return false; // Legacy SHA256 hashes no longer accepted — use recovery to set a new password
   }
-  // Legacy: plain SHA256 — auto-upgrades to PBKDF2 on next successful authenticate()
-  return legacySha256Verify(password, storedHash);
-}
-
-/** Check if a stored hash is using the legacy SHA256 format. */
-function isLegacyHash(storedHash: string): boolean {
-  return !storedHash.startsWith("pbkdf2:");
+  const [, salt, hash] = storedHash.split(":");
+  const computed = pbkdf2Sync(password.trim().toLowerCase(), Buffer.from(salt, "hex"), PW_HASH_ITERATIONS, PW_HASH_KEYLEN, PW_HASH_DIGEST);
+  return computed.toString("hex") === hash;
 }
 
 function generateSessionId(): string {
@@ -350,12 +333,6 @@ export async function authenticate(password: string): Promise<{ session: Session
 
   if (!verifyPassword(password, human.passwordHash)) {
     return { error: "Wrong password" };
-  }
-
-  // Upgrade legacy SHA256 hash to PBKDF2 on successful login
-  if (isLegacyHash(human.passwordHash)) {
-    human.passwordHash = hashPassword(password);
-    await writeHuman(human);
   }
 
   const { sessionKey } = await ensureSaltAndDeriveKey(human, password);
