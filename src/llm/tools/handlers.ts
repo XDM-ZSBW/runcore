@@ -93,9 +93,13 @@ function formatDate(iso: string): string {
 /** Lightweight HTML → markdown. Strips tags, converts common elements. */
 function htmlToMarkdown(html: string): string {
   let s = html;
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
-  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
-  s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+    s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
+    s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
+  } while (s !== prev);
   s = s.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n");
   s = s.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n");
   s = s.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, "\n### $1\n");
@@ -111,9 +115,9 @@ function htmlToMarkdown(html: string): string {
   s = s.replace(/<img[^>]+alt="([^"]*)"[^>]*>/gi, "![$1]");
   s = s.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n");
   s = s.replace(/<\/?(ul|ol|dl|dt|dd|nav|header|footer|main|article|section|aside|div|span|table|thead|tbody|tr|td|th|figure|figcaption|blockquote)[^>]*>/gi, "\n");
-  s = s.replace(/<[^>]+>/g, "");
-  s = s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-       .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+  do { prev = s; s = s.replace(/<[^>]+>/g, ""); } while (s !== prev);
+  s = s.replace(/&nbsp;/g, " ").replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+       .replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
   s = s.replace(/\n{3,}/g, "\n\n").trim();
   return s;
 }

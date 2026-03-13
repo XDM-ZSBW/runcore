@@ -3599,7 +3599,7 @@
     // Create progress overlay
     var prog = document.createElement("div");
     prog.className = "folder-progress";
-    prog.innerHTML = '<div class="folder-progress-title"><span class="folder-icon">&#128193;</span> Ingesting: ' + rootFolder + '</div>'
+    prog.innerHTML = '<div class="folder-progress-title"><span class="folder-icon">&#128193;</span> Ingesting: ' + escapeHtml(rootFolder) + '</div>'
       + '<div class="folder-progress-bar"><div class="folder-progress-fill" id="folder-fill"></div></div>'
       + '<div class="folder-progress-status"><span id="folder-status">0 / ' + files.length + '</span><button class="folder-progress-cancel" id="folder-cancel">Cancel</button></div>';
     document.body.appendChild(prog);
@@ -3734,7 +3734,8 @@
       const thumb = document.createElement("div");
       thumb.className = "thumb";
       const imgEl = document.createElement("img");
-      imgEl.src = "data:" + img.mimeType + ";base64," + img.data;
+      const safeMime = /^image\/[a-z0-9.+-]+$/i.test(img.mimeType) ? img.mimeType : 'image/png';
+      imgEl.src = "data:" + safeMime + ";base64," + img.data;
       thumb.appendChild(imgEl);
       const removeBtn = document.createElement("button");
       removeBtn.className = "remove-btn";
@@ -4824,7 +4825,7 @@
       div.innerHTML = '<div class="content"></div>';
     } else {
       var label = labelOverride || (role === "user" ? userName || "You" : agentName);
-      div.innerHTML = '<div class="role">' + label + '</div>'
+      div.innerHTML = '<div class="role">' + escapeHtml(label) + '</div>'
         + '<div class="content"></div>';
     }
     // Render markdown for assistant messages, plain text for user
@@ -4923,7 +4924,7 @@
   function createStreamingMessage() {
     const div = document.createElement("div");
     div.className = "message assistant";
-    div.innerHTML = '<div class="role">' + agentName + '<span class="model-tag" id="streaming-model-tag"></span></div><div class="content"></div>';
+    div.innerHTML = '<div class="role">' + escapeHtml(agentName) + '<span class="model-tag" id="streaming-model-tag"></span></div><div class="content"></div>';
     messagesEl.appendChild(div);
     return div.querySelector(".content");
   }

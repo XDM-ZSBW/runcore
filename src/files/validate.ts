@@ -131,11 +131,16 @@ function getExtension(name: string): string {
 // ── SVG sanitization ────────────────────────────────────────────────────────
 
 function sanitizeSvg(content: string): string {
-  return content
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
-    .replace(/\bon\w+\s*=/gi, "data-removed=")
-    .replace(/javascript\s*:/gi, "removed:");
+  let s = content;
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+    s = s.replace(/<iframe[\s\S]*?<\/iframe>/gi, "");
+  } while (s !== prev);
+  s = s.replace(/\bon\w+\s*=/gi, "data-removed=");
+  s = s.replace(/javascript\s*:/gi, "removed:");
+  return s;
 }
 
 // ── Main validation ─────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
  * Handles: pairing code generation, password hashing, recovery, session management.
  */
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, pbkdf2Sync } from "node:crypto";
 import { readFile, writeFile, unlink, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { deriveKey } from "./crypto.js";
@@ -13,9 +13,10 @@ import { BRAIN_DIR } from "../lib/paths.js";
 
 export interface HumanIdentity {
   name: string;
-  /** SHA256 hash of password. Also reads legacy "safeWordHash" from disk. */
+  /** Password hash. New: PBKDF2 (prefixed "pbkdf2:"). Legacy: plain SHA256 hex. */
   passwordHash: string;
-  pbkdf2Salt?: string; // hex, 16 bytes — added for session encryption
+  /** Salt for password hash (hex, 16 bytes). Shared with session encryption key derivation. */
+  pbkdf2Salt?: string;
   recovery: {
     question: string;
     answerHash: string;
@@ -43,8 +44,36 @@ const SESSION_KEY_CACHE_PATH = join(IDENTITY_DIR, ".session-key");
 
 // --- Helpers ---
 
+/** @deprecated Legacy hash — only used for verifying old stored hashes. */
 function sha256(input: string): string {
   return createHash("sha256").update(input.trim().toLowerCase()).digest("hex");
+}
+
+const PW_HASH_ITERATIONS = 600_000;
+const PW_HASH_KEYLEN = 32;
+const PW_HASH_DIGEST = "sha256";
+
+/** Hash a password with PBKDF2. Returns "pbkdf2:<salt_hex>:<hash_hex>". */
+function hashPassword(password: string, salt?: string): string {
+  const saltBuf = salt ? Buffer.from(salt, "hex") : randomBytes(16);
+  const hash = pbkdf2Sync(password.trim().toLowerCase(), saltBuf, PW_HASH_ITERATIONS, PW_HASH_KEYLEN, PW_HASH_DIGEST);
+  return `pbkdf2:${saltBuf.toString("hex")}:${hash.toString("hex")}`;
+}
+
+/** Verify password against stored hash (supports both PBKDF2 and legacy SHA256). */
+function verifyPassword(password: string, storedHash: string): boolean {
+  if (storedHash.startsWith("pbkdf2:")) {
+    const [, salt, hash] = storedHash.split(":");
+    const computed = pbkdf2Sync(password.trim().toLowerCase(), Buffer.from(salt, "hex"), PW_HASH_ITERATIONS, PW_HASH_KEYLEN, PW_HASH_DIGEST);
+    return computed.toString("hex") === hash;
+  }
+  // Legacy: plain SHA256
+  return sha256(password) === storedHash;
+}
+
+/** Check if a stored hash is using the legacy SHA256 format. */
+function isLegacyHash(storedHash: string): boolean {
+  return !storedHash.startsWith("pbkdf2:");
 }
 
 function generateSessionId(): string {
@@ -75,8 +104,9 @@ const WORD_LIST = [
 
 function generatePairingCode(): string {
   const words: string[] = [];
+  const bytes = randomBytes(6);
   for (let i = 0; i < 6; i++) {
-    const idx = Math.floor(Math.random() * WORD_LIST.length);
+    const idx = bytes[i] % WORD_LIST.length;
     words.push(WORD_LIST[idx]);
   }
   return words.join("-");
@@ -281,11 +311,11 @@ export async function pair(input: {
   const salt = generateSalt();
   const identity: HumanIdentity = {
     name: input.name.trim(),
-    passwordHash: sha256(input.password),
+    passwordHash: hashPassword(input.password),
     pbkdf2Salt: salt,
     recovery: input.recoveryQuestion && input.recoveryAnswer ? {
       question: input.recoveryQuestion.trim(),
-      answerHash: sha256(input.recoveryAnswer),
+      answerHash: hashPassword(input.recoveryAnswer),
     } : undefined as any,
     pairedAt: new Date().toISOString(),
   };
@@ -305,8 +335,14 @@ export async function authenticate(password: string): Promise<{ session: Session
   const human = await readHuman();
   if (!human) return { error: "Not paired yet" };
 
-  if (sha256(password) !== human.passwordHash) {
+  if (!verifyPassword(password, human.passwordHash)) {
     return { error: "Wrong password" };
+  }
+
+  // Upgrade legacy SHA256 hash to PBKDF2 on successful login
+  if (isLegacyHash(human.passwordHash)) {
+    human.passwordHash = hashPassword(password);
+    await writeHuman(human);
   }
 
   const { sessionKey } = await ensureSaltAndDeriveKey(human, password);
@@ -329,12 +365,13 @@ export async function recover(answer: string, newPassword: string): Promise<{ se
   const human = await readHuman();
   if (!human) return { error: "Not paired yet" };
 
-  if (sha256(answer) !== human.recovery.answerHash) {
+  if (!verifyPassword(answer, human.recovery.answerHash)) {
     return { error: "Wrong answer" };
   }
 
   // Update password and regenerate salt (old sessions unreadable — intentional)
-  human.passwordHash = sha256(newPassword);
+  human.passwordHash = hashPassword(newPassword);
+  human.recovery.answerHash = hashPassword(answer);
   const salt = generateSalt();
   human.pbkdf2Salt = salt;
   await writeHuman(human);

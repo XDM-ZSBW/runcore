@@ -48,10 +48,14 @@ function log(msg: string): void {
 /** Lightweight HTML → markdown. Strips tags, converts common elements. */
 function htmlToMarkdown(html: string): string {
   let s = html;
-  // Remove script, style, head blocks entirely
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
-  s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
-  s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
+  let prev;
+  // Remove script, style, head blocks entirely (loop for nested)
+  do {
+    prev = s;
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
+    s = s.replace(/<style[\s\S]*?<\/style>/gi, "");
+    s = s.replace(/<head[\s\S]*?<\/head>/gi, "");
+  } while (s !== prev);
   // Convert common block elements
   s = s.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n");
   s = s.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, "\n## $1\n");
@@ -71,11 +75,11 @@ function htmlToMarkdown(html: string): string {
   // Lists
   s = s.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, "- $1\n");
   s = s.replace(/<\/?(ul|ol|dl|dt|dd|nav|header|footer|main|article|section|aside|div|span|table|thead|tbody|tr|td|th|figure|figcaption|blockquote)[^>]*>/gi, "\n");
-  // Strip remaining tags
-  s = s.replace(/<[^>]+>/g, "");
-  // Decode common entities
-  s = s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-       .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+  // Strip remaining tags (loop for nested)
+  do { prev = s; s = s.replace(/<[^>]+>/g, ""); } while (s !== prev);
+  // Decode common entities (most-specific first to avoid double-decode)
+  s = s.replace(/&nbsp;/g, " ").replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+       .replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
   // Collapse whitespace
   s = s.replace(/\n{3,}/g, "\n\n").trim();
   return s;

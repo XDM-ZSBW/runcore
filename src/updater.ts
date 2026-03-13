@@ -85,6 +85,12 @@ export async function checkUpdate(): Promise<VersionInfo | null> {
 /** Apply update — runs npm update, then restarts the process. */
 function applyUpdate(latest: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Validate version string to prevent command injection
+    if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(latest)) {
+      reject(new Error(`Invalid version string: ${latest}`));
+      return;
+    }
+
     log.info(`Applying update to v${latest}...`);
 
     // Detect if globally installed or local

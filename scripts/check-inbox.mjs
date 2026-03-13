@@ -13,9 +13,9 @@ let credStore = getCredentialStore();
 if (!credStore) credStore = createCredentialStore('brain');
 await credStore.hydrate();
 
-console.log('RELAY_SECRET:', (process.env.RELAY_SECRET || '').slice(0, 8) + '...');
-console.log('RESEND_WORKER_URL:', process.env.RESEND_WORKER_URL);
-console.log('RESEND_API_KEY:', (process.env.RESEND_API_KEY || '').slice(0, 8) + '...');
+console.log('RELAY_SECRET:', process.env.RELAY_SECRET ? '[set]' : '[not set]');
+console.log('RESEND_WORKER_URL:', process.env.RESEND_WORKER_URL ? '[set]' : '[not set]');
+console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? '[set]' : '[not set]');
 
 const count = await forceCheckResendInbox();
 console.log('Processed:', count);

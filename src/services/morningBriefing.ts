@@ -386,7 +386,9 @@ export function formatBriefingText(briefing: MorningBriefing): string {
   if (briefing.email.highPriorityCount > 0) {
     lines.push(`  ${briefing.email.highPriorityCount} high priority`);
     for (const m of (briefing.email.summary?.highPriority ?? []).slice(0, 3)) {
-      const from = m.from.replace(/<[^>]+>/, "").trim();
+      let from = m.from;
+      let _prev; do { _prev = from; from = from.replace(/<[^>]+>/g, ""); } while (from !== _prev);
+      from = from.trim();
       lines.push(`  * ${from}: ${m.subject}`);
     }
   } else {
@@ -474,7 +476,9 @@ export function formatBriefingHtml(briefing: MorningBriefing): string {
   }).join("");
 
   const highPriorityRows = (briefing.email.summary?.highPriority ?? []).map((m) => {
-    const from = escapeHtml(m.from.replace(/<[^>]+>/, "").trim());
+    let _fromRaw = m.from;
+    let _p; do { _p = _fromRaw; _fromRaw = _fromRaw.replace(/<[^>]+>/g, ""); } while (_fromRaw !== _p);
+    const from = escapeHtml(_fromRaw.trim());
     return `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">${from}</td><td style="padding:4px 0;">${escapeHtml(m.subject)}</td></tr>`;
   }).join("");
 

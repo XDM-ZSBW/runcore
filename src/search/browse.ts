@@ -39,11 +39,15 @@ export function extractTitle(html: string): string {
  */
 export function stripHtml(html: string): string {
   let text = html;
+  let prev;
 
-  // Remove script and style blocks entirely
-  text = text.replace(/<script[\s\S]*?<\/script>/gi, "");
-  text = text.replace(/<style[\s\S]*?<\/style>/gi, "");
-  text = text.replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
+  // Remove script and style blocks entirely (loop for nested)
+  do {
+    prev = text;
+    text = text.replace(/<script[\s\S]*?<\/script>/gi, "");
+    text = text.replace(/<style[\s\S]*?<\/style>/gi, "");
+    text = text.replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
+  } while (text !== prev);
 
   // Remove HTML comments
   text = text.replace(/<!--[\s\S]*?-->/g, "");
@@ -53,8 +57,8 @@ export function stripHtml(html: string): string {
   text = text.replace(/<br\s*\/?>/gi, "\n");
   text = text.replace(/<(p|div|h[1-6]|li|tr|blockquote|section|article|header|footer)\b[^>]*>/gi, "\n");
 
-  // Remove all remaining tags
-  text = text.replace(/<[^>]+>/g, "");
+  // Remove all remaining tags (loop for nested)
+  do { prev = text; text = text.replace(/<[^>]+>/g, ""); } while (text !== prev);
 
   // Decode HTML entities
   text = decodeEntities(text);

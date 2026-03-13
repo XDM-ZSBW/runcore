@@ -1815,9 +1815,9 @@ function renderBreadcrumb(trail) {
   for (const item of trail) {
     html += '<span class="sep">/</span>';
     if (item === trail[trail.length - 1]) {
-      html += `<span class="current">${item.name}</span>`;
+      html += `<span class="current">${escapeHtml(item.name)}</span>`;
     } else {
-      html += `<a onclick="navigateToFolder('${item.id}')">${item.name}</a>`;
+      html += `<a onclick="navigateToFolder('${escapeHtml(String(item.id).replace(/'/g, "\\'"))}')">${escapeHtml(item.name)}</a>`;
     }
   }
   el.innerHTML = html;
@@ -3611,11 +3611,11 @@ renderBreadcrumb = function(trail) {
         html += '<a onclick="navigateToBrainRoot()">Brain</a>';
       }
     } else if (item.id && item.id.startsWith('__brain_')) {
-      html += `<span class="current">${item.name}</span>`;
+      html += `<span class="current">${escapeHtml(item.name)}</span>`;
     } else if (item === trail[trail.length - 1]) {
-      html += `<span class="current">${item.name}</span>`;
+      html += `<span class="current">${escapeHtml(item.name)}</span>`;
     } else {
-      html += `<a onclick="navigateToFolder('${item.id}')">${item.name}</a>`;
+      html += `<a onclick="navigateToFolder('${escapeHtml(String(item.id).replace(/'/g, "\\'"))}')">${escapeHtml(item.name)}</a>`;
     }
   }
   el.innerHTML = html;

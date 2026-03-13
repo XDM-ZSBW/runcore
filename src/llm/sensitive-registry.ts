@@ -173,7 +173,8 @@ export class SensitiveRegistry {
       const filePath = join(dir, "sensitive.yaml");
       try {
         await mkdir(dir, { recursive: true });
-        const entry = `\n- value: "${trimmed.replace(/"/g, '\\"')}"\n  category: ${cat}\n`;
+        const escaped = trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        const entry = `\n- value: "${escaped}"\n  category: ${cat}\n`;
         await appendFile(filePath, entry, "utf-8");
         log.info("Flagged sensitive term persisted", { category: cat });
       } catch (err: any) {

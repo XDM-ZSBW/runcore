@@ -130,12 +130,23 @@ describe("Pairing ceremony logic", () => {
   let dir: string;
   let cleanup: () => Promise<void>;
 
-  function sha256(input: string): string {
-    return createHash("sha256").update(input.trim().toLowerCase()).digest("hex");
+  function hashPassword(password: string): string {
+    const salt = randomBytes(16);
+    const hash = pbkdf2Sync(password.trim().toLowerCase(), salt, 600_000, 32, "sha256");
+    return `pbkdf2:${salt.toString("hex")}:${hash.toString("hex")}`;
   }
 
-  function stableSessionId(safeWordHash: string): string {
-    return createHash("sha256").update(safeWordHash + ":session").digest("hex").slice(0, 48);
+  function verifyPassword(password: string, stored: string): boolean {
+    if (stored.startsWith("pbkdf2:")) {
+      const [, salt, hash] = stored.split(":");
+      const computed = pbkdf2Sync(password.trim().toLowerCase(), Buffer.from(salt, "hex"), 600_000, 32, "sha256");
+      return computed.toString("hex") === hash;
+    }
+    return createHash("sha256").update(password.trim().toLowerCase()).digest("hex") === stored;
+  }
+
+  function stableSessionId(passwordHash: string): string {
+    return createHash("sha256").update(passwordHash + ":session").digest("hex").slice(0, 48);
   }
 
   beforeEach(async () => {
@@ -150,13 +161,15 @@ describe("Pairing ceremony logic", () => {
   });
 
   it("should hash safe word case-insensitively and trimmed", () => {
-    const h1 = sha256("MySecret");
-    const h2 = sha256("  mysecret  ");
-    expect(h1).toBe(h2);
+    const h1 = hashPassword("MySecret");
+    const h2 = hashPassword("  mysecret  ");
+    // Both should verify against the same input
+    expect(verifyPassword("mysecret", h1)).toBe(true);
+    expect(verifyPassword("mysecret", h2)).toBe(true);
   });
 
-  it("should produce stable session IDs from same safe word", () => {
-    const hash = sha256("password");
+  it("should produce stable session IDs from same hash", () => {
+    const hash = hashPassword("password");
     const id1 = stableSessionId(hash);
     const id2 = stableSessionId(hash);
     expect(id1).toBe(id2);
@@ -164,8 +177,8 @@ describe("Pairing ceremony logic", () => {
   });
 
   it("should produce different session IDs for different safe words", () => {
-    const id1 = stableSessionId(sha256("word1"));
-    const id2 = stableSessionId(sha256("word2"));
+    const id1 = stableSessionId(hashPassword("word1"));
+    const id2 = stableSessionId(hashPassword("word2"));
     expect(id1).not.toBe(id2);
   });
 
@@ -183,13 +196,14 @@ describe("Pairing ceremony logic", () => {
 
     const safeWord = "mySecretWord";
     const salt = randomBytes(16).toString("hex");
+    const pwHash = hashPassword(safeWord);
     const identity = {
       name: "TestUser",
-      safeWordHash: sha256(safeWord),
+      passwordHash: pwHash,
       pbkdf2Salt: salt,
       recovery: {
         question: "What is your pet's name?",
-        answerHash: sha256("fluffy"),
+        answerHash: hashPassword("fluffy"),
       },
       pairedAt: new Date().toISOString(),
     };
@@ -200,41 +214,43 @@ describe("Pairing ceremony logic", () => {
     // Step 3: Verify identity persisted
     const stored = JSON.parse(await readFile(humanPath, "utf-8"));
     expect(stored.name).toBe("TestUser");
-    expect(stored.safeWordHash).toBe(sha256(safeWord));
+    expect(verifyPassword(safeWord, stored.passwordHash)).toBe(true);
   });
 
   it("should authenticate with correct safe word", async () => {
     const humanPath = join(dir, "identity", "human.json");
     const safeWord = "testword";
+    const pwHash = hashPassword(safeWord);
     const identity = {
       name: "Alice",
-      safeWordHash: sha256(safeWord),
+      passwordHash: pwHash,
       pbkdf2Salt: randomBytes(16).toString("hex"),
-      recovery: { question: "Color?", answerHash: sha256("blue") },
+      recovery: { question: "Color?", answerHash: hashPassword("blue") },
       pairedAt: new Date().toISOString(),
     };
 
     await writeFile(humanPath, JSON.stringify(identity));
 
     const stored = JSON.parse(await readFile(humanPath, "utf-8"));
-    const matches = sha256(safeWord) === stored.safeWordHash;
+    const matches = verifyPassword(safeWord, stored.passwordHash);
     expect(matches).toBe(true);
   });
 
   it("should reject wrong safe word", async () => {
     const humanPath = join(dir, "identity", "human.json");
+    const pwHash = hashPassword("correct");
     const identity = {
       name: "Bob",
-      safeWordHash: sha256("correct"),
+      passwordHash: pwHash,
       pbkdf2Salt: randomBytes(16).toString("hex"),
-      recovery: { question: "Number?", answerHash: sha256("42") },
+      recovery: { question: "Number?", answerHash: hashPassword("42") },
       pairedAt: new Date().toISOString(),
     };
 
     await writeFile(humanPath, JSON.stringify(identity));
 
     const stored = JSON.parse(await readFile(humanPath, "utf-8"));
-    const matches = sha256("wrong") === stored.safeWordHash;
+    const matches = verifyPassword("wrong", stored.passwordHash);
     expect(matches).toBe(false);
   });
 
@@ -246,9 +262,9 @@ describe("Pairing ceremony logic", () => {
 
     const identity = {
       name: "Carol",
-      safeWordHash: sha256(originalWord),
+      passwordHash: hashPassword(originalWord),
       pbkdf2Salt: randomBytes(16).toString("hex"),
-      recovery: { question: "Pet?", answerHash: sha256(recoveryAnswer) },
+      recovery: { question: "Pet?", answerHash: hashPassword(recoveryAnswer) },
       pairedAt: new Date().toISOString(),
     };
 
@@ -256,17 +272,17 @@ describe("Pairing ceremony logic", () => {
 
     // Verify recovery
     const stored = JSON.parse(await readFile(humanPath, "utf-8"));
-    expect(sha256(recoveryAnswer)).toBe(stored.recovery.answerHash);
+    expect(verifyPassword(recoveryAnswer, stored.recovery.answerHash)).toBe(true);
 
     // Update safe word
-    stored.safeWordHash = sha256(newWord);
+    stored.passwordHash = hashPassword(newWord);
     stored.pbkdf2Salt = randomBytes(16).toString("hex");
     await writeFile(humanPath, JSON.stringify(stored));
 
     // Verify new word works, old doesn't
     const updated = JSON.parse(await readFile(humanPath, "utf-8"));
-    expect(sha256(newWord)).toBe(updated.safeWordHash);
-    expect(sha256(originalWord)).not.toBe(updated.safeWordHash);
+    expect(verifyPassword(newWord, updated.passwordHash)).toBe(true);
+    expect(verifyPassword(originalWord, updated.passwordHash)).toBe(false);
   });
 
   it("should derive session encryption key from safe word", async () => {

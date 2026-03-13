@@ -226,7 +226,7 @@ async function appendSensitiveTerms(
   // Deduplicate against existing content
   const newEntries = terms
     .filter(t => !existing.includes(t.value))
-    .map(t => `- value: "${t.value.replace(/"/g, '\\"')}"\n  category: ${t.category}`)
+    .map(t => `- value: "${t.value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"\n  category: ${t.category}`)
     .join("\n");
 
   if (newEntries) {

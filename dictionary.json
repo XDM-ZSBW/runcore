@@ -1,6 +1,6 @@
 {
-  "version": "0.5.6",
-  "publishedAt": "2026-03-11T03:37:23.114Z",
+  "version": "0.5.9",
+  "publishedAt": "2026-03-12T00:06:35.330Z",
   "specs": [],
   "glossary": {
     "brain": "The local file-based data store for an instance. Always local. Never hosted.",

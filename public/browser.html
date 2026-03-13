@@ -478,7 +478,16 @@ function navigateTo(url, addToHistory = true) {
 
   viewTabs.style.display = '';
   setView(currentView);
-  pageFrame.src = url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      pageFrame.src = url;
+    } else {
+      pageFrame.src = 'about:blank';
+    }
+  } catch {
+    pageFrame.src = 'about:blank';
+  }
 
   fetch('/api/browse?url=' + encodeURIComponent(url), { headers: authHeaders() })
     .then(r => { if (r.status === 401) { window.location.href = '/'; return null; } return r.json(); })

@@ -1579,7 +1579,7 @@ fetch('/api/tier', { headers: authHeaders() }).then(r=>{ if(r.status===401){loca
     else if (pct > 50) barColor = 'var(--orange)';
     else if (pct > 25) barColor = 'var(--yellow)';
 
-    const stateClass = data.state.replace('-', '-');
+    const stateClass = data.state;
 
     // Last pulse age
     let lastPulseStr = 'never';

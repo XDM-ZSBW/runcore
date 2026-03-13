@@ -8,6 +8,7 @@
 
 import { join } from "node:path";
 import { stat } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 import { createLogger } from "../utils/logger.js";
 import { readBrainLines, appendBrainLine, ensureBrainJsonl } from "../lib/brain-io.js";
 import type { CalendarEvent, Calendar, EventFilter, FreeBusySlot } from "./types.js";
@@ -19,19 +20,19 @@ const CALENDARS_SCHEMA = JSON.stringify({ _schema: "calendar-collections", _vers
 
 function generateEventId(): string {
   const ts = Date.now();
-  const hex = Math.random().toString(16).slice(2, 10).padEnd(8, "0");
+  const hex = randomBytes(4).toString("hex");
   return `cal_${ts}_${hex}`;
 }
 
 function generateCalendarId(): string {
   const ts = Date.now();
-  const hex = Math.random().toString(16).slice(2, 10).padEnd(8, "0");
+  const hex = randomBytes(4).toString("hex");
   return `coll_${ts}_${hex}`;
 }
 
 function generateUid(): string {
-  const hex1 = Math.random().toString(16).slice(2, 10);
-  const hex2 = Math.random().toString(16).slice(2, 10);
+  const hex1 = randomBytes(4).toString("hex");
+  const hex2 = randomBytes(4).toString("hex");
   return `${hex1}-${hex2}@dash`;
 }
 
