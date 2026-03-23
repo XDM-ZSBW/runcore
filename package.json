@@ -59,7 +59,7 @@
     "@types/web-push": "^3.6.4",
     "@vitest/ui": "^4.0.18",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.2",
     "vitest": "^4.0.18"
   },
   "dependencies": {
