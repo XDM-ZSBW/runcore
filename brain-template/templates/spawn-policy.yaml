@@ -9,28 +9,34 @@ governed_by: "{{CHIEF_OF_STAFF}}"
 max_agents: 4
 
 # Allowed agent types and their limits
+# modes: comma-separated list of allowed modes (read-only, write, react). Empty = all.
+# budget_cap: max ReAct iterations per agent (default 10, 0 = unlimited)
 allowed_types:
   administration:
     max: 1
     auto_spawn: false
+    modes: read-only, react
+    budget_cap: 10
   brand:
     max: 1
     auto_spawn: false
+    modes: read-only
+    budget_cap: 10
   commercial:
     max: 2
     auto_spawn: false
+    modes: read-only, react
+    budget_cap: 15
   loss-prevention:
     max: 1
     auto_spawn: false
+    modes: read-only
+    budget_cap: 10
 
 # Chief-of-staff cannot spawn another chief-of-staff
 deny_types:
   - chief-of-staff
 
-# Spawn requires owner approval by default
-# Can be relaxed per-type once trust is established
+# Spawn requires owner approval by default for write/react modes.
+# Read-only agents always allowed. Set to false once trust is established.
 require_owner_approval: true
-
-# TODO: Budget/cost caps per spawn
-# TODO: Temporal spawn rules (only during business hours?)
-# TODO: Auto-spawn triggers (when workload exceeds threshold)

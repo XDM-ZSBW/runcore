@@ -5,6 +5,9 @@ export type AgentTaskStatus =
   | "failed"
   | "cancelled";
 
+/** Agent execution mode — controls what actions the agent can take. */
+export type AgentMode = "read-only" | "write" | "react";
+
 export interface AgentTask {
   id: string;
   label: string;
@@ -25,6 +28,8 @@ export interface AgentTask {
   boardTaskId?: string;
   /** Read-only mode — agent can investigate and report, but not edit files. */
   readOnly?: boolean;
+  /** Agent execution mode — controls preamble and permissions. */
+  mode?: AgentMode;
   reflection?: {
     movedGoalForward: boolean;
     hitGuardrail: boolean;
@@ -68,4 +73,6 @@ export interface CreateTaskInput {
   boardTaskId?: string;
   /** Read-only mode — agent can investigate and report, but not edit files. */
   readOnly?: boolean;
+  /** Agent execution mode — controls preamble and permissions. */
+  mode?: AgentMode;
 }

@@ -792,14 +792,17 @@ async function planAndSpawnInner(
         log.info(` Spawning agent: ${label}`);
         logActivity({ source: "autonomous", summary: `Spawning: ${label}`, backref: planTraceId, actionLabel: "AUTONOMOUS", reason: "planner selected from backlog" });
 
+        // Resolve mode: default to read-only for backward compat
+        const requestedMode = (req.mode === "react" || req.mode === "write") ? req.mode : "read-only" as const;
+
         await submitTask({
           label,
           prompt: finalPrompt,
           origin: "ai",
           sessionId,
           boardTaskId: req.taskId,
-          cwd: PKG_ROOT,   // Work in the Runcore codebase, not the brain directory
-          readOnly: true,   // Autonomous agents investigate and report only — no file edits
+          cwd: PKG_ROOT,
+          mode: requestedMode,
         });
       } catch (err) {
         log.error(` AGENT_REQUEST parse error: ${err instanceof Error ? err.message : String(err)}`);
@@ -890,12 +893,18 @@ For tasks that require reading/writing code or files, output:
 {
   "label": "Short descriptive name",
   "prompt": "Detailed instructions for the agent. Reference specific files. Be concrete.",
-  "taskId": "the-task-id-from-the-board"
+  "taskId": "the-task-id-from-the-board",
+  "mode": "read-only"
 }
 [/AGENT_REQUEST]
 
+**Mode options:**
+- \`"read-only"\` (default): Agent can only read files and report findings. Use for investigation and analysis.
+- \`"react"\`: Agent runs a structured observe/think/act/check loop. Can read AND write files. Use when the task requires making changes (bug fixes, feature implementation, refactoring).
+- \`"write"\`: Agent can write files freely. Use for simple, well-specified changes.
+
+Choose the right mode for the task. Investigation tasks use read-only. Implementation tasks use react.
 The agent runs \`claude --print --dangerously-skip-permissions\` in the project root.
-It can read/write files, run npm commands, etc. Give it everything it needs to succeed independently.
 After making changes, the agent should run \`npm run build\` to verify compilation.
 
 ### 2. Google Workspace actions (for calendar, email, docs tasks)

@@ -19,9 +19,15 @@ const DEFAULT_POLICY_PATH = join(BRAIN_DIR, "templates", "spawn-policy.yaml");
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+import type { AgentMode } from "./types.js";
+
 export interface AllowedType {
   max: number;
   autoSpawn: boolean;
+  /** Permitted execution modes. Empty = all modes allowed. */
+  allowedModes: AgentMode[];
+  /** Max ReAct iterations (0 = unlimited, default 10). */
+  budgetCap: number;
 }
 
 export interface SpawnPolicy {
@@ -31,11 +37,6 @@ export interface SpawnPolicy {
   allowedTypes: Map<string, AllowedType>;
   denyTypes: string[];
   requireOwnerApproval: boolean;
-}
-
-export interface SpawnPolicyCheck {
-  allowed: boolean;
-  reason?: string;
 }
 
 // ── Cache ────────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ function parseSpawnPolicy(raw: string): SpawnPolicy {
       const typeHeader = trimmed.trim().match(/^([\w-]+)\s*:\s*$/);
       if (typeHeader) {
         currentType = typeHeader[1];
-        allowedTypes.set(currentType, { max: 1, autoSpawn: false });
+        allowedTypes.set(currentType, { max: 1, autoSpawn: false, allowedModes: [], budgetCap: 10 });
         section = "allowed_type_entry";
         continue;
       }
@@ -109,6 +110,10 @@ function parseSpawnPolicy(raw: string): SpawnPolicy {
         if (entry) {
           if (key === "max") entry.max = parseInt(val, 10) || 1;
           else if (key === "auto_spawn") entry.autoSpawn = val.trim() === "true";
+          else if (key === "budget_cap") entry.budgetCap = parseInt(val, 10) || 10;
+          else if (key === "modes") {
+            entry.allowedModes = val.split(",").map(m => m.trim()).filter(Boolean) as AgentMode[];
+          }
         }
         continue;
       }
@@ -116,7 +121,7 @@ function parseSpawnPolicy(raw: string): SpawnPolicy {
       const typeHeader = trimmed.trim().match(/^([\w-]+)\s*:\s*$/);
       if (typeHeader) {
         currentType = typeHeader[1];
-        allowedTypes.set(currentType, { max: 1, autoSpawn: false });
+        allowedTypes.set(currentType, { max: 1, autoSpawn: false, allowedModes: [], budgetCap: 10 });
         continue;
       }
     }
@@ -195,16 +200,20 @@ export function getSpawnPolicy(): SpawnPolicy {
 }
 
 /**
- * Check whether spawning an agent of the given type is allowed.
+ * Check whether spawning an agent of the given type and mode is allowed.
  *
- * @param agentType   - The agent type to spawn (e.g. "administration", "brand")
+ * @param agentType    - The agent type to spawn (e.g. "administration", "brand")
  * @param currentCount - Total number of currently running agents
  * @param typeCount    - Number of currently running agents of this specific type
+ * @param mode         - Requested execution mode (default: "read-only")
+ * @param origin       - Who requested the spawn ("user" | "ai")
  */
 export function checkSpawnPolicy(
   agentType: string,
   currentCount: number,
   typeCount: number,
+  mode: AgentMode = "read-only",
+  origin: "user" | "ai" = "ai",
 ): SpawnPolicyCheck {
   const policy = getSpawnPolicy();
 
@@ -229,7 +238,23 @@ export function checkSpawnPolicy(
     return { allowed: false, reason: `Agent type "${agentType}" is not in allowed_types` };
   }
 
-  return { allowed: true };
+  // Enforce require_owner_approval for non-read-only modes from ai origin
+  if (mode !== "read-only" && origin === "ai" && policy.requireOwnerApproval) {
+    return { allowed: false, reason: `Mode "${mode}" requires owner approval (require_owner_approval is true)` };
+  }
+
+  // Check mode against allowed modes (empty = all modes permitted)
+  if (typeConfig && typeConfig.allowedModes.length > 0 && !typeConfig.allowedModes.includes(mode)) {
+    return { allowed: false, reason: `Mode "${mode}" not allowed for type "${agentType}" (allowed: ${typeConfig.allowedModes.join(", ")})` };
+  }
+
+  return { allowed: true, budgetCap: typeConfig?.budgetCap };
+}
+
+export interface SpawnPolicyCheck {
+  allowed: boolean;
+  reason?: string;
+  budgetCap?: number;
 }
 
 /**

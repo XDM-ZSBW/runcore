@@ -81,6 +81,30 @@ If you find nothing wrong, say so clearly and exit.
 
 `;
 
+/** ReAct preamble — structured multi-step reasoning loop. */
+const REACT_PREAMBLE = `## REACT MODE — Multi-Step Reasoning (CRITICAL)
+You are running in REACT mode. You solve problems through structured iteration.
+Each step follows this cycle:
+
+**OBSERVE**: Read files, search code, run diagnostic commands. Gather data.
+**THINK**: Analyze what you found. Form a hypothesis. Plan your next action.
+**ACT**: Make ONE targeted change (edit a file, run a test, install a dep).
+**CHECK**: Verify the change worked (run tests, read output, check behavior).
+
+Then decide: REPEAT (more steps needed) or EXIT (task complete).
+
+Rules:
+- One change per ACT step. Do not batch multiple unrelated edits.
+- After each ACT, always CHECK before moving on.
+- If a CHECK fails, THINK about why before trying again.
+- If you hit a wall after 3 failed attempts at the same approach, try a different strategy.
+- If you genuinely need human input, output a [NEEDS_HUMAN] block and exit.
+- When the task is done, output a clear summary of what you changed and why.
+
+---
+
+`;
+
 /** Preamble prepended to every agent prompt — teaches early exit on ambiguity. */
 const AGENT_PREAMBLE = `## Autonomy rules (READ FIRST)
 If at any point you cannot proceed because you need a human decision, design choice,
@@ -103,7 +127,20 @@ default choice, do so and note the assumption.
 
 /** Create a new task file and return it. */
 export async function createTask(input: CreateTaskInput): Promise<AgentTask> {
-  const preamble = input.readOnly ? READ_ONLY_PREAMBLE + AGENT_PREAMBLE : AGENT_PREAMBLE;
+  // Select preamble based on mode (falls back to readOnly flag for backward compat)
+  const mode = input.mode ?? (input.readOnly ? "read-only" : "write");
+  let preamble: string;
+  switch (mode) {
+    case "read-only":
+      preamble = READ_ONLY_PREAMBLE + AGENT_PREAMBLE;
+      break;
+    case "react":
+      preamble = REACT_PREAMBLE + AGENT_PREAMBLE;
+      break;
+    default: // "write"
+      preamble = AGENT_PREAMBLE;
+  }
+
   const task: AgentTask = {
     id: generateId(),
     label: input.label,
@@ -115,7 +152,8 @@ export async function createTask(input: CreateTaskInput): Promise<AgentTask> {
     sessionId: input.sessionId,
     timeoutMs: input.timeoutMs ?? 10 * 60 * 1000,
     boardTaskId: input.boardTaskId,
-    readOnly: input.readOnly,
+    readOnly: mode === "read-only",
+    mode,
   };
   await writeTask(task);
   log.info("Task created", { taskId: task.id, label: task.label, origin: task.origin });
