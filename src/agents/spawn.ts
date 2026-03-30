@@ -7,6 +7,7 @@ import { pushNotification } from "../goals/notifications.js";
 import { logActivity } from "../activity/log.js";
 import { rememberTaskOutcome, recordScar } from "./memory.js";
 import { makeCall } from "../twilio/call.js";
+import { sendSms } from "../alert.js";
 import { attemptRecovery, recordRecoveryFailure } from "./recover.js";
 import { TaskCooldownManager } from "./cooldown.js";
 import { triageAgentOutput } from "./triage.js";
@@ -439,12 +440,12 @@ async function handlePoolCompletion(
   }
 }
 
-/** Send agent failure alert email via Resend (fire-and-forget). */
-async function sendFailureEmail(count: number, names: string): Promise<void> {
+/** Send agent failure alert email via Resend. Returns true if sent. */
+async function sendFailureEmail(count: number, names: string): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     log.warn("No RESEND_API_KEY — skipping agent failure email");
-    return;
+    return false;
   }
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -468,11 +469,14 @@ async function sendFailureEmail(count: number, names: string): Promise<void> {
     });
     if (res.ok) {
       logActivity({ source: "agent", summary: `Emailed you about ${count} agent failures` });
+      return true;
     } else {
       log.error("Agent failure email failed", { status: res.status });
+      return false;
     }
   } catch (err) {
     log.error("Agent failure email exception", { error: String(err) });
+    return false;
   }
 }
 
@@ -487,10 +491,26 @@ function trackFailureForAlert(label: string): void {
   const count = recentFailures.length;
   const names = recentFailures.map((f) => f.label).join(", ");
 
-  // Tier 1: Email at 2+ failures
+  // Tier 1: Email at 2+ failures, fallback to SMS if email fails
   if (count >= EMAIL_THRESHOLD && now - lastEmailTime > EMAIL_COOLDOWN_MS) {
     lastEmailTime = now;
-    sendFailureEmail(count, names).catch(() => {});
+    sendFailureEmail(count, names).then(async (emailSent) => {
+      if (!emailSent) {
+        // Email failed — try SMS as fallback
+        const smsResult = await sendSms(`[${getInstanceName()}] ${count} agent failures: ${names.slice(0, 100)}`);
+        if (smsResult.sent) {
+          logActivity({ source: "agent", summary: `SMS fallback: notified you about ${count} agent failures (email failed)` });
+        } else {
+          // All channels failed — log critical so it surfaces on next successful contact
+          logActivity({
+            source: "agent",
+            summary: `CRITICAL: ${count} agent failures but ALL notification channels failed (email: no key/config, SMS: ${smsResult.error ?? "unavailable"})`,
+            actionLabel: "AUTONOMOUS",
+            reason: "human unreachable during agent failure cascade",
+          });
+        }
+      }
+    }).catch(() => {});
   }
 
   // Tier 2: Phone call at 5+ failures (last resort, after email)

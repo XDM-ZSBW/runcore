@@ -85,9 +85,24 @@ export async function sendAlert(
 ): Promise<AlertResult[]> {
   const results: AlertResult[] = [];
 
-  // Try email first (more detail), then SMS (faster)
-  results.push(await sendEmail(subject, body));
-  results.push(await sendSms(`[Core] ${subject}: ${body.slice(0, 140)}`));
+  // Try email first (more detail), then SMS as fallback
+  const emailResult = await sendEmail(subject, body);
+  results.push(emailResult);
+
+  if (!emailResult.sent) {
+    // Email failed — try SMS as fallback
+    const smsResult = await sendSms(`[Core] ${subject}: ${body.slice(0, 140)}`);
+    results.push(smsResult);
+  }
 
   return results;
+}
+
+/**
+ * Check if all channels in an alert result set failed.
+ * Callers should log a critical activity when this returns true,
+ * so the next successful notification cycle can surface the gap.
+ */
+export function allChannelsFailed(results: AlertResult[]): boolean {
+  return results.length > 0 && results.every((r) => !r.sent);
 }

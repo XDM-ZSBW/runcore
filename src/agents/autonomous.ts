@@ -12,7 +12,15 @@
  *   - Spawns agents via submitTask()
  */
 
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getBoardProvider } from "../board/provider.js";
+
+// Resolve package root so agents work in the Runcore codebase, not the brain directory.
+const __autonomousDir = dirname(fileURLToPath(import.meta.url));
+const PKG_ROOT = __autonomousDir.endsWith("dist/agents")
+  ? join(__autonomousDir, "..", "..")
+  : join(__autonomousDir, "..");
 import { submitTask } from "./index.js";
 import { isAgentsBusy, activeAgentCount, generateBridgeReport } from "./spawn.js";
 import { commitAgentBatch } from "./commit.js";
@@ -497,7 +505,7 @@ export async function checkForWork(): Promise<void> {
   // they're leftovers from a previous session that failed or was interrupted.
   const agentAssignee = `${getInstanceNameLower()}-agent`;
   const actionable = allTasks.filter((t: QueueTask) => {
-    if (t.state !== "todo") return false;
+    if (t.state !== "todo" && t.state !== "triage") return false;
     if (t.assignee && !(t.assignee === agentAssignee && t.state === "todo" && !atCapacity)) return false;
     if (cooldownManager.shouldSkip(t.id)) return false;
     // Skip self-referential investigation tasks — insight engine creates these,
@@ -790,7 +798,8 @@ async function planAndSpawnInner(
           origin: "ai",
           sessionId,
           boardTaskId: req.taskId,
-          readOnly: true,  // Autonomous agents investigate and report only — no file edits
+          cwd: PKG_ROOT,   // Work in the Runcore codebase, not the brain directory
+          readOnly: true,   // Autonomous agents investigate and report only — no file edits
         });
       } catch (err) {
         log.error(` AGENT_REQUEST parse error: ${err instanceof Error ? err.message : String(err)}`);
@@ -867,8 +876,10 @@ Rules:
 When a task needs human input before you can proceed, output:
 
 [WHITEBOARD_QUESTION]
-{"title": "Short question title", "question": "The specific question for the human", "tags": ["relevant-tag"]}
+{"title": "Short question title", "question": "The specific question for the human", "taskId": "DASH-NNN", "tags": ["relevant-tag"]}
 [/WHITEBOARD_QUESTION]
+
+Always include the taskId of the board item that triggered the question so the human knows which task is blocked.
 
 ## Two types of actions
 
@@ -1035,9 +1046,11 @@ async function plantWhiteboardQuestions(blocks: RegExpMatchArray[]): Promise<voi
           tags: parsed.tags ?? [],
           plantedBy: "agent",
           question: parsed.question,
+          boardTaskId: parsed.taskId,
         });
 
-        log.info(`Planted whiteboard question: "${parsed.title}" (${node.id})`);
+        const taskRef = parsed.taskId ? ` (blocking ${parsed.taskId})` : "";
+        log.info(`Planted whiteboard question: "${parsed.title}"${taskRef} (${node.id})`);
         logActivity({
           source: "autonomous",
           summary: `Whiteboard question planted: "${parsed.title}"`,

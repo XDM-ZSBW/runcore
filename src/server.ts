@@ -199,6 +199,7 @@ import {
   generateComparisonReport,
 } from "./metrics/index.js";
 import { startGroomingTimer, stopGroomingTimer } from "./queue/grooming.js";
+import { startGoalPlanner, stopGoalPlanner } from "./goals/planner.js";
 import { createSchedulingStore, getSchedulingStore } from "./scheduling/store.js";
 import { startSchedulingTimer, stopSchedulingTimer } from "./scheduling/timer.js";
 import type { BlockType, BlockStatus } from "./scheduling/types.js";
@@ -1493,7 +1494,8 @@ app.put("/api/vault/:name", async (c) => {
   const { value, label } = body;
   if (!value) return badRequest("value required");
 
-  await _vaultStore!.setVaultKey(name, value, key, label);
+  if (!_vaultStore) return c.json({ error: "Vault not available — tier may not support it" }, 503);
+  await _vaultStore.setVaultKey(name, value, key, label);
   return c.json({ ok: true });
 });
 
@@ -1508,7 +1510,8 @@ app.delete("/api/vault/:name", async (c) => {
   if (!key) return unauthorized("Session key not found");
 
   const name = c.req.param("name");
-  await _vaultStore!.deleteVaultKey(name, key);
+  if (!_vaultStore) return c.json({ error: "Vault not available — tier may not support it" }, 503);
+  await _vaultStore.deleteVaultKey(name, key);
   return c.json({ ok: true });
 });
 
@@ -1630,7 +1633,8 @@ app.get("/api/google/callback", async (c) => {
     return c.html(`<html><body><h2>Session not found</h2><p>Could not find a session key to store credentials. Please log in first, then try connecting Google again.</p></body></html>`);
   }
 
-  await _vaultStore!.setVaultKey("GOOGLE_REFRESH_TOKEN", result.refreshToken, vaultKey, "Google OAuth refresh token");
+  if (!_vaultStore) return c.html(`<html><body><h2>Vault not available</h2><p>Cannot store credentials — vault module not loaded.</p></body></html>`);
+  await _vaultStore.setVaultKey("GOOGLE_REFRESH_TOKEN", result.refreshToken, vaultKey, "Google OAuth refresh token");
   logActivity({ source: "google", summary: "Google OAuth connected — refresh token stored in vault", actionLabel: "PROMPTED", reason: "user connected Google OAuth" });
 
   // Start Google polling timers now that Google is connected
@@ -3368,9 +3372,10 @@ app.get("/api/slack/callback", async (c) => {
     return c.html(`<html><body><h2>Session not found</h2><p>Log in first, then try connecting Slack again.</p></body></html>`);
   }
 
-  await _vaultStore!.setVaultKey("SLACK_BOT_TOKEN", result.botToken!, vaultKey, "Slack Bot Token");
+  if (!_vaultStore) return c.html(`<html><body><h2>Vault not available</h2><p>Cannot store credentials — vault module not loaded.</p></body></html>`);
+  await _vaultStore.setVaultKey("SLACK_BOT_TOKEN", result.botToken!, vaultKey, "Slack Bot Token");
   if (result.teamId) {
-    await _vaultStore!.setVaultKey("SLACK_TEAM_ID", result.teamId, vaultKey, "Slack Team ID");
+    await _vaultStore.setVaultKey("SLACK_TEAM_ID", result.teamId, vaultKey, "Slack Team ID");
   }
   logActivity({ source: "slack", summary: `Slack OAuth connected — team: ${result.teamName ?? result.teamId}`, actionLabel: "PROMPTED", reason: "user connected Slack OAuth" });
 
@@ -7270,6 +7275,7 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
     }
   });
   startGroomingTimer(queueProvider.getStore());
+  startGoalPlanner(queueProvider.getStore());
   const schedulingStore = createSchedulingStore(BRAIN_DIR);
   startSchedulingTimer(schedulingStore);
   createContactStore(BRAIN_DIR);
@@ -7336,11 +7342,26 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
     const pulse = initPressureIntegrator(_agentAutonomous.triggerPulse, { threshold: pulseSettings.threshold });
     log.info(`Metabolic pulse initialized: Θ=${pulseSettings.threshold}mV, mode=${pulseSettings.mode}`);
 
-    // Boot scan: if todos already exist, inject tension so Core starts working immediately
-    const todoCount = (await queueProvider.getStore().list()).filter((t) => t.state === "todo").length;
-    if (todoCount > 0) {
-      pulse.addTension("board", `Boot: ${todoCount} todo(s) waiting`);
-      log.info(`Boot tension: ${todoCount} todo(s) found — pulse should fire`);
+    // Boot scan: detect all non-terminal board items and inject tension.
+    // Items in_progress with no running agent are orphans from a previous session —
+    // move them back to triage so the planner can re-evaluate.
+    const allBoardItems = await queueProvider.getStore().list();
+    let orphanCount = 0;
+    for (const item of allBoardItems) {
+      if (item.state === "in_progress") {
+        await queueProvider.getStore().update(item.id, { state: "triage", assignee: null });
+        orphanCount++;
+      }
+    }
+    if (orphanCount > 0) {
+      log.info(`Boot: recovered ${orphanCount} orphaned in_progress item(s) → triage`);
+    }
+    const actionableCount = allBoardItems.filter((t) =>
+      t.state === "todo" || t.state === "triage" || t.state === "in_progress"
+    ).length;
+    if (actionableCount > 0) {
+      pulse.addTension("board", `Boot: ${actionableCount} actionable item(s) waiting`);
+      log.info(`Boot tension: ${actionableCount} actionable item(s) found — pulse should fire`);
     }
   }
 
@@ -7878,6 +7899,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   try { _googleCalendarTimer?.stopCalendarTimer(); } catch {}
   try { _googleTasksTimer?.stopTasksTimer(); } catch {}
   stopGroomingTimer();
+  stopGoalPlanner();
   stopSchedulingTimer();
   try { _integrationsGithub?.shutdownGitHub(); } catch {}
   stopGoalTimer();

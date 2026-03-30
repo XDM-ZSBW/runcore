@@ -108,7 +108,10 @@ export async function saveActivationToken(
 /** Get the current tier from the stored token, defaulting to "local" */
 export async function currentTier(root: string): Promise<TierName> {
   const result = await loadActivationToken(root);
-  return result?.token.tier ?? "local";
+  // Default to byok (not local) so vault, integrations, and UI features work
+  // without requiring an activation token. Activation tokens can still upgrade
+  // to spawn/hosted tiers.
+  return result?.token.tier ?? "byok";
 }
 
 /** Set a custom public key (for testing or key rotation) */

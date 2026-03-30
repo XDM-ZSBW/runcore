@@ -24,6 +24,42 @@ try {
   VERSION = pkg.version ?? VERSION;
 } catch {}
 
+// ── .env loader (brain directory, no deps) ────────────────────────
+
+/**
+ * Load a .env file from the given directory into process.env.
+ * Existing env vars are NOT overwritten (explicit env takes precedence).
+ * Supports KEY=VALUE, KEY="VALUE", KEY='VALUE', blank lines, and # comments.
+ */
+async function loadDotEnv(dir: string): Promise<number> {
+  try {
+    const envPath = join(dir, ".env");
+    const text = await readFile(envPath, "utf-8");
+    let count = 0;
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eq = line.indexOf("=");
+      if (eq === -1) continue;
+      const key = line.slice(0, eq).trim();
+      let val = line.slice(eq + 1).trim();
+      // Strip surrounding quotes
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      // Don't overwrite existing env vars
+      if (process.env[key] === undefined) {
+        process.env[key] = val;
+        count++;
+      }
+    }
+    return count;
+  } catch {
+    // No .env file — that's fine, all vars are optional
+    return 0;
+  }
+}
+
 const HELP = `
 runcore v${VERSION} — local-first AI agent runtime
 https://runcore.sh
@@ -206,6 +242,8 @@ async function findPort(preferred: number): Promise<number> {
 
 async function startBrainOnly(root: string) {
   process.chdir(root);
+  const envCount = await loadDotEnv(root);
+  if (envCount > 0) console.log(`  Loaded .env from ${root} (${envCount} vars)`);
   if (!process.env.LOG_LEVEL) process.env.LOG_LEVEL = "warn";
 
   console.log(`\n  Core v${VERSION} — Local tier (brain only)`);
@@ -253,6 +291,10 @@ async function startServer(tier: import("./tier/types.js").TierName = "byok") {
 
   // Auto-init if no brain exists
   await ensureBrain(root);
+
+  // Load .env from brain directory (user keys live here, not in the runtime package)
+  const envCount = await loadDotEnv(root);
+  if (envCount > 0) console.log(`  Loaded .env from ${root} (${envCount} vars)`);
 
   // Suppress JSON log noise during startup — only show warnings/errors
   if (!process.env.LOG_LEVEL) process.env.LOG_LEVEL = "warn";

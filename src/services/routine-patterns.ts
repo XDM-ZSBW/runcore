@@ -42,6 +42,15 @@ export const ROUTINE_PATTERNS: RoutinePattern[] = [
   { pattern: /^\[bottleneck\]/, label: "bottleneck-investigation" },
   { pattern: /^\[anomaly\]/, label: "anomaly-investigation" },
   { pattern: /^Promoted .* from backlog/, label: "backlog-promotion" },
+  // Self-referential loop breakers: prevent insight engine from analyzing its own failure chain
+  { pattern: /^Pre-validation filtered/, label: "prevalidation-filter" },
+  { pattern: /^Cooldown:/, label: "cooldown-escalation" },
+  { pattern: /^Insight escalation capped/, label: "escalation-cap" },
+  { pattern: /planAndSpawn already running/, label: "planner-guard" },
+  { pattern: /^No actionable items/, label: "planner-idle" },
+  { pattern: /^Pulse trigger skipped/, label: "pulse-skip" },
+  { pattern: /recently reviewed by planner/, label: "planner-cache-skip" },
+  { pattern: /moved \d+ stale in_progress/, label: "stale-recovery" },
 ];
 
 export function isRoutineActivity(summary: string): boolean {

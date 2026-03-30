@@ -62,10 +62,13 @@ const MAX_ENTRIES_PER_ANALYSIS = 100;
 // ─── Escalation config ──────────────────────────────────────────────────────
 
 /** Categories eligible for auto-escalation to the board. */
-const ESCALATION_CATEGORIES: TraceInsight["category"][] = [];  // disabled — all auto-escalation created junk board items
+const ESCALATION_CATEGORIES: TraceInsight["category"][] = ["anomaly", "bottleneck"];
 
 /** Only escalate high-confidence insights. */
 const ESCALATION_MIN_CONFIDENCE: TraceInsight["confidence"] = "high";
+
+/** Hard cap: max open anomaly/bottleneck tickets allowed on the board at once. */
+const MAX_OPEN_INSIGHT_TICKETS = 5;
 
 /** Track recently escalated titles to prevent duplicate board items. */
 const escalatedTitles = new Set<string>();
@@ -691,10 +694,18 @@ async function escalateInsights(newInsights: TraceInsight[]): Promise<void> {
 
   // Fetch existing board items to deduplicate against (survives restarts)
   let existingTitles: string[] = [];
+  let openInsightCount = 0;
   try {
     const existing = await board.listIssues({ limit: 200 });
     if (existing) {
       existingTitles = existing.map((i) => i.title.toLowerCase());
+      // Count open (non-terminal) anomaly/bottleneck tickets for hard cap
+      openInsightCount = existing.filter((i) => {
+        const t = i.title.toLowerCase();
+        const isInsight = t.startsWith("[anomaly]") || t.startsWith("[bottleneck]");
+        const isTerminal = i.state === "done" || i.state === "cancelled";
+        return isInsight && !isTerminal;
+      }).length;
       // Backfill the in-memory set so we don't re-query next time
       for (const item of existing) {
         const titleLower = item.title.toLowerCase();
@@ -714,6 +725,12 @@ async function escalateInsights(newInsights: TraceInsight[]): Promise<void> {
   }
 
   for (const insight of eligible) {
+    // Hard cap: stop creating tickets if too many open insight tickets exist
+    if (openInsightCount >= MAX_OPEN_INSIGHT_TICKETS) {
+      log.warn(`Insight escalation capped: ${openInsightCount} open insight tickets (max ${MAX_OPEN_INSIGHT_TICKETS})`);
+      break;
+    }
+
     // Skip if already on the board (fuzzy: check if the insight title appears in any existing title)
     const titleLower = insight.title.toLowerCase();
     if (escalatedTitles.has(insight.title)) continue;
@@ -763,9 +780,10 @@ async function escalateInsights(newInsights: TraceInsight[]): Promise<void> {
       );
 
       if (issue) {
+        openInsightCount++;
         escalatedTitles.add(insight.title);
         escalationCooldowns.set(insight.title, Date.now());
-        log.info(`Escalated insight to board: ${issue.identifier} — ${insight.title}`);
+        log.info(`Escalated insight to board: ${issue.identifier} — ${insight.title} (${openInsightCount}/${MAX_OPEN_INSIGHT_TICKETS} cap)`);
         logActivity({
           source: "board",
           summary: `Insight escalated to ${issue.identifier}: ${insight.title}`,
