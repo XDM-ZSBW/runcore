@@ -224,12 +224,22 @@ async function runPlannerCycle(store: QueueStore): Promise<GoalPlannerResult> {
     }
   }
 
-  if (created > 0 || synced > 0) {
+  // Log board creation with "board" source so pressure system gives it 70mV (board weight).
+  // This ensures the pulse fires and the autonomous planner picks up the new item.
+  if (created > 0) {
+    logActivity({
+      source: "board",
+      summary: `Goal planner created ${created} todo item(s) from todos.md`,
+      actionLabel: "AUTONOMOUS",
+      reason: "todos.md change detected",
+    });
+  }
+  if (synced > 0) {
     logActivity({
       source: "goal-loop",
-      summary: `Goal planner: created ${created} board item(s), synced ${synced} completion(s)`,
+      summary: `Goal planner: synced ${synced} completion(s) back to todos.md`,
       actionLabel: "AUTONOMOUS",
-      reason: synced > 0 ? "board completion synced to todos.md" : "todos.md change detected",
+      reason: "board completion synced to todos.md",
     });
   }
 
@@ -273,20 +283,21 @@ export function startGoalPlanner(store: QueueStore): void {
   // 1. Boot seed — run once immediately
   runCycleGuarded();
 
-  // 2. Watch todos.md for changes
+  // 2. Watch the operations directory for changes to todos.md.
+  // Windows fs.watch is more reliable on directories than individual files.
+  const opsDir = join(BRAIN_DIR, "operations");
   try {
-    watcher = watch(TODOS_PATH, { persistent: false }, (eventType) => {
-      if (eventType === "change") {
+    watcher = watch(opsDir, { persistent: false }, (eventType, filename) => {
+      if (filename && /todos\.md$/i.test(filename)) {
         log.debug("todos.md changed — triggering goal planner");
         triggerDebounced();
       }
     });
     watcher.on("error", () => {
-      // File may not exist yet — that's fine
-      log.debug("todos.md watcher error (file may not exist)");
+      log.debug("operations/ watcher error");
     });
   } catch {
-    log.debug("Could not watch todos.md (file may not exist)");
+    log.debug("Could not watch operations/ directory");
   }
 
   // 3. Listen for board completions — sync back to todos.md
