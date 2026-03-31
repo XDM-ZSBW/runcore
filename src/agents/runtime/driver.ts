@@ -74,11 +74,17 @@ export class ClaudeCliDriver implements AgentDriver {
 
     const taskCwd = instance.cwd || process.cwd();
 
-    // Resolve agent model from settings (falls back to Claude Code default if unset)
+    // Resolve agent model from settings (falls back to Claude Code default if unset).
+    // Settings store OpenRouter-style IDs (e.g. "anthropic/claude-sonnet-4.6") but
+    // Claude CLI expects bare model names (e.g. "claude-sonnet-4-6"). Strip the
+    // provider prefix and normalize the version separator.
     const { resolveAgentModel } = await import("../../settings.js");
-    const agentModel = instance.config.env?.CORE_AGENT_MODEL || resolveAgentModel();
+    const rawModel = instance.config.env?.CORE_AGENT_MODEL || resolveAgentModel();
+    const cliModel = rawModel
+      ? rawModel.replace(/^[^/]+\//, "").replace(/\./g, "-")
+      : undefined;
     const claudeArgs = ["--print", "--output-format", "text", "--dangerously-skip-permissions"];
-    if (agentModel) claudeArgs.push("--model", agentModel);
+    if (cliModel) claudeArgs.push("--model", cliModel);
     claudeArgs.push(prompt);
 
     // Spawn claude directly — output streams to files in real time.
