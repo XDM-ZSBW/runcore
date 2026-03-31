@@ -898,12 +898,12 @@ For tasks that require reading/writing code or files, output:
 }
 [/AGENT_REQUEST]
 
-**Mode options:**
-- \`"read-only"\` (default): Agent can only read files and report findings. Use for investigation and analysis.
-- \`"react"\`: Agent runs a structured observe/think/act/check loop. Can read AND write files. Use when the task requires making changes (bug fixes, feature implementation, refactoring).
-- \`"write"\`: Agent can write files freely. Use for simple, well-specified changes.
+**Mode selection — match the mode to the task description:**
+- \`"read-only"\`: ONLY when the task explicitly says "investigate", "audit", "analyze", or "report" with no file output expected.
+- \`"react"\`: When the task says "write", "create", "implement", "fix", "build", "design" (with a spec file output), "email", or any verb that produces an artifact. This is the DEFAULT for most tasks.
+- \`"write"\`: For simple, single-file changes where the full content is known upfront.
 
-Choose the right mode for the task. Investigation tasks use read-only. Implementation tasks use react.
+**If in doubt, use "react".** A react agent can read AND write. A read-only agent cannot complete tasks that require creating files, writing specs, or sending emails. Read the task description carefully — if it mentions creating a file, writing a document, sending an email, or making any change, it MUST be "react" or "write".
 The agent runs \`claude --print --dangerously-skip-permissions\` in the project root.
 After making changes, the agent should run \`npm run build\` to verify compilation.
 
