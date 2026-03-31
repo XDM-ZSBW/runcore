@@ -24,7 +24,11 @@ const log = createLogger("goal-planner");
 // ─── Config ────────────────────────────────────────────────────────────────
 
 const MAX_PER_CYCLE = parseInt(resolveEnv("GOAL_PLANNER_MAX_PER_CYCLE") ?? "", 10) || 10;
+/** Threshold to skip creating a new board item (already exists on board). */
 const DEDUP_THRESHOLD = 0.7;
+/** Threshold to sync-back (check off todo from done board item). Must be higher
+ *  to avoid false matches between similar-but-distinct tasks. */
+const SYNC_BACK_THRESHOLD = 0.95;
 /** Debounce window for file changes (fs.watch fires multiple times per save). */
 const DEBOUNCE_MS = 2000;
 
@@ -173,13 +177,18 @@ async function runPlannerCycle(store: QueueStore): Promise<GoalPlannerResult> {
     }
 
     if (bestScore >= DEDUP_THRESHOLD && bestMatch) {
-      if (bestMatch.state === "done" || bestMatch.state === "cancelled") {
+      const isTerminal = bestMatch.state === "done" || bestMatch.state === "cancelled";
+      if (isTerminal && bestScore >= SYNC_BACK_THRESHOLD) {
+        // Near-exact match to a completed item — sync back (check off todo)
         linesToCheck.push(todo.lineIndex);
         synced++;
-      } else {
+        continue;
+      } else if (!isTerminal) {
+        // Active board item with similar title — skip (already on board)
         skipped++;
+        continue;
       }
-      continue;
+      // Terminal item with similar but not exact title — fall through to create new item
     }
 
     if (created >= MAX_PER_CYCLE) {

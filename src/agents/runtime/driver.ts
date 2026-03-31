@@ -72,10 +72,17 @@ export class ClaudeCliDriver implements AgentDriver {
 
     const taskCwd = instance.cwd || process.cwd();
 
+    // Resolve agent model from settings (falls back to Claude Code default if unset)
+    const { resolveAgentModel } = await import("../../settings.js");
+    const agentModel = instance.config.env?.CORE_AGENT_MODEL || resolveAgentModel();
+    const claudeArgs = ["--print", "--output-format", "text", "--dangerously-skip-permissions"];
+    if (agentModel) claudeArgs.push("--model", agentModel);
+    claudeArgs.push(prompt);
+
     // Spawn claude directly — output streams to files in real time
     const child = spawn(
       "claude",
-      ["--print", "--output-format", "text", "--dangerously-skip-permissions", prompt],
+      claudeArgs,
       {
         cwd: taskCwd,
         detached: true,
