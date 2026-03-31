@@ -1,22 +1,16 @@
 /**
- * Email capability — send and reply via Gmail.
- * Includes placeholder threadId/inReplyTo sanitization.
+ * Email capability — send via Resend API.
+ * Resend is the runtime-level messaging channel.
+ * Application-specific email (Gmail, Outlook) belongs in Coreline.
  */
 
 import { logActivity } from "../../activity/log.js";
-
-// Lazy-loaded byok-tier module
-let _gmailSend: typeof import("../../google/gmail-send.js") | null = null;
-async function getGmailSend() {
-  if (!_gmailSend) { try { _gmailSend = await import("../../google/gmail-send.js"); } catch { _gmailSend = null; } }
-  return _gmailSend;
-}
 import { pushNotification } from "../../goals/notifications.js";
-import { getInstanceName } from "../../instance.js";
+import { getInstanceName, getAlertEmailFrom, resolveEnv } from "../../instance.js";
+import { createLogger } from "../../utils/logger.js";
 import type { ActionBlockCapability, ActionContext, ActionExecutionResult } from "../types.js";
 
-/** Regex that catches common placeholder/hallucinated threadId values. */
-const PLACEHOLDER_RE = /placeholder|from.context|example|<use real/i;
+const log = createLogger("capability.email");
 
 const actionLabel = (ctx: ActionContext) =>
   ctx.origin === "autonomous" ? "AUTONOMOUS" : "PROMPTED";
@@ -29,31 +23,75 @@ const reason = (ctx: ActionContext) => {
   }
 };
 
+/** Send email via Resend API. Returns { ok, message, id? }. */
+async function sendViaResend(opts: {
+  to: string | string[];
+  subject: string;
+  body: string;
+  from?: string;
+}): Promise<{ ok: boolean; message: string; id?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, message: "RESEND_API_KEY not configured" };
+
+  const from = opts.from ?? `${getInstanceName()} <${getAlertEmailFrom()}>`;
+  const toArr = Array.isArray(opts.to) ? opts.to : [opts.to];
+
+  // Use CORE_ALERT_EMAIL_TO as default recipient if "to" is generic
+  if (toArr.length === 0) {
+    const defaultTo = resolveEnv("ALERT_EMAIL_TO");
+    if (defaultTo) toArr.push(defaultTo);
+    else return { ok: false, message: "No recipient and CORE_ALERT_EMAIL_TO not set" };
+  }
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: toArr,
+        subject: opts.subject,
+        text: opts.body,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (res.ok) {
+      const data = await res.json() as { id?: string };
+      return { ok: true, message: `Sent (${data.id ?? "ok"})`, id: data.id };
+    }
+
+    const text = await res.text();
+    return { ok: false, message: `Resend ${res.status}: ${text}` };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export const emailCapability: ActionBlockCapability = {
   id: "email",
   pattern: "action",
   tag: "EMAIL_ACTION",
-  keywords: ["email", "send", "inbox", "reply", "notify", "gmail", "message"],
+  keywords: ["email", "send", "notify", "message"],
 
   getPromptInstructions(ctx) {
     const name = ctx.name ?? "the user";
+    const defaultTo = resolveEnv("ALERT_EMAIL_TO") ?? "owner";
     return [
-      `## Gmail (send/reply via [EMAIL_ACTION] blocks)`,
-      `To send an email or reply to a thread, include an [EMAIL_ACTION] block in your response.`,
+      `## Email (send via [EMAIL_ACTION] blocks)`,
+      `To send an email, include an [EMAIL_ACTION] block in your response.`,
+      `Default recipient: ${defaultTo}`,
       ``,
-      `Send a new email:`,
       `[EMAIL_ACTION]`,
-      `{"action": "send", "to": "someone@example.com", "subject": "Meeting notes", "body": "Hi,\\n\\nHere are the notes from today's meeting..."}`,
+      `{"action": "send", "to": "${defaultTo}", "subject": "Subject line", "body": "Email body text"}`,
       `[/EMAIL_ACTION]`,
       ``,
-      `Reply to a thread (keeps it in the same Gmail conversation):`,
-      `[EMAIL_ACTION]`,
-      `{"action": "reply", "to": "someone@example.com", "subject": "Re: Meeting notes", "body": "Thanks for the follow-up!", "threadId": "<use real threadId from Gmail data>", "inReplyTo": "<use real Message-ID from Gmail data>"}`,
-      `[/EMAIL_ACTION]`,
-      ``,
-      `Fields: to (email or array), subject, body (plain text). Optional: cc, bcc, threadId (for replies), inReplyTo (Message-ID header of the email being replied to).`,
-      `IMPORTANT: For replies, you MUST use real threadId and inReplyTo values from the Gmail data in your context. Do NOT use placeholder values — if you don't have the real IDs, omit threadId/inReplyTo and send as a new email instead.`,
-      `Reply in existing threads (when threadId is present) without confirmation — just send and mention what you did. Confirm with ${name} before sending new emails to new recipients.`,
+      `Fields: to (email or array), subject, body (plain text).`,
+      `If "to" is omitted, sends to the owner (${defaultTo}).`,
+      `Confirm with ${name} before emailing new recipients. Owner emails need no confirmation.`,
     ].join("\n");
   },
 
@@ -62,11 +100,11 @@ export const emailCapability: ActionBlockCapability = {
       return [
         `Send an email:`,
         `[EMAIL_ACTION]`,
-        `{"action": "send", "to": "someone@example.com", "subject": "Subject", "body": "Email body"}`,
+        `{"action": "send", "to": "owner", "subject": "Subject", "body": "Email body"}`,
         `[/EMAIL_ACTION]`,
+        `"to": "owner" sends to the configured owner email.`,
       ].join("\n");
     }
-    // Email handler doesn't include dedicated email instructions (it's already replying)
     return null;
   },
 
@@ -74,45 +112,33 @@ export const emailCapability: ActionBlockCapability = {
     const req = payload as Record<string, any>;
     const label = actionLabel(ctx);
 
-    if (!req.to || !req.subject || !req.body) {
-      return { capabilityId: "email", ok: false, message: "Missing required fields (to, subject, body)" };
+    if (!req.subject || !req.body) {
+      return { capabilityId: "email", ok: false, message: "Missing required fields (subject, body)" };
     }
 
-    // Sanitize placeholder threadId/inReplyTo values the LLM sometimes hallucinates
-    const threadId = req.threadId && !PLACEHOLDER_RE.test(req.threadId) ? req.threadId : undefined;
-    const inReplyTo = req.inReplyTo && !PLACEHOLDER_RE.test(req.inReplyTo) ? req.inReplyTo : undefined;
+    // Resolve "owner" to CORE_ALERT_EMAIL_TO
+    let to = req.to;
+    if (!to || to === "owner") {
+      to = resolveEnv("ALERT_EMAIL_TO");
+      if (!to) return { capabilityId: "email", ok: false, message: "CORE_ALERT_EMAIL_TO not configured" };
+    }
 
-    const gmailSend = await getGmailSend();
-    if (!gmailSend) return { capabilityId: "email", ok: false, message: "Gmail send module not available (byok tier required)" };
-
-    const result = await gmailSend.sendEmail({
-      to: req.to,
-      cc: req.cc,
-      bcc: req.bcc,
+    const result = await sendViaResend({
+      to,
       subject: req.subject,
       body: req.body,
-      threadId,
-      inReplyTo,
-      references: req.references,
     });
 
-    const toStr = Array.isArray(req.to) ? req.to.join(", ") : req.to;
+    const toStr = Array.isArray(to) ? to.join(", ") : to;
 
     if (result.ok) {
-      logActivity({ source: "gmail", summary: `Email sent${ctx.origin === "email" ? " via email handler" : ""} to ${toStr}: "${req.subject}"`, actionLabel: label, reason: reason(ctx) });
-      if (ctx.origin === "chat") {
-        pushNotification({ timestamp: new Date().toISOString(), source: "gmail", message: `Email sent to **${toStr}**: "${req.subject}"` });
-      }
-      if (ctx.origin === "autonomous") {
-        pushNotification({ timestamp: new Date().toISOString(), source: "gmail", message: `Email sent to **${toStr}**: "${req.subject}"` });
-      }
+      logActivity({ source: "resend", summary: `Email sent to ${toStr}: "${req.subject}"`, actionLabel: label, reason: reason(ctx) });
+      pushNotification({ timestamp: new Date().toISOString(), source: "resend", message: `Email sent to **${toStr}**: "${req.subject}"` });
       return { capabilityId: "email", ok: true, message: `Email sent to ${toStr}` };
     }
 
-    logActivity({ source: "gmail", summary: `Failed to send email: ${result.message}`, actionLabel: label, reason: reason(ctx) });
-    if (ctx.origin === "chat") {
-      pushNotification({ timestamp: new Date().toISOString(), source: "gmail", message: `Failed to send email to ${toStr}: ${result.message}` });
-    }
+    log.warn(`Email send failed: ${result.message}`);
+    logActivity({ source: "resend", summary: `Failed to send email: ${result.message}`, actionLabel: label, reason: reason(ctx) });
     return { capabilityId: "email", ok: false, message: result.message };
   },
 };
