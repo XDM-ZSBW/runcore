@@ -105,6 +105,10 @@ Rules:
   run: \`npm install -g . && echo restart > brain/.restart-requested\`
   This triggers an automatic graceful restart. Only do this when code changes need
   to be applied at runtime (not for documentation or spec-only changes).
+- To send email, use the Resend API directly via curl. The env vars RESEND_API_KEY,
+  CORE_ALERT_EMAIL_FROM, and CORE_ALERT_EMAIL_TO are available in your environment.
+  Example: \`curl -X POST https://api.resend.com/emails -H "Authorization: Bearer $RESEND_API_KEY" -H "Content-Type: application/json" -d '{"from":"'$CORE_ALERT_EMAIL_FROM'","to":["'$CORE_ALERT_EMAIL_TO'"],"subject":"Subject","text":"Body"}'\`
+  Do NOT use MCP or Gmail for email. Use Resend.
 
 ---
 
