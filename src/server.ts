@@ -7771,25 +7771,25 @@ async function start(opts?: { tier?: import("./tier/types.js").TierName }) {
       resolve();
     }
 
-    try {
-      const server = serve({ fetch: app.fetch, port: PORT }, () => onListening(server));
+    const tryBind = (port: number, retriesLeft = 2) => {
+      const server = serve({ fetch: app.fetch, port }, () => onListening(server));
       server.on("error", (err: NodeJS.ErrnoException) => {
-        if (err.code === "EADDRINUSE" && PORT !== 0) {
-          log.warn(`Port ${PORT} in use, falling back to random port`);
-          const fallback = serve({ fetch: app.fetch, port: 0 }, () => onListening(fallback));
+        if (err.code === "EADDRINUSE") {
+          if (retriesLeft > 0 && port !== 0) {
+            log.warn(`Port ${port} in use, retrying in 1s (${retriesLeft} left)`);
+            setTimeout(() => tryBind(port, retriesLeft - 1), 1000);
+          } else if (port !== 0) {
+            log.warn(`Port ${port} in use after retries, falling back to random port`);
+            tryBind(0, 0);
+          } else {
+            throw err;
+          }
         } else {
           throw err;
         }
       });
-    } catch (err) {
-      // If serve() throws synchronously (unlikely but safe)
-      if (PORT !== 0) {
-        log.warn(`Port ${PORT} failed, falling back to random port`);
-        const fallback = serve({ fetch: app.fetch, port: 0 }, () => onListening(fallback));
-      } else {
-        throw err;
-      }
-    }
+    };
+    tryBind(PORT);
   });
 }
 

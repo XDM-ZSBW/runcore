@@ -270,18 +270,11 @@ async function startServer(tier: import("./tier/types.js").TierName = "byok") {
   const explicitPort = getFlag(args, "--port") ?? process.env.CORE_PORT;
   const dirArg = getFlag(args, "--dir") ?? process.env.CORE_HOME;
 
-  // If user specified a port, try it with fallback. Otherwise let the OS assign (port 0).
-  let port: number;
-  if (explicitPort) {
-    const preferred = parseInt(explicitPort, 10);
-    port = await findPort(preferred);
-    if (port !== preferred) {
-      console.log(`  Port ${preferred} in use, using ${port}`);
-    }
-  } else {
-    port = 0; // OS assigns a guaranteed-available port
-  }
-
+  // Pass the requested port directly to the server. The server handles
+  // EADDRINUSE fallback itself. Using findPort() here creates a TOCTOU
+  // race: the port can be grabbed between the availability check and
+  // the actual bind, causing silent fallback to a random port.
+  const port = explicitPort ? parseInt(explicitPort, 10) : 0;
   process.env.CORE_PORT = String(port);
   if (dirArg) {
     process.chdir(resolve(dirArg));
