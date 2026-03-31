@@ -25,6 +25,7 @@ import { skillRegistry as _skillRegistry } from "../skills/registry.js";
 import { getBoardProvider } from "../board/provider.js";
 import { BRAIN_DIR } from "../lib/paths.js";
 import { processAgentIssues } from "./issues.js";
+import { getCapabilityRegistry } from "../capabilities/index.js";
 
 const log = createLogger("agent-spawn");
 
@@ -365,6 +366,26 @@ async function handlePoolCompletion(
 
   const output = await readTaskOutput(task.id).catch(() => "");
   const resultSummary = output.trim().slice(0, 1000) || undefined;
+
+  // Process capability action blocks (EMAIL_ACTION, etc.) from agent output
+  if (status === "completed" && output) {
+    const capReg = getCapabilityRegistry();
+    if (capReg) {
+      try {
+        const { results } = await capReg.processResponse(output, { origin: "autonomous" });
+        const executed = results.filter((r) => r.ok).length;
+        if (executed > 0) {
+          logActivity({
+            source: "agent",
+            summary: `Processed ${executed} action block(s) from agent: ${task.label}`,
+            detail: `Task ${task.id}`,
+          });
+        }
+      } catch (err) {
+        log.warn(`Failed to process action blocks from ${task.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
 
   // Process issue reports from read-only autonomous agents
   if (task.readOnly && status === "completed" && output) {
