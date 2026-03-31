@@ -100,6 +100,11 @@ Rules:
 - If you hit a wall after 3 failed attempts at the same approach, try a different strategy.
 - If you genuinely need human input, output a [NEEDS_HUMAN] block and exit.
 - When the task is done, output a clear summary of what you changed and why.
+- After making code changes, run \`npm run build\` to verify compilation.
+- If the build succeeds AND your changes require a server restart to take effect,
+  run: \`npm install -g . && echo restart > brain/.restart-requested\`
+  This triggers an automatic graceful restart. Only do this when code changes need
+  to be applied at runtime (not for documentation or spec-only changes).
 
 ---
 

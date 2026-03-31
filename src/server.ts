@@ -7922,10 +7922,46 @@ async function gracefulShutdown(signal: string): Promise<void> {
   await shutdownLLMCache();
   try { if (_tracingInit) await _tracingInit.shutdownTracing(); } catch {}
   releaseLock();
+  // Self-restart: re-exec with same args instead of exiting
+  if (signal === "self-restart") {
+    const { spawn: spawnProcess } = await import("node:child_process");
+    log.info("Re-executing process for self-restart");
+    const child = spawnProcess(process.execPath, process.argv.slice(1), {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: "inherit",
+      detached: true,
+    });
+    child.unref();
+  }
   process.exit(0);
 }
 process.on("SIGINT", () => { gracefulShutdown("SIGINT"); });
 process.on("SIGTERM", () => { gracefulShutdown("SIGTERM"); });
+
+// ── Self-restart: watch for restart signal from autonomous agents ──────────
+// When an agent builds new code and writes brain/.restart-requested,
+// the server gracefully shuts down and re-execs itself with the same args.
+// This is event-driven (fs.watch), not a timer.
+import { watch as fsWatch, unlinkSync } from "node:fs";
+try {
+  const restartSignalDir = BRAIN_DIR;
+  const restartWatcher = fsWatch(restartSignalDir, { persistent: false }, (_, filename) => {
+    if (filename === ".restart-requested") {
+      log.info("Restart signal detected — graceful restart in progress");
+      logActivity({ source: "system", summary: "Self-restart triggered by agent build", actionLabel: "AUTONOMOUS", reason: "agent wrote .restart-requested" });
+      try { unlinkSync(join(BRAIN_DIR, ".restart-requested")); } catch {}
+      restartWatcher.close();
+      // Graceful shutdown then re-exec
+      gracefulShutdown("self-restart").then(() => {}).catch(() => {
+        // gracefulShutdown calls process.exit(0), but if it doesn't:
+        process.exit(0);
+      });
+    }
+  });
+} catch {
+  // Non-fatal — restart signal just won't work
+}
 
 // Crash diagnostics — write to file since terminal output may be lost on tsx watch restart
 process.on("uncaughtException", (err) => {
