@@ -1491,11 +1491,11 @@ app.put("/api/vault/:name", async (c) => {
 
   const name = c.req.param("name");
   const body = await c.req.json();
-  const { value, label } = body;
+  const { value, label, type } = body;
   if (!value) return badRequest("value required");
 
   if (!_vaultStore) return c.json({ error: "Vault not available — tier may not support it" }, 503);
-  await _vaultStore.setVaultKey(name, value, key, label);
+  await _vaultStore.setVaultKey(name, value, key, label, type);
   return c.json({ ok: true });
 });
 

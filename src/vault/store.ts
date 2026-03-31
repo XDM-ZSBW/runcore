@@ -23,6 +23,8 @@ interface EncryptedFile {
 interface VaultEntry {
   value: string;
   label?: string;
+  /** "secret" = masked, must delete to change. "text" = visible, editable inline. Default: "secret". */
+  type?: "secret" | "text";
 }
 
 type VaultData = Record<string, VaultEntry>;
@@ -76,8 +78,9 @@ export async function setVaultKey(
   value: string,
   key: Buffer,
   label?: string,
+  type?: "secret" | "text",
 ): Promise<void> {
-  vaultCache[name] = { value, label };
+  vaultCache[name] = { value, label, type: type ?? vaultCache[name]?.type ?? "secret" };
   await saveVault(key);
   // Keep process.env in sync — but respect the integration gate
   if (shouldHydrateKey(name)) {
@@ -98,10 +101,13 @@ export async function deleteVaultKey(name: string, key: Buffer): Promise<void> {
 /**
  * List vault keys — names and labels only, no values.
  */
-export function listVaultKeys(): Array<{ name: string; label?: string }> {
+export function listVaultKeys(): Array<{ name: string; label?: string; type?: "secret" | "text"; value?: string }> {
   return Object.entries(vaultCache).map(([name, entry]) => ({
     name,
     label: entry.label,
+    type: entry.type ?? "secret",
+    // Only expose value for text-type entries (non-sensitive)
+    value: entry.type === "text" ? entry.value : undefined,
   }));
 }
 
