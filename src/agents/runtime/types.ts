@@ -67,7 +67,10 @@ export interface AgentInstance {
 
 /** Per-instance configuration (merged from defaults + request overrides). */
 export interface AgentInstanceConfig {
+  /** Absolute maximum wall-clock time (ms). Safety net. */
   timeoutMs: number;
+  /** Kill the agent if no stdout/stderr output for this many ms. 0 = disabled. */
+  staleAfterMs: number;
   maxRetries: number;
   backoffMs: number;
   backoffMultiplier: number;
@@ -196,6 +199,7 @@ export interface AgentDriver {
 export interface RuntimeConfig {
   maxConcurrentAgents: number;
   defaultTimeoutMs: number;
+  defaultStaleAfterMs: number;
   defaultMaxRetries: number;
   defaultBackoffMs: number;
   defaultBackoffMultiplier: number;

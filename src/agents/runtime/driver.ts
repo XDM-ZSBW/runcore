@@ -1,13 +1,18 @@
 /**
  * Agent Runtime Environment — Claude CLI agent driver.
  *
- * Implements the AgentDriver interface using the existing Core agent
- * spawn machinery. This bridges the new runtime layer with the proven
- * process spawning in src/agents/spawn.ts.
+ * Spawns `claude` directly as an async child process with real-time
+ * streaming output to log files. Replaces the old spawnSync wrapper
+ * approach that buffered all output until exit.
+ *
+ * Stale detection: instead of a hard timeout kill, monitors the last
+ * time the agent produced output. If no output arrives for `staleAfterMs`,
+ * the agent is terminated. An absolute `timeoutMs` ceiling remains as
+ * a safety net.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { createWriteStream, writeFileSync, type WriteStream } from "node:fs";
 import { join } from "node:path";
 import type { AgentDriver, AgentInstance } from "./types.js";
 import { LOGS_DIR } from "../store.js";
@@ -22,8 +27,17 @@ const log = createLogger("agent-driver");
 /** Map of instance ID → child process (only for current session). */
 const processes = new Map<string, ChildProcess>();
 
-/** Map of instance ID → timeout timer. */
-const timers = new Map<string, ReturnType<typeof setTimeout>>();
+/** Map of instance ID → stale-check interval. */
+const staleCheckers = new Map<string, ReturnType<typeof setInterval>>();
+
+/** Map of instance ID → absolute timeout timer. */
+const absoluteTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Map of instance ID → timestamp of last output received. */
+const lastOutputAt = new Map<string, number>();
+
+/** Map of instance ID → open write streams (for cleanup). */
+const streams = new Map<string, WriteStream[]>();
 
 /** Exit handlers registered per instance. */
 const exitHandlers = new Map<string, (code: number | null) => void>();
@@ -58,46 +72,69 @@ export class ClaudeCliDriver implements AgentDriver {
 
     const taskCwd = instance.cwd || process.cwd();
 
-    const wrapperScript = `
-      const fs = require("fs");
-      const { spawnSync } = require("child_process");
-      const prompt = fs.readFileSync(${JSON.stringify(promptPath)}, "utf-8");
-      const r = spawnSync("claude", [
-        "--print", "--output-format", "text", "--dangerously-skip-permissions", prompt
-      ], {
-        cwd: ${JSON.stringify(taskCwd)},
-        encoding: "utf-8",
-        maxBuffer: 50 * 1024 * 1024,
-        timeout: ${instance.config.timeoutMs},
-        windowsHide: true
-      });
-      fs.writeFileSync(${JSON.stringify(stdoutPath)}, r.stdout || "", "utf-8");
-      fs.writeFileSync(${JSON.stringify(stderrPath)}, r.stderr || "", "utf-8");
-      process.exit(r.status || 0);
-    `;
-
-    const child = spawn(process.execPath, ["--eval", wrapperScript], {
-      cwd: taskCwd,
-      detached: true,
-      stdio: "ignore",
-      env: cleanEnv,
-      windowsHide: true,
-    });
+    // Spawn claude directly — output streams to files in real time
+    const child = spawn(
+      "claude",
+      ["--print", "--output-format", "text", "--dangerously-skip-permissions", prompt],
+      {
+        cwd: taskCwd,
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: cleanEnv,
+        windowsHide: true,
+      },
+    );
 
     child.unref();
     processes.set(instance.id, child);
-    log.info("Agent process spawned", { instanceId: instance.id, taskId: instance.taskId, pid: child.pid, label: instance.metadata.label });
+    lastOutputAt.set(instance.id, Date.now());
+
+    // Open file streams for incremental writes
+    const stdoutStream = createWriteStream(stdoutPath, { flags: "w" });
+    const stderrStream = createWriteStream(stderrPath, { flags: "w" });
+    streams.set(instance.id, [stdoutStream, stderrStream]);
+
+    // Pipe stdout to file, updating last-output timestamp
+    if (child.stdout) {
+      child.stdout.on("data", (chunk: Buffer) => {
+        lastOutputAt.set(instance.id, Date.now());
+        stdoutStream.write(chunk);
+      });
+    }
+
+    // Pipe stderr to file, also updating last-output timestamp
+    if (child.stderr) {
+      child.stderr.on("data", (chunk: Buffer) => {
+        lastOutputAt.set(instance.id, Date.now());
+        stderrStream.write(chunk);
+      });
+    }
+
+    log.info("Agent process spawned (streaming)", {
+      instanceId: instance.id,
+      taskId: instance.taskId,
+      pid: child.pid,
+      label: instance.metadata.label,
+      timeoutMs: instance.config.timeoutMs,
+      staleAfterMs: instance.config.staleAfterMs,
+    });
 
     // Wire exit handler — classify exit reason for diagnostics
     child.on("exit", (code, signal) => {
       const reason = signal
-        ? `signal:${signal}` // killed externally or by timeout
+        ? `signal:${signal}`
         : code === null
           ? "exit:null (likely timeout or OOM)"
           : code === 0
             ? "clean exit"
             : `exit code ${code}`;
-      log.info("Agent process exited", { instanceId: instance.id, taskId: instance.taskId, exitCode: code, signal, reason });
+      log.info("Agent process exited", {
+        instanceId: instance.id,
+        taskId: instance.taskId,
+        exitCode: code,
+        signal,
+        reason,
+      });
 
       // Log stderr content for failed exits to aid debugging
       if (code !== 0) {
@@ -110,8 +147,7 @@ export class ClaudeCliDriver implements AgentDriver {
         ).catch(() => {});
       }
 
-      processes.delete(instance.id);
-      clearTimer(instance.id);
+      cleanupInstance(instance.id);
       const handler = exitHandlers.get(instance.id);
       if (handler) {
         exitHandlers.delete(instance.id);
@@ -122,9 +158,12 @@ export class ClaudeCliDriver implements AgentDriver {
 
     // Wire error handler
     child.on("error", (err) => {
-      log.error("Agent process error", { instanceId: instance.id, taskId: instance.taskId, error: (err as Error).message });
-      processes.delete(instance.id);
-      clearTimer(instance.id);
+      log.error("Agent process error", {
+        instanceId: instance.id,
+        taskId: instance.taskId,
+        error: (err as Error).message,
+      });
+      cleanupInstance(instance.id);
       const handler = exitHandlers.get(instance.id);
       if (handler) {
         exitHandlers.delete(instance.id);
@@ -132,14 +171,40 @@ export class ClaudeCliDriver implements AgentDriver {
       }
     });
 
-    // Set timeout
+    // ── Stale detection ──
+    // Check every 30s whether the agent has gone silent.
+    const staleMs = instance.config.staleAfterMs;
+    if (staleMs > 0) {
+      const checker = setInterval(() => {
+        const last = lastOutputAt.get(instance.id);
+        if (!last) return;
+        const silent = Date.now() - last;
+        if (silent >= staleMs) {
+          log.warn("Agent stale — no output detected, terminating", {
+            instanceId: instance.id,
+            taskId: instance.taskId,
+            silentMs: silent,
+            staleAfterMs: staleMs,
+          });
+          this.terminate(instance).catch(() => {});
+        }
+      }, 30_000);
+      staleCheckers.set(instance.id, checker);
+    }
+
+    // ── Absolute timeout (safety net) ──
     if (instance.config.timeoutMs > 0) {
       const timer = setTimeout(() => {
         if (processes.has(instance.id)) {
+          log.warn("Agent hit absolute timeout ceiling, terminating", {
+            instanceId: instance.id,
+            taskId: instance.taskId,
+            timeoutMs: instance.config.timeoutMs,
+          });
           this.terminate(instance).catch(() => {});
         }
       }, instance.config.timeoutMs);
-      timers.set(instance.id, timer);
+      absoluteTimers.set(instance.id, timer);
     }
 
     return child.pid;
@@ -182,14 +247,16 @@ export class ClaudeCliDriver implements AgentDriver {
   }
 
   async terminate(instance: AgentInstance): Promise<void> {
-    log.info("Terminating agent process", { instanceId: instance.id, taskId: instance.taskId, pid: instance.pid });
+    log.info("Terminating agent process", {
+      instanceId: instance.id,
+      taskId: instance.taskId,
+      pid: instance.pid,
+    });
     const child = processes.get(instance.id);
-    clearTimer(instance.id);
+    cleanupInstance(instance.id);
     exitHandlers.delete(instance.id);
 
     if (!child) return;
-
-    processes.delete(instance.id);
 
     try {
       if (process.platform === "win32" && child.pid) {
@@ -238,16 +305,43 @@ export class ClaudeCliDriver implements AgentDriver {
   getActiveIds(): string[] {
     return Array.from(processes.keys());
   }
+
+  /** Get the timestamp of last output for an instance (for external monitoring). */
+  getLastOutputAt(instanceId: string): number | undefined {
+    return lastOutputAt.get(instanceId);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function clearTimer(instanceId: string): void {
-  const timer = timers.get(instanceId);
+/** Clean up all tracking state for an instance (timers, streams, maps). */
+function cleanupInstance(instanceId: string): void {
+  processes.delete(instanceId);
+
+  // Clear stale checker
+  const checker = staleCheckers.get(instanceId);
+  if (checker) {
+    clearInterval(checker);
+    staleCheckers.delete(instanceId);
+  }
+
+  // Clear absolute timeout
+  const timer = absoluteTimers.get(instanceId);
   if (timer) {
     clearTimeout(timer);
-    timers.delete(instanceId);
+    absoluteTimers.delete(instanceId);
   }
+
+  // Close write streams
+  const openStreams = streams.get(instanceId);
+  if (openStreams) {
+    for (const s of openStreams) {
+      try { s.end(); } catch { /* already closed */ }
+    }
+    streams.delete(instanceId);
+  }
+
+  lastOutputAt.delete(instanceId);
 }

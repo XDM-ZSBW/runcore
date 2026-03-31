@@ -5109,6 +5109,11 @@ app.get("/browser", requireSurface("pages"), async (c) => {
   return c.html(html);
 });
 
+app.get("/settings", requireSurface("pages"), async (c) => {
+  const html = await serveHtmlTemplate(join(UI_DIR,"settings.html"));
+  return c.html(html);
+});
+
 // Registry is always available — it's the entry point
 app.get("/registry", async (c) => {
   const html = await serveHtmlTemplate(join(UI_DIR,"registry.html"));

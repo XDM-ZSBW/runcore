@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{INSTANCE_NAME}} — Settings</title>
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181b;
+    --surface2: #222226;
+    --border: #2e2e33;
+    --text: #e4e4e7;
+    --text-dim: #8b8b94;
+    --accent: #6d5dfc;
+    --accent-dim: #5a4dd4;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --purple: #a78bfa;
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    --radius: 8px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- Header --- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  header h1 a {
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  header h1 a:hover { opacity: 0.8; }
+  header h1 span { color: var(--text-dim); font-weight: 400; }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .header-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .header-nav a:hover { color: var(--text); border-color: var(--accent); background: rgba(109,93,252,0.1); }
+  .header-nav a.active { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+  .nav-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .gear-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+  }
+  .gear-btn:hover { color: var(--text); background: var(--border); }
+  a.gear-btn { text-decoration: none; }
+
+  /* --- Main layout --- */
+  main {
+    flex: 1;
+    max-width: 960px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  .page-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 32px;
+    letter-spacing: -0.3px;
+  }
+
+  /* --- Section cards --- */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .settings-card.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title a {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--accent);
+    text-decoration: none;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .card-title a:hover { text-decoration: underline; }
+
+  /* --- Form elements --- */
+  .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .field-row:last-child { margin-bottom: 0; }
+
+  .field-row label {
+    font-size: 13px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    min-width: 90px;
+  }
+
+  .field-row input[type="text"],
+  .field-row input[type="password"],
+  .field-row select {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .field-row input:focus,
+  .field-row select:focus { border-color: var(--accent); }
+  .field-row input::placeholder { color: var(--text-dim); }
+
+  .btn {
+    padding: 8px 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent-dim); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid rgba(239,68,68,0.3);
+  }
+  .btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); background: var(--surface2); }
+
+  .save-status {
+    font-size: 12px;
+    color: var(--green);
+    opacity: 0;
+    transition: opacity 0.3s;
+    margin-left: 8px;
+  }
+  .save-status.visible { opacity: 1; }
+  .save-status.error { color: var(--red); }
+
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  /* --- Toggle switch --- */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+
+  .toggle-label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .toggle-sublabel {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    max-width: 320px;
+  }
+
+  .toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .toggle-track::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .toggle input:checked + .toggle-track { background: var(--accent); }
+  .toggle input:checked + .toggle-track::after { transform: translateX(20px); background: #fff; }
+
+  /* --- Personality trait sliders --- */
+  .personality-traits { display: flex; flex-direction: column; gap: 14px; }
+  .trait-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .trait-label { width: 80px; text-align: right; color: var(--text-dim); flex-shrink: 0; }
+  .trait-label-right { width: 80px; text-align: left; color: var(--text-dim); flex-shrink: 0; }
+  .trait-slider {
+    flex: 1;
+    position: relative;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+  }
+  .trait-slider::before {
+    content: "";
+    position: absolute;
+    left: 4px; right: 4px;
+    top: 50%;
+    height: 2px;
+    background: var(--border);
+    transform: translateY(-50%);
+    border-radius: 1px;
+  }
+  .trait-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+    transition: background 0.15s, border-color 0.15s;
+    padding: 0;
+  }
+  .trait-dot:hover { border-color: var(--accent); }
+  .trait-dot.active { background: var(--accent); border-color: var(--accent); }
+
+  .custom-rules-toggle { margin-top: 12px; }
+  .custom-rules-toggle summary {
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 0;
+  }
+  .custom-rules-toggle summary:hover { color: var(--text); }
+
+  .prompt-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+  }
+  .prompt-textarea:focus { border-color: var(--accent); }
+  .prompt-textarea::placeholder { color: var(--text-dim); }
+
+  /* --- Model dropdowns --- */
+  .model-field {
+    margin-bottom: 12px;
+  }
+  .model-field:last-of-type { margin-bottom: 0; }
+
+  .model-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .model-field select {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--mono);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .model-field select:focus { border-color: var(--accent); }
+
+  /* --- Key Vault --- */
+  .vault-empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding: 24px 0;
+  }
+
+  .vault-key-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+
+  .vault-key-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .vault-key-name {
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--mono);
+    word-break: break-all;
+  }
+
+  .vault-key-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .vault-key-type {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .vault-key-type.secret { background: rgba(239,68,68,0.15); color: var(--red); }
+  .vault-key-type.text { background: rgba(34,197,94,0.15); color: var(--green); }
+
+  .vault-key-value {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .vault-key-value input {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-family: var(--mono);
+    outline: none;
+  }
+  .vault-key-value input:focus { border-color: var(--accent); }
+
+  .vault-key-masked {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  .vault-key-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .vault-key-actions button {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .vault-key-actions button:hover { color: var(--text); background: var(--surface2); }
+  .vault-key-actions button.delete-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+  /* --- Add key form --- */
+  .add-key-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .add-key-form input,
+  .add-key-form select {
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+  .add-key-form input:focus,
+  .add-key-form select:focus { border-color: var(--accent); }
+  .add-key-form input::placeholder { color: var(--text-dim); }
+
+  .add-key-form .full-span {
+    grid-column: 1 / -1;
+  }
+
+  .vault-error {
+    color: var(--red);
+    font-size: 12px;
+    display: none;
+    grid-column: 1 / -1;
+  }
+  .vault-error.visible { display: block; }
+
+  /* --- Integrations --- */
+  .integration-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .integration-row:last-child { border-bottom: none; }
+
+  .integration-info {
+    flex: 1;
+  }
+  .integration-name {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .integration-status {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-left: 12px;
+  }
+  .status-dot.connected { background: var(--green); }
+  .status-dot.disconnected { background: var(--text-dim); }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .settings-grid {
+      grid-template-columns: 1fr;
+    }
+    main { padding: 20px 16px 48px; }
+    header { padding: 12px 16px; }
+    .header-nav { display: none; }
+    .add-key-form {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <h1><a href="/">{{INSTANCE_NAME}}</a></h1>
+    <nav class="header-nav">
+      <a href="/">Chat</a>
+      <a href="/library">Library</a>
+      <a href="/personal">Personal</a>
+      <a href="/life">Life</a>
+      <a href="/registry">Registry</a>
+      <span class="nav-divider"></span>
+      <a href="/observatory">Observatory</a>
+      <a href="/ops">Operations</a>
+      <a href="/board">Board</a>
+      <a href="/roadmap">Roadmap</a>
+    </nav>
+  </div>
+  <div class="header-actions">
+    <div class="header-actions-right">
+      <button class="gear-btn" onclick="openShareModal()" title="Share Core">&#9993;</button>
+      <a class="gear-btn active" href="/settings" title="Settings" style="color:var(--text);background:var(--surface2);border-radius:4px;">&#9881;</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <h2 class="page-title">Settings</h2>
+
+  <div class="settings-grid">
+
+    <!-- Identity -->
+    <div class="settings-card">
+      <div class="card-title">Identity</div>
+      <div class="field-row">
+        <label for="settings-your-name">Your Name</label>
+        <input type="text" id="settings-your-name" placeholder="Bryant">
+        <button class="btn btn-sm" id="save-your-name-btn">Save</button>
+      </div>
+      <div class="field-row">
+        <label for="settings-agent-name">Agent Name</label>
+        <input type="text" id="settings-agent-name" placeholder="Core">
+        <button class="btn btn-sm" id="save-agent-name-btn">Save</button>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="card-title" style="margin-bottom:12px;">Personality</div>
+        <div class="personality-traits" id="personality-traits">
+          <div class="trait-row" data-trait="verbosity">
+            <span class="trait-label">Concise</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Concise"></button>
+              <button class="trait-dot active" data-value="2" title="Balanced"></button>
+              <button class="trait-dot" data-value="3" title="Verbose"></button>
+            </div>
+            <span class="trait-label-right">Verbose</span>
+          </div>
+          <div class="trait-row" data-trait="assertiveness">
+            <span class="trait-label">Gentle</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Gentle"></button>
+              <button class="trait-dot active" data-value="2" title="Moderate"></button>
+              <button class="trait-dot" data-value="3" title="Pushy"></button>
+            </div>
+            <span class="trait-label-right">Pushy</span>
+          </div>
+          <div class="trait-row" data-trait="tone">
+            <span class="trait-label">Edgy</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Edgy"></button>
+              <button class="trait-dot active" data-value="2" title="Neutral"></button>
+              <button class="trait-dot" data-value="3" title="Safe"></button>
+            </div>
+            <span class="trait-label-right">Safe</span>
+          </div>
+          <div class="trait-row" data-trait="formality">
+            <span class="trait-label">Casual</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Casual"></button>
+              <button class="trait-dot active" data-value="2" title="Adaptive"></button>
+              <button class="trait-dot" data-value="3" title="Formal"></button>
+            </div>
+            <span class="trait-label-right">Formal</span>
+          </div>
+          <div class="trait-row" data-trait="curiosity">
+            <span class="trait-label">Task-focused</span>
+            <div class="trait-slider">
+              <button class="trait-dot" data-value="1" title="Task-focused"></button>
+              <button class="trait-dot active" data-value="2" title="Balanced"></button>
+              <button class="trait-dot" data-value="3" title="Exploratory"></button>
+            </div>
+            <span class="trait-label-right">Exploratory</span>
+          </div>
+        </div>
+        <details class="custom-rules-toggle">
+          <summary>Custom rules</summary>
+          <textarea class="prompt-textarea" id="custom-rules-textarea" placeholder="One rule per line, e.g.&#10;Don't use emojis&#10;Always greet me by name" rows="4"></textarea>
+        </details>
+        <div class="card-actions">
+          <button class="btn btn-sm" id="personality-save-btn">Save Personality</button>
+          <span class="save-status" id="personality-save-status">Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security -->
+    <div class="settings-card">
+      <div class="card-title">Security</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Auth Mode</div>
+          <div class="toggle-sublabel" id="safeword-mode-label">Require password on every page load</div>
+        </div>
+        <select id="safeword-mode-select" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;outline:none;">
+          <option value="always">Every load</option>
+          <option value="restart">After restart only</option>
+        </select>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-sm" id="security-save-btn">Save</button>
+        <span class="save-status" id="security-save-status">Saved</span>
+      </div>
+
+      <!-- Network / Mesh -->
+      <div style="margin-top:24px;" id="mesh-section">
+        <div class="card-title">Network</div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">LAN Announcement</div>
+            <div class="toggle-sublabel">Announce this instance on the local network via mDNS</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="mesh-lan-toggle">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Allow Incoming</div>
+            <div class="toggle-sublabel">Accept mesh connections from discovered peers</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="mesh-incoming-toggle">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-sm" id="mesh-save-btn">Save</button>
+          <span class="save-status" id="mesh-save-status">Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Models -->
+    <div class="settings-card">
+      <div class="card-title">Models
+        <a href="https://ollama.com/library" target="_blank" rel="noopener">Ollama</a>
+        <a href="https://openrouter.ai/models" target="_blank" rel="noopener">OpenRouter</a>
+      </div>
+      <div class="model-field">
+        <label>Chat model</label>
+        <select id="model-chat">
+          <option value="auto">Auto (best available)</option>
+        </select>
+      </div>
+      <div class="model-field">
+        <label>Utility model</label>
+        <select id="model-utility">
+          <option value="auto">Auto (best available)</option>
+        </select>
+      </div>
+      <div class="model-field">
+        <label>Agent model</label>
+        <select id="model-agent">
+          <option value="auto">Auto (best coding model)</option>
+        </select>
+      </div>
+      <div class="toggle-row" style="margin-top:12px;">
+        <div>
+          <div class="toggle-label">Airplane Mode</div>
+          <div class="toggle-sublabel">ON = Ollama (local) &middot; OFF = OpenRouter (cloud)</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="airplane-toggle">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-sm" id="llm-save-btn">Save</button>
+        <span class="save-status" id="llm-save-status">Saved</span>
+      </div>
+    </div>
+
+    <!-- Voice -->
+    <div class="settings-card" id="voice-section">
+      <div class="card-title">Voice</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Text-to-Speech</div>
+          <div class="toggle-sublabel" id="tts-status-label">Checking...</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tts-toggle">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Speech-to-Text</div>
+          <div class="toggle-sublabel" id="stt-status-label">Checking...</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="stt-toggle">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Auto-play responses</div>
+          <div class="toggle-sublabel">Automatically speak replies</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="autoplay-toggle">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-sm" id="voice-save-btn">Save</button>
+        <span class="save-status" id="voice-save-status">Saved</span>
+      </div>
+    </div>
+
+    <!-- Integrations -->
+    <div class="settings-card" id="integrations-section">
+      <div class="card-title">Integrations
+        <a href="/registry">Manage Services &rarr;</a>
+      </div>
+      <div class="integration-row" id="google-integration">
+        <div class="integration-info">
+          <div class="integration-name">Google Workspace</div>
+          <div class="integration-status" id="google-status-label">Checking...</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" id="google-connect-btn">Connect</button>
+        <span class="status-dot disconnected" id="google-status-dot"></span>
+      </div>
+      <div class="integration-row" id="board-integration">
+        <div class="integration-info">
+          <div class="integration-name" id="board-provider-label">Task Board</div>
+          <div class="integration-status" id="board-status-label">Checking...</div>
+        </div>
+        <span class="status-dot disconnected" id="board-status-dot"></span>
+      </div>
+    </div>
+
+    <!-- Key Vault -->
+    <div class="settings-card full-width">
+      <div class="card-title">Key Vault</div>
+      <div class="vault-empty" id="vault-empty">No keys stored yet.</div>
+      <div id="vault-list"></div>
+
+      <div class="add-key-form" id="add-key-form">
+        <div class="vault-error" id="vault-error"></div>
+        <input type="text" id="vault-key-name" placeholder="KEY_NAME (e.g. OPENROUTER_API_KEY)">
+        <input type="text" id="vault-key-label" placeholder="Label (optional)">
+        <input type="password" id="vault-key-value" placeholder="Value" class="full-span">
+        <select id="vault-key-type">
+          <option value="secret">Secret (masked)</option>
+          <option value="text">Text (visible)</option>
+        </select>
+        <button class="btn" id="vault-add-btn">Add Key</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script src="/public/share-modal.js"></script>
+<script>
+(function() {
+  var sessionId = sessionStorage.getItem("dash_sid");
+
+  function authHeaders() {
+    return sessionId ? { "x-session-id": sessionId } : {};
+  }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    var headers = {};
+    if (opts.body) headers["Content-Type"] = "application/json";
+    if (sessionId) headers["x-session-id"] = sessionId;
+    var res = await fetch(path, {
+      method: opts.method || "GET",
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (res.status === 401) {
+      sessionStorage.removeItem("dash_sid");
+      location.href = "/";
+      throw new Error("Session expired");
+    }
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data;
+  }
+
+  function flashStatus(el, msg, isError) {
+    el.textContent = msg || "Saved";
+    el.className = "save-status visible" + (isError ? " error" : "");
+    setTimeout(function() { el.classList.remove("visible"); }, 2000);
+  }
+
+  // --- Check session ---
+  if (!sessionId) { location.href = "/"; return; }
+
+  // Verify session is valid
+  api("/api/settings").then(function(data) {
+    loadIdentity(data);
+    loadSecurity(data);
+    loadMesh(data);
+    loadLlm(data);
+    loadVoice(data);
+    loadIntegrations();
+    loadVaultKeys();
+  }).catch(function() {
+    // auth redirect handled by api()
+  });
+
+  // --- Identity ---
+  function loadIdentity(data) {
+    document.getElementById("settings-your-name").value = data.humanName || "";
+    document.getElementById("settings-agent-name").value = data.instanceName || "Core";
+    loadPersonality();
+  }
+
+  document.getElementById("save-your-name-btn").addEventListener("click", async function() {
+    var btn = this;
+    var val = document.getElementById("settings-your-name").value.trim();
+    if (!val) return;
+    btn.disabled = true;
+    try {
+      await api("/api/settings", { method: "PUT", body: { humanName: val } });
+      btn.textContent = "Saved";
+      setTimeout(function() { btn.textContent = "Save"; }, 1500);
+    } catch (err) {
+      btn.textContent = "Error";
+      setTimeout(function() { btn.textContent = "Save"; }, 1500);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("save-agent-name-btn").addEventListener("click", async function() {
+    var btn = this;
+    var val = document.getElementById("settings-agent-name").value.trim();
+    if (!val) return;
+    btn.disabled = true;
+    try {
+      await api("/api/settings", { method: "PUT", body: { agentName: val } });
+      btn.textContent = "Saved";
+      setTimeout(function() { btn.textContent = "Save"; }, 1500);
+    } catch (err) {
+      btn.textContent = "Error";
+      setTimeout(function() { btn.textContent = "Save"; }, 1500);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Personality ---
+  var personalityTraits = document.getElementById("personality-traits");
+  var customRulesTextarea = document.getElementById("custom-rules-textarea");
+
+  personalityTraits.addEventListener("click", function(e) {
+    var dot = e.target.closest(".trait-dot");
+    if (!dot) return;
+    var slider = dot.closest(".trait-slider");
+    slider.querySelectorAll(".trait-dot").forEach(function(d) { d.classList.remove("active"); });
+    dot.classList.add("active");
+  });
+
+  async function loadPersonality() {
+    try {
+      var data = await api("/api/personality?sessionId=" + encodeURIComponent(sessionId));
+      if (data.traits) {
+        for (var trait in data.traits) {
+          var row = personalityTraits.querySelector('[data-trait="' + trait + '"]');
+          if (!row) continue;
+          row.querySelectorAll(".trait-dot").forEach(function(d) {
+            d.classList.toggle("active", d.dataset.value === String(data.traits[trait]));
+          });
+        }
+      }
+      customRulesTextarea.value = (data.customRules || []).join("\n");
+    } catch (e) {
+      customRulesTextarea.value = "";
+    }
+  }
+
+  document.getElementById("personality-save-btn").addEventListener("click", async function() {
+    var btn = this;
+    var status = document.getElementById("personality-save-status");
+    btn.disabled = true;
+    var traits = {};
+    personalityTraits.querySelectorAll(".trait-row").forEach(function(row) {
+      var trait = row.dataset.trait;
+      var active = row.querySelector(".trait-dot.active");
+      traits[trait] = active ? parseInt(active.dataset.value) : 2;
+    });
+    var customRules = customRulesTextarea.value.split("\n").map(function(l) { return l.trim(); }).filter(Boolean);
+    try {
+      await api("/api/personality", { method: "PUT", body: { sessionId: sessionId, traits: traits, customRules: customRules } });
+      flashStatus(status);
+    } catch (err) {
+      flashStatus(status, err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Security ---
+  var safewordModeSelect = document.getElementById("safeword-mode-select");
+
+  function loadSecurity(data) {
+    safewordModeSelect.value = data.safeWordMode || "always";
+    updateSafewordLabel();
+  }
+
+  function updateSafewordLabel() {
+    document.getElementById("safeword-mode-label").textContent =
+      safewordModeSelect.value === "always"
+        ? "Require password on every page load"
+        : "Skip password until server or browser restarts";
+  }
+  safewordModeSelect.addEventListener("change", updateSafewordLabel);
+
+  document.getElementById("security-save-btn").addEventListener("click", async function() {
+    var btn = this;
+    var status = document.getElementById("security-save-status");
+    btn.disabled = true;
+    try {
+      await api("/api/settings", { method: "PUT", body: { safeWordMode: safewordModeSelect.value } });
+      if (safewordModeSelect.value === "always") sessionStorage.removeItem("dash_sid");
+      flashStatus(status);
+    } catch (err) {
+      flashStatus(status, err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Mesh ---
+  var meshLanToggle = document.getElementById("mesh-lan-toggle");
+  var meshIncomingToggle = document.getElementById("mesh-incoming-toggle");
+
+  function loadMesh(data) {
+    meshLanToggle.checked = data.mesh && data.mesh.lanAnnounce || false;
+    meshIncomingToggle.checked = data.mesh && data.mesh.allowIncoming || false;
+  }
+
+  document.getElementById("mesh-save-btn").addEventListener("click", async function() {
+    var btn = this;
+    var status = document.getElementById("mesh-save-status");
+    btn.disabled = true;
+    try {
+      await api("/api/settings", { method: "PUT", body: { mesh: { lanAnnounce: meshLanToggle.checked, allowIncoming: meshIncomingToggle.checked } } });
+      flashStatus(status);
+    } catch (err) {
+      flashStatus(status, "Error", true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- LLM / Models ---
+  var airplaneToggle = document.getElementById("airplane-toggle");
+  var modelChatSelect = document.getElementById("model-chat");
+  var modelUtilitySelect = document.getElementById("model-utility");
+  var modelAgentSelect = document.getElementById("model-agent");
+
+  function loadLlm(data) {
+    airplaneToggle.checked = data.airplaneMode;
+    var chatModel = (data.models && data.models.chat) || "auto";
+    var utilityModel = (data.models && data.models.utility) || "auto";
+    var agentModel = (data.models && data.models.agent) || "auto";
+    populateModelDropdowns(chatModel, utilityModel, agentModel);
+  }
+
+  async function populateModelDropdowns(selectedChat, selectedUtility, selectedAgent) {
+    try {
+      var data = await api("/api/models");
+      var models = data.models || [];
+      var ollamaModels = models.filter(function(m) { return m.source === "ollama"; });
+      var openrouterModels = models.filter(function(m) { return m.source === "openrouter"; });
+
+      var dropdowns = [
+        { el: modelChatSelect, current: selectedChat, autoLabel: "Auto (best available)" },
+        { el: modelUtilitySelect, current: selectedUtility, autoLabel: "Auto (best available)" },
+        { el: modelAgentSelect, current: selectedAgent, autoLabel: "Auto (best coding model)" },
+      ];
+      for (var i = 0; i < dropdowns.length; i++) {
+        var dd = dropdowns[i];
+        dd.el.innerHTML = '<option value="auto">' + dd.autoLabel + '</option>';
+
+        if (ollamaModels.length > 0) {
+          var ollamaGroup = document.createElement("optgroup");
+          ollamaGroup.label = "Local (Ollama)";
+          for (var j = 0; j < ollamaModels.length; j++) {
+            var m = ollamaModels[j];
+            var opt = document.createElement("option");
+            opt.value = m.name;
+            var sizeMB = m.size ? Math.round(m.size / 1024 / 1024) : 0;
+            opt.textContent = m.name + (sizeMB ? " (" + (sizeMB >= 1024 ? (sizeMB / 1024).toFixed(1) + "GB" : sizeMB + "MB") + ")" : "");
+            if (m.name === dd.current) opt.selected = true;
+            ollamaGroup.appendChild(opt);
+          }
+          dd.el.appendChild(ollamaGroup);
+        }
+
+        if (openrouterModels.length > 0) {
+          var orGroup = document.createElement("optgroup");
+          orGroup.label = "Cloud (OpenRouter)";
+          for (var k = 0; k < openrouterModels.length; k++) {
+            var m2 = openrouterModels[k];
+            var opt2 = document.createElement("option");
+            opt2.value = m2.name;
+            opt2.textContent = m2.name;
+            if (m2.name === dd.current) opt2.selected = true;
+            orGroup.appendChild(opt2);
+          }
+          dd.el.appendChild(orGroup);
+        }
+
+        if (dd.current && dd.current !== "auto" && !models.some(function(m3) { return m3.name === dd.current; })) {
+          var opt3 = document.createElement("option");
+          opt3.value = dd.current;
+          opt3.textContent = dd.current + " (not found)";
+          opt3.selected = true;
+          dd.el.appendChild(opt3);
+        }
+      }
+    } catch (e) {
+      // Leave default Auto options
+    }
+  }
+
+  document.getElementById("llm-save-btn").addEventListener("click", async function() {
+    var btn = this;
+    var status = document.getElementById("llm-save-status");
+    btn.disabled = true;
+    try {
+      await api("/api/settings", {
+        method: "PUT",
+        body: {
+          airplaneMode: airplaneToggle.checked,
+          models: {
+            chat: modelChatSelect.value || "auto",
+            utility: modelUtilitySelect.value || "auto",
+            agent: modelAgentSelect.value || "auto",
+          },
+        },
+      });
+      flashStatus(status);
+    } catch (err) {
+      flashStatus(status, err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Voice ---
+  function loadVoice(data) {
+    var tts = data.tts || {};
+    var stt = data.stt || {};
+    document.getElementById("tts-toggle").checked = tts.enabled !== false;
+    document.getElementById("stt-toggle").checked = stt.enabled !== false;
+    document.getElementById("autoplay-toggle").checked = tts.autoPlay !== false;
+    document.getElementById("tts-status-label").textContent = tts.enabled !== false ? "Enabled" : "Disabled";
+    document.getElementById("stt-status-label").textContent = stt.enabled !== false ? "Enabled" : "Disabled";
+  }
+
+  document.getElementById("voice-save-btn").addEventListener("click", async function() {
+    var btn = this;
+    var status = document.getElementById("voice-save-status");
+    btn.disabled = true;
+    try {
+      await api("/api/settings", {
+        method: "PUT",
+        body: {
+          tts: {
+            enabled: document.getElementById("tts-toggle").checked,
+            autoPlay: document.getElementById("autoplay-toggle").checked,
+          },
+          stt: {
+            enabled: document.getElementById("stt-toggle").checked,
+          },
+        },
+      });
+      flashStatus(status);
+    } catch (err) {
+      flashStatus(status, err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Integrations ---
+  async function loadIntegrations() {
+    // Google Workspace status
+    try {
+      var gData = await api("/api/google/status");
+      var connected = gData && gData.connected;
+      document.getElementById("google-status-label").textContent = connected ? "Connected" : "Not connected";
+      document.getElementById("google-status-dot").className = "status-dot " + (connected ? "connected" : "disconnected");
+      document.getElementById("google-connect-btn").textContent = connected ? "Reconnect" : "Connect";
+    } catch (e) {
+      document.getElementById("google-status-label").textContent = "Not available";
+    }
+
+    // Board status
+    try {
+      var bData = await api("/api/board/status");
+      var provider = (bData && bData.provider) || "None";
+      var bConnected = bData && bData.connected;
+      document.getElementById("board-provider-label").textContent = "Task Board (" + provider + ")";
+      document.getElementById("board-status-label").textContent = bConnected ? "Connected" : "Not connected";
+      document.getElementById("board-status-dot").className = "status-dot " + (bConnected ? "connected" : "disconnected");
+    } catch (e) {
+      document.getElementById("board-status-label").textContent = "Not available";
+    }
+  }
+
+  document.getElementById("google-connect-btn").addEventListener("click", function() {
+    window.open("/api/google/auth?sessionId=" + encodeURIComponent(sessionId), "_blank");
+  });
+
+  // --- Key Vault ---
+  var vaultList = document.getElementById("vault-list");
+  var vaultEmpty = document.getElementById("vault-empty");
+  var vaultError = document.getElementById("vault-error");
+
+  function showVaultError(msg) {
+    vaultError.textContent = msg;
+    vaultError.classList.add("visible");
+  }
+  function clearVaultError() {
+    vaultError.textContent = "";
+    vaultError.classList.remove("visible");
+  }
+
+  async function loadVaultKeys() {
+    try {
+      var data = await api("/api/vault?sessionId=" + encodeURIComponent(sessionId));
+      renderVaultKeys(data.keys || []);
+    } catch (err) {
+      vaultList.innerHTML = "";
+      vaultEmpty.style.display = "block";
+    }
+  }
+
+  function renderVaultKeys(keys) {
+    vaultList.innerHTML = "";
+    if (keys.length === 0) {
+      vaultEmpty.style.display = "block";
+      return;
+    }
+    vaultEmpty.style.display = "none";
+
+    for (var i = 0; i < keys.length; i++) {
+      (function(k) {
+        var item = document.createElement("div");
+        item.className = "vault-key-item";
+
+        var isText = k.type === "text";
+
+        // Key info (name + label)
+        var info = document.createElement("div");
+        info.className = "vault-key-info";
+        var nameEl = document.createElement("div");
+        nameEl.className = "vault-key-name";
+        nameEl.textContent = k.name;
+        info.appendChild(nameEl);
+        if (k.label) {
+          var labelEl = document.createElement("div");
+          labelEl.className = "vault-key-label";
+          labelEl.textContent = k.label;
+          info.appendChild(labelEl);
+        }
+        item.appendChild(info);
+
+        // Type badge
+        var badge = document.createElement("span");
+        badge.className = "vault-key-type " + (isText ? "text" : "secret");
+        badge.textContent = isText ? "text" : "secret";
+        item.appendChild(badge);
+
+        // Value display
+        var valWrap = document.createElement("div");
+        valWrap.className = "vault-key-value";
+
+        if (isText) {
+          var valInput = document.createElement("input");
+          valInput.type = "text";
+          valInput.value = k.value || "";
+          valInput.dataset.keyName = k.name;
+          valInput.title = "Edit value inline";
+          valWrap.appendChild(valInput);
+
+          // Save on blur or Enter
+          valInput.addEventListener("blur", function() {
+            saveTextKeyValue(k.name, valInput.value, k.label);
+          });
+          valInput.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") {
+              valInput.blur();
+            }
+          });
+        } else {
+          var masked = document.createElement("div");
+          masked.className = "vault-key-masked";
+          masked.textContent = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
+          valWrap.appendChild(masked);
+        }
+        item.appendChild(valWrap);
+
+        // Actions
+        var actions = document.createElement("div");
+        actions.className = "vault-key-actions";
+
+        var delBtn = document.createElement("button");
+        delBtn.className = "delete-btn";
+        delBtn.title = "Delete";
+        delBtn.innerHTML = "&times;";
+        delBtn.addEventListener("click", function() { deleteVaultKey(k.name); });
+        actions.appendChild(delBtn);
+
+        item.appendChild(actions);
+        vaultList.appendChild(item);
+      })(keys[i]);
+    }
+  }
+
+  async function saveTextKeyValue(name, value, label) {
+    try {
+      await api("/api/vault/" + encodeURIComponent(name) + "?sessionId=" + encodeURIComponent(sessionId), {
+        method: "PUT",
+        body: { value: value, label: label || undefined, type: "text" },
+      });
+    } catch (err) {
+      showVaultError("Failed to save " + name + ": " + err.message);
+    }
+  }
+
+  async function deleteVaultKey(name) {
+    if (!confirm("Delete " + name + " from vault?")) return;
+    try {
+      await api("/api/vault/" + encodeURIComponent(name) + "?sessionId=" + encodeURIComponent(sessionId), {
+        method: "DELETE",
+      });
+      await loadVaultKeys();
+    } catch (err) {
+      showVaultError(err.message);
+    }
+  }
+
+  document.getElementById("vault-add-btn").addEventListener("click", async function() {
+    clearVaultError();
+    var name = document.getElementById("vault-key-name").value.trim();
+    var value = document.getElementById("vault-key-value").value;
+    var label = document.getElementById("vault-key-label").value.trim();
+    var type = document.getElementById("vault-key-type").value;
+
+    if (!name) { showVaultError("Key name is required"); return; }
+    if (!value) { showVaultError("Key value is required"); return; }
+
+    var btn = this;
+    btn.disabled = true;
+    try {
+      await api("/api/vault/" + encodeURIComponent(name) + "?sessionId=" + encodeURIComponent(sessionId), {
+        method: "PUT",
+        body: { value: value, label: label || undefined, type: type },
+      });
+      document.getElementById("vault-key-name").value = "";
+      document.getElementById("vault-key-value").value = "";
+      document.getElementById("vault-key-label").value = "";
+      document.getElementById("vault-key-type").value = "secret";
+      await loadVaultKeys();
+    } catch (err) {
+      showVaultError(err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Enter to add key
+  document.getElementById("vault-key-value").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") document.getElementById("vault-add-btn").click();
+  });
+  document.getElementById("vault-key-label").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") document.getElementById("vault-add-btn").click();
+  });
+
+  // --- Capability-based visibility ---
+  api("/api/tier").then(function(data) {
+    var caps = (data && data.capabilities) || {};
+    if (!caps.mesh) {
+      var meshSection = document.getElementById("mesh-section");
+      if (meshSection) meshSection.style.display = "none";
+    }
+    if (!caps.voice) {
+      var voiceSection = document.getElementById("voice-section");
+      if (voiceSection) voiceSection.style.display = "none";
+    }
+    if (!caps.integrations) {
+      var intSection = document.getElementById("integrations-section");
+      if (intSection) intSection.style.display = "none";
+    }
+  }).catch(function() {});
+
+})();
+</script>
+</body>
+</html>

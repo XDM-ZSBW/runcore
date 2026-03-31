@@ -159,7 +159,7 @@ export async function createTask(input: CreateTaskInput): Promise<AgentTask> {
     createdAt: new Date().toISOString(),
     origin: input.origin,
     sessionId: input.sessionId,
-    timeoutMs: input.timeoutMs ?? 10 * 60 * 1000,
+    timeoutMs: input.timeoutMs ?? 30 * 60 * 1000,
     boardTaskId: input.boardTaskId,
     readOnly: mode === "read-only",
     mode,

@@ -312,21 +312,21 @@ export interface IsolationConstraints {
 const DEFAULT_ISOLATION: IsolationConstraints = {
   level: "shared",
   envAllowList: ["CORE_", "DASH_", "NODE_", "PATH", "HOME", "USERPROFILE", "TEMP", "TMP"],
-  timeoutMs: 10 * 60_000,
+  timeoutMs: 30 * 60_000,
   canSpawnChildren: true,
 };
 
 const SANDBOXED_ISOLATION: IsolationConstraints = {
   level: "sandboxed",
   envAllowList: ["CORE_", "DASH_", "NODE_", "PATH"],
-  timeoutMs: 5 * 60_000,
+  timeoutMs: 15 * 60_000,
   canSpawnChildren: false,
 };
 
 const STRICT_ISOLATION: IsolationConstraints = {
   level: "strict",
   envAllowList: ["PATH"],
-  timeoutMs: 2 * 60_000,
+  timeoutMs: 5 * 60_000,
   canSpawnChildren: false,
 };
 

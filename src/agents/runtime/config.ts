@@ -16,7 +16,8 @@ import { BRAIN_DIR } from "../../lib/paths.js";
 
 const DEFAULTS: RuntimeConfig = {
   maxConcurrentAgents: 5,
-  defaultTimeoutMs: 10 * 60 * 1000,     // 10 minutes
+  defaultTimeoutMs: 30 * 60 * 1000,     // 30 minutes (absolute safety net)
+  defaultStaleAfterMs: 3 * 60 * 1000,   // 3 minutes with no output = stale
   defaultMaxRetries: 2,
   defaultBackoffMs: 2_000,
   defaultBackoffMultiplier: 2,
@@ -59,6 +60,11 @@ export function loadRuntimeConfig(overrides?: Partial<RuntimeConfig>): RuntimeCo
       overrides?.defaultTimeoutMs ??
       envInt("RUNTIME_TIMEOUT_MS") ??
       DEFAULTS.defaultTimeoutMs,
+
+    defaultStaleAfterMs:
+      overrides?.defaultStaleAfterMs ??
+      envInt("RUNTIME_STALE_MS") ??
+      DEFAULTS.defaultStaleAfterMs,
 
     defaultMaxRetries:
       overrides?.defaultMaxRetries ??
@@ -116,6 +122,7 @@ export function resolveInstanceConfig(
 ): AgentInstanceConfig {
   return {
     timeoutMs: overrides?.timeoutMs ?? runtimeConfig.defaultTimeoutMs,
+    staleAfterMs: overrides?.staleAfterMs ?? runtimeConfig.defaultStaleAfterMs,
     maxRetries: overrides?.maxRetries ?? runtimeConfig.defaultMaxRetries,
     backoffMs: overrides?.backoffMs ?? runtimeConfig.defaultBackoffMs,
     backoffMultiplier: overrides?.backoffMultiplier ?? runtimeConfig.defaultBackoffMultiplier,
