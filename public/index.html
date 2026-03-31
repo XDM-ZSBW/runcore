@@ -3098,7 +3098,7 @@
 
   // Voice state
   let voiceStatus = { tts: false, stt: false };
-  let ttsAutoPlay = true;
+  let ttsAutoPlay = false;
   let micRecording = false;
   let mediaRecorder = null;
   let micStream = null;
@@ -6582,7 +6582,7 @@
     // Load settings for autoPlay and toggle states
     try {
       const settings = await api("/api/settings");
-      ttsAutoPlay = settings.tts?.autoPlay !== false;
+      ttsAutoPlay = settings.tts?.autoPlay === true;
       document.getElementById("tts-toggle").checked = settings.tts?.enabled !== false;
       document.getElementById("stt-toggle").checked = settings.stt?.enabled !== false;
       document.getElementById("autoplay-toggle").checked = ttsAutoPlay;
@@ -6958,7 +6958,7 @@
           },
         },
       });
-      ttsAutoPlay = result.tts?.autoPlay !== false;
+      ttsAutoPlay = result.tts?.autoPlay === true;
       statusEl.classList.add("visible");
       setTimeout(() => statusEl.classList.remove("visible"), 2000);
     } catch (err) {
