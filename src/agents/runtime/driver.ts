@@ -1,14 +1,16 @@
 /**
  * Agent Runtime Environment — Claude CLI agent driver.
  *
- * Spawns `claude` directly as an async child process with real-time
- * streaming output to log files. Replaces the old spawnSync wrapper
- * approach that buffered all output until exit.
+ * Spawns `claude` directly as a managed child process with real-time
+ * streaming output to log files via piped stdio.
  *
- * Stale detection: instead of a hard timeout kill, monitors the last
- * time the agent produced output. If no output arrives for `staleAfterMs`,
- * the agent is terminated. An absolute `timeoutMs` ceiling remains as
- * a safety net.
+ * Windows note: agents are NOT detached. Using detached:true with piped
+ * stdio silently breaks on Windows (output lost, empty logs). Boot scan
+ * handles recovery if the parent process restarts.
+ *
+ * Stale detection: monitors the last time the agent produced output.
+ * If no output arrives for `staleAfterMs`, the agent is terminated.
+ * An absolute `timeoutMs` ceiling remains as a safety net.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
@@ -79,20 +81,20 @@ export class ClaudeCliDriver implements AgentDriver {
     if (agentModel) claudeArgs.push("--model", agentModel);
     claudeArgs.push(prompt);
 
-    // Spawn claude directly — output streams to files in real time
+    // Spawn claude directly — output streams to files in real time.
+    // NOTE: Do NOT use detached:true with piped stdio on Windows — the
+    // pipes silently break and all output is lost.  Agents are managed
+    // children; boot scan handles recovery if the parent restarts.
     const child = spawn(
       "claude",
       claudeArgs,
       {
         cwd: taskCwd,
-        detached: true,
         stdio: ["ignore", "pipe", "pipe"],
         env: cleanEnv,
         windowsHide: true,
       },
     );
-
-    child.unref();
     processes.set(instance.id, child);
     lastOutputAt.set(instance.id, Date.now());
 
