@@ -1672,6 +1672,27 @@
     animation: tool-spin 0.6s linear infinite;
   }
   @keyframes tool-spin { to { transform: rotate(360deg); } }
+  /* Sticky status bar shown at bottom of assistant message during streaming */
+  .tool-status-bar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin: 8px -12px -8px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    background: var(--bg-secondary, rgba(30,30,40,0.95));
+    border-top: 1px solid rgba(109,93,252,0.15);
+    border-radius: 0 0 8px 8px;
+    backdrop-filter: blur(8px);
+    z-index: 2;
+  }
+  .tool-status-bar .tool-spinner { width: 10px; height: 10px; border-width: 1.5px; }
+  .tool-status-bar .status-label { color: var(--accent); font-weight: 500; }
+  .tool-status-bar .status-elapsed { color: var(--text-dim); opacity: 0.6; margin-left: auto; }
 
   .agent-block {
     margin: 8px 0;
@@ -5106,6 +5127,8 @@
       const decoder = new TextDecoder();
       let buffer = "";
       let streamingText = "";
+      var _responseStartTime = Date.now();
+      var _toolsUsedThisTurn = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -5133,22 +5156,56 @@
               messagesEl.scrollTop = messagesEl.scrollHeight;
             }
             if (data.toolCall) {
-              // Model is calling a tool — show indicator
+              // Model is calling a tool — show pill + sticky status bar
+              var _tn = data.toolCall.name || "tool";
+              _toolsUsedThisTurn.push(_tn);
+              var _fl = ({"memory_retrieve":"Searching memory","memory_learn":"Saving to memory","memory_list":"Listing memory","web_fetch":"Fetching page","files_search":"Searching files","read_brain_file":"Reading file","send_alert":"Sending alert","get_settings":"Reading settings","whiteboard_plant":"Planting question","loop_open":"Opening loop","loop_resolve":"Resolving loop"})[_tn] || _tn.replace(/_/g, " ");
+              // Pill in message body
               var toolEl = document.createElement("div");
               toolEl.className = "tool-indicator";
-              toolEl.innerHTML = '<span class="tool-spinner"></span> Using <strong>' + (data.toolCall.name || "tool").replace(/</g,"&lt;") + '</strong>...';
+              toolEl.innerHTML = '<span class="tool-spinner"></span> <strong>' + _fl.replace(/</g,"&lt;") + '</strong>';
               if (contentEl && contentEl.parentElement) {
                 contentEl.parentElement.appendChild(toolEl);
+              }
+              // Sticky status bar at bottom
+              var _msgDiv = contentEl ? contentEl.parentElement : null;
+              if (_msgDiv) {
+                var _bar = _msgDiv.querySelector(".tool-status-bar");
+                if (!_bar) {
+                  _bar = document.createElement("div");
+                  _bar.className = "tool-status-bar";
+                  _msgDiv.appendChild(_bar);
+                }
+                _bar._startTime = Date.now();
+                _bar.innerHTML = '<span class="tool-spinner"></span> <span class="status-label">' + _fl.replace(/</g,"&lt;") + '</span><span class="status-elapsed">0s</span>';
+                // Elapsed timer
+                if (_bar._timer) clearInterval(_bar._timer);
+                _bar._timer = setInterval(function() {
+                  var el = _bar.querySelector(".status-elapsed");
+                  if (el) el.textContent = Math.round((Date.now() - _bar._startTime) / 1000) + "s";
+                }, 1000);
                 messagesEl.scrollTop = messagesEl.scrollHeight;
               }
             }
             if (data.toolResult) {
-              // Tool finished — update indicator
-              var indicators = document.querySelectorAll(".tool-indicator");
+              // Tool finished — update pill
+              var _tn2 = data.toolResult.name || "tool";
+              var _fl2 = ({"memory_retrieve":"Searched memory","memory_learn":"Saved to memory","memory_list":"Listed memory","web_fetch":"Fetched page","files_search":"Searched files","read_brain_file":"Read file","send_alert":"Alert sent","get_settings":"Read settings","whiteboard_plant":"Planted question","loop_open":"Opened loop","loop_resolve":"Resolved loop"})[_tn2] || _tn2.replace(/_/g, " ");
+              var indicators = document.querySelectorAll(".tool-indicator:not(.tool-done):not(.tool-error)");
               if (indicators.length > 0) {
                 var last = indicators[indicators.length - 1];
-                last.innerHTML = (data.toolResult.isError ? "&#10007; " : "&#10003; ") + '<strong>' + (data.toolResult.name || "tool").replace(/</g,"&lt;") + '</strong>';
+                last.innerHTML = (data.toolResult.isError ? "&#10007; " : "&#10003; ") + '<strong>' + _fl2.replace(/</g,"&lt;") + '</strong>';
                 last.className = "tool-indicator " + (data.toolResult.isError ? "tool-error" : "tool-done");
+              }
+              // Remove status bar when no active tools remain
+              var _msgDiv2 = contentEl ? contentEl.parentElement : null;
+              if (_msgDiv2) {
+                var _bar2 = _msgDiv2.querySelector(".tool-status-bar");
+                var _active = _msgDiv2.querySelectorAll(".tool-indicator:not(.tool-done):not(.tool-error)");
+                if (_bar2 && _active.length === 0) {
+                  if (_bar2._timer) clearInterval(_bar2._timer);
+                  _bar2.remove();
+                }
               }
             }
             if (data.agentSpawned) {
@@ -5236,12 +5293,42 @@
           .trim();
       }
 
+      // Clean up any remaining status bar
+      if (contentEl && contentEl.parentElement) {
+        var _remainingBar = contentEl.parentElement.querySelector(".tool-status-bar");
+        if (_remainingBar) {
+          if (_remainingBar._timer) clearInterval(_remainingBar._timer);
+          _remainingBar.remove();
+        }
+      }
+
       // Remove streaming cursor and re-render final clean markdown
       if (contentEl) {
         contentEl.classList.remove("streaming-cursor");
+        // If response is empty but tools were used, show what happened
+        if (!finalText && _toolsUsedThisTurn.length > 0) {
+          var _elapsed = Math.round((Date.now() - _responseStartTime) / 1000);
+          var _unique = _toolsUsedThisTurn.reduce(function(acc, t) { acc[t] = (acc[t] || 0) + 1; return acc; }, {});
+          var _friendlyNames = {"memory_retrieve":"searched memory","memory_learn":"saved to memory","memory_list":"listed memory","web_fetch":"fetched pages","files_search":"searched files","read_brain_file":"read files","send_alert":"sent alert","get_settings":"read settings"};
+          var _summary = Object.keys(_unique).map(function(k) {
+            var label = _friendlyNames[k] || k.replace(/_/g, " ");
+            return _unique[k] > 1 ? label + " (" + _unique[k] + "x)" : label;
+          }).join(", ");
+          finalText = "*Done in " + _elapsed + "s: " + _summary + ".*";
+        }
         contentEl.innerHTML = finalText ? renderMarkdown(finalText) : "";
         applyPrivacySeals(contentEl);
         if (window._serverSealValues) applyServerSeals(contentEl, window._serverSealValues);
+        // Show elapsed time when tools were used
+        if (_toolsUsedThisTurn.length > 0) {
+          var _elapsedFinal = Math.round((Date.now() - _responseStartTime) / 1000);
+          if (_elapsedFinal >= 2) {
+            var _timeEl = document.createElement("div");
+            _timeEl.style.cssText = "font-size:11px;color:var(--text-dim);opacity:0.5;margin-top:6px;font-family:var(--mono);";
+            _timeEl.textContent = _elapsedFinal + "s";
+            if (contentEl.parentElement) contentEl.parentElement.appendChild(_timeEl);
+          }
+        }
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
         // Add drift tracking for assistant response
