@@ -2,8 +2,8 @@
  * Tool-calling orchestration loop.
  *
  * Wraps a provider's streamChat to handle multi-round tool calling.
- * The loop: stream → detect tool calls → execute → append results → stream again.
- * Caps at MAX_ROUNDS to prevent infinite loops.
+ * The loop: stream -> detect tool calls -> execute -> append results -> stream again.
+ * Runs until the model stops calling tools. Context size is the natural limit.
  */
 
 import type { ContextMessage } from "../../types.js";
@@ -15,7 +15,8 @@ import { createLogger } from "../../utils/logger.js";
 
 const log = createLogger("llm.tools.loop");
 
-const MAX_ROUNDS = 5;
+/** Rough char budget before we nudge the model to wrap up. ~120k tokens. */
+const CONTEXT_CHAR_BUDGET = 480_000;
 
 export interface ToolLoopOptions {
   /** The provider's streamChat function. */
@@ -52,6 +53,16 @@ export interface ToolLoopOptions {
   ) => void;
 }
 
+/** Estimate total chars across all messages. */
+function estimateContextChars(messages: ContextMessage[]): number {
+  let total = 0;
+  for (const m of messages) {
+    if (typeof m.content === "string") total += m.content.length;
+    else if (m.content != null) total += JSON.stringify(m.content).length;
+  }
+  return total;
+}
+
 /**
  * Stream with tool-calling support.
  *
@@ -81,8 +92,16 @@ export async function streamWithTools(
 
   const messages: ContextMessage[] = [...options.messages];
   let round = 0;
+  let nudged = false;
 
-  while (round < MAX_ROUNDS) {
+  // Loop until the model stops calling tools or context fills up
+  while (true) {
+    // Check abort signal
+    if (options.signal?.aborted) {
+      options.onDone();
+      return;
+    }
+
     let toolCalls: ChatToolCall[] = [];
     let roundText = "";
 
@@ -184,10 +203,19 @@ export async function streamWithTools(
     }
 
     round++;
-    log.info("Tool loop advancing to next round", { round, maxRounds: MAX_ROUNDS });
-  }
+    log.info("Tool loop round complete", { round, contextChars: estimateContextChars(messages) });
 
-  // Max rounds reached — end gracefully
-  log.warn("Tool loop hit max rounds without text response", { maxRounds: MAX_ROUNDS });
-  options.onDone();
+    // Context pressure check: if we're approaching the limit, nudge once
+    if (!nudged && estimateContextChars(messages) > CONTEXT_CHAR_BUDGET) {
+      nudged = true;
+      log.warn("Context nearing limit, nudging model to wrap up", {
+        round,
+        contextChars: estimateContextChars(messages),
+      });
+      messages.push({
+        role: "system",
+        content: "Context is getting large. Wrap up your current work and respond to the user with a summary. You can suggest continuing in a follow-up message if there is more to do.",
+      });
+    }
+  }
 }
