@@ -1672,27 +1672,24 @@
     animation: tool-spin 0.6s linear infinite;
   }
   @keyframes tool-spin { to { transform: rotate(360deg); } }
-  /* Sticky status bar shown at bottom of assistant message during streaming */
-  .tool-status-bar {
-    position: sticky;
-    bottom: 0;
+  /* Status line above composer — shows what Dash is doing */
+  .chat-status-line {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
-    margin: 8px -12px -8px;
+    padding: 6px 20px;
     font-size: 12px;
     font-family: var(--mono);
     color: var(--text-dim);
-    background: var(--bg-secondary, rgba(30,30,40,0.95));
-    border-top: 1px solid rgba(109,93,252,0.15);
-    border-radius: 0 0 8px 8px;
-    backdrop-filter: blur(8px);
-    z-index: 2;
+    background: rgba(109,93,252,0.06);
+    border-top: 1px solid rgba(109,93,252,0.12);
+    max-width: var(--max-width);
+    margin: 0 auto;
+    width: 100%;
   }
-  .tool-status-bar .tool-spinner { width: 10px; height: 10px; border-width: 1.5px; }
-  .tool-status-bar .status-label { color: var(--accent); font-weight: 500; }
-  .tool-status-bar .status-elapsed { color: var(--text-dim); opacity: 0.6; margin-left: auto; }
+  .chat-status-line .tool-spinner { width: 10px; height: 10px; border-width: 1.5px; }
+  .chat-status-line .status-label { color: var(--accent); font-weight: 500; }
+  .chat-status-line .status-elapsed { color: var(--text-dim); opacity: 0.5; margin-left: auto; font-variant-numeric: tabular-nums; }
 
   .agent-block {
     margin: 8px 0;
@@ -2773,6 +2770,7 @@
         <div id="question-chips" class="question-chips"></div>
       </div>
       <div class="messages" id="messages"></div>
+      <div id="chat-status-line" class="chat-status-line" style="display:none;"></div>
       <div class="composer" id="composer">
         <div class="incognito-label">incognito — local only, no memory</div>
         <div class="attachment-preview" id="attachment-preview"></div>
@@ -3339,12 +3337,12 @@
       });
       item.querySelector(".thread-delete-btn").addEventListener("click", async (e) => {
         e.stopPropagation();
-        const tid = e.target.dataset ? e.target.dataset.threadId : null;
+        e.preventDefault();
+        var tid = t.id;
         if (!tid) return;
+        if (!confirm("Delete this chat?")) return;
         try {
-          await api("/api/threads/" + encodeURIComponent(tid) + "?sessionId=" + encodeURIComponent(sessionId), {
-            method: "DELETE",
-          });
+          await api("/api/threads/" + encodeURIComponent(tid), { method: "DELETE" });
           if (currentThreadId === tid) await createAndSwitchNewThread();
           loadThreads();
         } catch (err) { console.log("Delete thread failed:", err.message); }
@@ -5156,7 +5154,6 @@
               messagesEl.scrollTop = messagesEl.scrollHeight;
             }
             if (data.toolCall) {
-              // Model is calling a tool — show pill + sticky status bar
               var _tn = data.toolCall.name || "tool";
               _toolsUsedThisTurn.push(_tn);
               var _fl = ({"memory_retrieve":"Searching memory","memory_learn":"Saving to memory","memory_list":"Listing memory","web_fetch":"Fetching page","files_search":"Searching files","read_brain_file":"Reading file","send_alert":"Sending alert","get_settings":"Reading settings","whiteboard_plant":"Planting question","loop_open":"Opening loop","loop_resolve":"Resolving loop"})[_tn] || _tn.replace(/_/g, " ");
@@ -5167,28 +5164,21 @@
               if (contentEl && contentEl.parentElement) {
                 contentEl.parentElement.appendChild(toolEl);
               }
-              // Sticky status bar at bottom
-              var _msgDiv = contentEl ? contentEl.parentElement : null;
-              if (_msgDiv) {
-                var _bar = _msgDiv.querySelector(".tool-status-bar");
-                if (!_bar) {
-                  _bar = document.createElement("div");
-                  _bar.className = "tool-status-bar";
-                  _msgDiv.appendChild(_bar);
-                }
-                _bar._startTime = Date.now();
-                _bar.innerHTML = '<span class="tool-spinner"></span> <span class="status-label">' + _fl.replace(/</g,"&lt;") + '</span><span class="status-elapsed">0s</span>';
-                // Elapsed timer
-                if (_bar._timer) clearInterval(_bar._timer);
-                _bar._timer = setInterval(function() {
-                  var el = _bar.querySelector(".status-elapsed");
-                  if (el) el.textContent = Math.round((Date.now() - _bar._startTime) / 1000) + "s";
+              // Status line above composer
+              var _sl = document.getElementById("chat-status-line");
+              if (_sl) {
+                _sl.style.display = "flex";
+                if (!_sl._startTime) _sl._startTime = Date.now();
+                _sl.innerHTML = '<span class="tool-spinner"></span> <span class="status-label">' + _fl.replace(/</g,"&lt;") + '</span><span class="status-elapsed">0s</span>';
+                if (_sl._timer) clearInterval(_sl._timer);
+                _sl._timer = setInterval(function() {
+                  var el = _sl.querySelector(".status-elapsed");
+                  if (el && _sl._startTime) el.textContent = Math.round((Date.now() - _sl._startTime) / 1000) + "s";
                 }, 1000);
-                messagesEl.scrollTop = messagesEl.scrollHeight;
               }
+              messagesEl.scrollTop = messagesEl.scrollHeight;
             }
             if (data.toolResult) {
-              // Tool finished — update pill
               var _tn2 = data.toolResult.name || "tool";
               var _fl2 = ({"memory_retrieve":"Searched memory","memory_learn":"Saved to memory","memory_list":"Listed memory","web_fetch":"Fetched page","files_search":"Searched files","read_brain_file":"Read file","send_alert":"Alert sent","get_settings":"Read settings","whiteboard_plant":"Planted question","loop_open":"Opened loop","loop_resolve":"Resolved loop"})[_tn2] || _tn2.replace(/_/g, " ");
               var indicators = document.querySelectorAll(".tool-indicator:not(.tool-done):not(.tool-error)");
@@ -5197,15 +5187,10 @@
                 last.innerHTML = (data.toolResult.isError ? "&#10007; " : "&#10003; ") + '<strong>' + _fl2.replace(/</g,"&lt;") + '</strong>';
                 last.className = "tool-indicator " + (data.toolResult.isError ? "tool-error" : "tool-done");
               }
-              // Remove status bar when no active tools remain
-              var _msgDiv2 = contentEl ? contentEl.parentElement : null;
-              if (_msgDiv2) {
-                var _bar2 = _msgDiv2.querySelector(".tool-status-bar");
-                var _active = _msgDiv2.querySelectorAll(".tool-indicator:not(.tool-done):not(.tool-error)");
-                if (_bar2 && _active.length === 0) {
-                  if (_bar2._timer) clearInterval(_bar2._timer);
-                  _bar2.remove();
-                }
+              // Update status line to show completed tool
+              var _sl2 = document.getElementById("chat-status-line");
+              if (_sl2) {
+                _sl2.innerHTML = '<span class="tool-spinner"></span> <span class="status-label">' + _fl2.replace(/</g,"&lt;") + ' done</span><span class="status-elapsed">' + (_sl2._startTime ? Math.round((Date.now() - _sl2._startTime) / 1000) + "s" : "") + '</span>';
               }
             }
             if (data.agentSpawned) {
@@ -5293,12 +5278,17 @@
           .trim();
       }
 
-      // Clean up any remaining status bar
-      if (contentEl && contentEl.parentElement) {
-        var _remainingBar = contentEl.parentElement.querySelector(".tool-status-bar");
-        if (_remainingBar) {
-          if (_remainingBar._timer) clearInterval(_remainingBar._timer);
-          _remainingBar.remove();
+      // Clean up status line
+      var _slEnd = document.getElementById("chat-status-line");
+      if (_slEnd) {
+        if (_slEnd._timer) clearInterval(_slEnd._timer);
+        if (_toolsUsedThisTurn.length > 0 && _slEnd._startTime) {
+          var _totalSec = Math.round((Date.now() - _slEnd._startTime) / 1000);
+          _slEnd.innerHTML = '<span style="color:var(--green);">&#10003;</span> Done in ' + _totalSec + 's';
+          setTimeout(function() { _slEnd.style.display = "none"; _slEnd._startTime = null; }, 3000);
+        } else {
+          _slEnd.style.display = "none";
+          _slEnd._startTime = null;
         }
       }
 
@@ -5720,6 +5710,10 @@
   const vaultError = document.getElementById("vault-error");
 
   function openSettings() {
+    window.location.href = "/settings";
+  }
+
+  function openSettingsPanel() {
     vaultOverlay.classList.add("open");
     document.getElementById("settings-your-name").value = userName || "";
     document.getElementById("settings-agent-name").value = agentName || "Core";
