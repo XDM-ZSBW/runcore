@@ -553,11 +553,11 @@ async function getOrCreateChatSession(sessionId: string, name: string): Promise<
           : (_googleAuth?.isGoogleConfigured() ?? false)
             ? [`Google Workspace credentials are configured but not yet authorized. Tell ${name} to click "Connect Google" in settings to complete the setup.`, ``]
             : [`Google Workspace is not connected. ${name} can add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in vault settings to enable Calendar, Gmail, and Drive access.`, ``]),
-        // Non-Google capability instructions (always injected)
-        ...(getCapabilityRegistry()?.getPromptInstructions({ origin: "chat", name, exclude: ["calendar", "email", "docs"] }) ?? "").split("\n"),
+        // Non-Google capability instructions (always injected; email is Resend-based, not Google)
+        ...(getCapabilityRegistry()?.getPromptInstructions({ origin: "chat", name, exclude: ["calendar", "docs"] }) ?? "").split("\n"),
         // Google capability instructions (only when authenticated)
         ...((_googleAuth?.isGoogleAuthenticated() ?? false)
-          ? (getCapabilityRegistry()?.getPromptInstructions({ origin: "chat", name, filter: ["calendar", "email", "docs"] }) ?? "").split("\n")
+          ? (getCapabilityRegistry()?.getPromptInstructions({ origin: "chat", name, filter: ["calendar", "docs"] }) ?? "").split("\n")
           : []),
         ``,
         // Capability summary — self-knowledge of full toolset
@@ -6787,7 +6787,12 @@ app.post("/api/chat", async (c) => {
                     if (!block.payload) continue;
                     const def = capReg.get(block.capabilityId);
                     if (!def || def.pattern !== "action") continue;
-                    try { await def.execute(block.payload, { origin: "chat" }); } catch {}
+                    try {
+                      const result = await def.execute(block.payload, { origin: "chat" });
+                      if (!result.ok) log.warn(`Action block [${block.tag}] failed: ${result.message}`);
+                    } catch (err) {
+                      log.error(`Action block [${block.tag}] error: ${err instanceof Error ? err.message : String(err)}`);
+                    }
                   }
                 })();
               }
