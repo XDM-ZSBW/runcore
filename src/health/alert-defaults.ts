@@ -13,17 +13,17 @@ export function defaultThresholds(): AlertThreshold[] {
     {
       checkName: "memory",
       metric: "rss",
-      warningThreshold: 512,
-      criticalThreshold: 1024,
-      consecutiveBreaches: 2,
+      warningThreshold: 1536,
+      criticalThreshold: 2048,
+      consecutiveBreaches: 3,
       label: "Memory RSS",
     },
     {
       checkName: "memory",
       metric: "heap",
-      warningThreshold: 400,
-      criticalThreshold: 800,
-      consecutiveBreaches: 2,
+      warningThreshold: 1024,
+      criticalThreshold: 1536,
+      consecutiveBreaches: 3,
       label: "Heap Usage",
     },
     {
