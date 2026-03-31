@@ -985,7 +985,7 @@ export function createToolHandlers(ctx: ToolHandlerContext): ToolDefinition[] {
     {
       name: "web_fetch",
       description:
-        "Fetch a URL and return its content as markdown. Only use when the user provides a specific URL — never browse autonomously.",
+        "Fetch a URL and return its content as markdown. Use when the user asks to read, crawl, or learn from a website.",
       parameters: toJsonSchema(webFetchSchema),
       tier: "local" as TierName,
       handler: async (args) => {
