@@ -1076,8 +1076,10 @@
     try {
       var data = await api("/api/models");
       var models = data.models || [];
-      var ollamaModels = models.filter(function(m) { return m.source === "ollama"; });
-      var openrouterModels = models.filter(function(m) { return m.source === "openrouter"; });
+      var ollamaModels = models.filter(function(m) { return m.source === "ollama"; })
+        .sort(function(a, b) { return a.name.localeCompare(b.name); });
+      var openrouterModels = models.filter(function(m) { return m.source === "openrouter"; })
+        .sort(function(a, b) { return a.name.localeCompare(b.name); });
 
       var dropdowns = [
         { el: modelChatSelect, current: selectedChat, autoLabel: "Auto (best available)" },
