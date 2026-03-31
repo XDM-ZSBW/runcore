@@ -52,7 +52,10 @@ export function availabilityCheck(
 
 /** CPU usage check. Reports user + system CPU time as a percentage over a sample window. Normalized by core count. */
 export function cpuCheck(warnPct = 80, criticalPct = 95, sampleMs = 1000): HealthCheckFn {
-  const cpuCount = (() => { try { return require("node:os").cpus().length || 1; } catch { return 1; } })();
+  // Use import for ESM compatibility — require("node:os") silently fails in ESM,
+  // returning cpuCount=1 which inflates percentages by Nx on multi-core machines.
+  let cpuCount = 1;
+  import("node:os").then((os) => { cpuCount = os.cpus().length || 1; }).catch(() => {});
   return () =>
     new Promise<CheckResult>((resolve) => {
       const start = process.cpuUsage();
